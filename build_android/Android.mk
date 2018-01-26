@@ -1,6 +1,6 @@
 # DO NOT EDIT: automatically built by dist/s_android.
 # Makefile for building a drop-in replacement of SQLite using
-# Berkeley DB 11g Release 2, library version 11.2.5.2.42: (February 29, 2012)
+# Berkeley DB 11g Release 2, library version 11.2.5.3.28: (September  9, 2013)
 ###################################################################
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
@@ -10,7 +10,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libsqlite
 
 # BDB_TOP will change with release numbers
-BDB_TOP := db-5.2.42
+BDB_TOP := db-5.3.28
 BDB_PATH := $(LOCAL_PATH)/$(BDB_TOP)/src
 
 # This directive results in arm (vs thumb) code.  It's necessary to
@@ -48,7 +48,6 @@ LOCAL_SRC_FILES := \
 	$(BDB_TOP)/src/clib/rand.c \
 	$(BDB_TOP)/src/clib/snprintf.c \
 	$(BDB_TOP)/src/common/clock.c \
-	$(BDB_TOP)/src/common/crypto_stub.c \
 	$(BDB_TOP)/src/common/db_byteorder.c \
 	$(BDB_TOP)/src/common/db_compint.c \
 	$(BDB_TOP)/src/common/db_err.c \
@@ -65,6 +64,7 @@ LOCAL_SRC_FILES := \
 	$(BDB_TOP)/src/db/db.c \
 	$(BDB_TOP)/src/db/db_am.c \
 	$(BDB_TOP)/src/db/db_auto.c \
+	$(BDB_TOP)/src/db/db_backup.c \
 	$(BDB_TOP)/src/db/db_cam.c \
 	$(BDB_TOP)/src/db/db_cds.c \
 	$(BDB_TOP)/src/db/db_compact.c \
@@ -99,6 +99,7 @@ LOCAL_SRC_FILES := \
 	$(BDB_TOP)/src/dbreg/dbreg_stat.c \
 	$(BDB_TOP)/src/dbreg/dbreg_util.c \
 	$(BDB_TOP)/src/env/env_alloc.c \
+	$(BDB_TOP)/src/env/env_backup.c \
 	$(BDB_TOP)/src/env/env_config.c \
 	$(BDB_TOP)/src/env/env_failchk.c \
 	$(BDB_TOP)/src/env/env_file.c \
@@ -141,6 +142,7 @@ LOCAL_SRC_FILES := \
 	$(BDB_TOP)/src/log/log_stat.c \
 	$(BDB_TOP)/src/log/log_verify_stub.c \
 	$(BDB_TOP)/src/mp/mp_alloc.c \
+	$(BDB_TOP)/src/mp/mp_backup.c \
 	$(BDB_TOP)/src/mp/mp_bh.c \
 	$(BDB_TOP)/src/mp/mp_fget.c \
 	$(BDB_TOP)/src/mp/mp_fmethod.c \
@@ -178,6 +180,7 @@ LOCAL_SRC_FILES := \
 	$(BDB_TOP)/src/os/os_map.c \
 	$(BDB_TOP)/src/os/os_mkdir.c \
 	$(BDB_TOP)/src/os/os_open.c \
+	$(BDB_TOP)/src/os/os_path.c \
 	$(BDB_TOP)/src/os/os_pid.c \
 	$(BDB_TOP)/src/os/os_rename.c \
 	$(BDB_TOP)/src/os/os_root.c \
@@ -206,6 +209,7 @@ LOCAL_SRC_FILES := \
 	$(BDB_TOP)/src/txn/txn_region.c \
 	$(BDB_TOP)/src/txn/txn_stat.c \
 	$(BDB_TOP)/src/txn/txn_util.c \
+	$(BDB_TOP)/src/common/crypto_stub.c \
 	$(BDB_TOP)/lang/sql/generated/sqlite3.c
 
 ifneq ($(TARGET_ARCH),arm)

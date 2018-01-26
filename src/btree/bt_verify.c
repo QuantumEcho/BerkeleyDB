@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999, 2012 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1999, 2013 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -52,16 +52,11 @@ __bam_vrfy_meta(dbp, vdp, meta, pgno, flags)
 		return (ret);
 
 	/*
-	 * If VRFY_INCOMPLETE is not set, then we didn't come through
-	 * __db_vrfy_pagezero and didn't incompletely
-	 * check this page--we haven't checked it at all.
-	 * Thus we need to call __db_vrfy_meta and check the common fields.
-	 *
-	 * If VRFY_INCOMPLETE is set, we've already done all the same work
-	 * in __db_vrfy_pagezero, so skip the check.
+	 * If we came through __db_vrfy_pagezero, we have already checked the
+	 * common fields.  However, we used the on-disk metadata page, it may
+	 * have been stale.  We now have the page from mpool, so check that.
 	 */
-	if (!F_ISSET(pip, VRFY_INCOMPLETE) &&
-	    (ret = __db_vrfy_meta(dbp, vdp, &meta->dbmeta, pgno, flags)) != 0) {
+	if ((ret = __db_vrfy_meta(dbp, vdp, &meta->dbmeta, pgno, flags)) != 0) {
 		if (ret == DB_VERIFY_BAD)
 			isbad = 1;
 		else
@@ -273,8 +268,7 @@ __ram_vrfy_leaf(dbp, vdp, h, pgno, flags)
 
 	if (F_ISSET(pip, VRFY_HAS_DUPS)) {
 		EPRINT((env, DB_STR_A("1043",
-		    "Page %lu: Recno database has dups",
-		    "%lu"), (u_long)pgno));
+		    "Page %lu: Recno database has dups", "%lu"), (u_long)pgno));
 		ret = DB_VERIFY_BAD;
 		goto err;
 	}
@@ -756,9 +750,17 @@ __bam_vrfy_inp(dbp, vdp, h, pgno, nentriesp, flags)
 			    (BOVERFLOW *)(((BINTERNAL *)bk)->data) :
 			    (BOVERFLOW *)bk;
 
-			if (B_TYPE(bk->type) == B_OVERFLOW)
+			if (B_TYPE(bk->type) == B_OVERFLOW) {
+				if (TYPE(h) == P_IBTREE &&
+				    bk->len != BOVERFLOW_SIZE) {
+					EPRINT((env, DB_STR_A("1173",
+			    "Page %lu: bad length %u in B_OVERFLOW item %lu",
+					    "%lu %u %lu"),
+					    (u_long)pgno, bk->len, (u_long)i));
+					isbad = 1;
+				}
 				/* Make sure tlen is reasonable. */
-				if (bo->tlen > dbp->pgsize * vdp->last_pgno) {
+				if (bo->tlen >= dbp->pgsize * vdp->last_pgno) {
 					isbad = 1;
 					EPRINT((env, DB_STR_A("1056",
 				"Page %lu: impossible tlen %lu, item %lu",
@@ -767,6 +769,7 @@ __bam_vrfy_inp(dbp, vdp, h, pgno, nentriesp, flags)
 					/* Don't save as a child. */
 					break;
 				}
+			}
 
 			if (!IS_VALID_PGNO(bo->pgno) || bo->pgno == pgno ||
 			    bo->pgno == PGNO_INVALID) {
@@ -1097,7 +1100,8 @@ retry:	p1 = &dbta;
 			 * if overflow items are unsafe.
 			 */
 overflow:		if (!ovflok) {
-				F_SET(pip, VRFY_INCOMPLETE);
+				if (pip != NULL)
+					F_SET(pip, VRFY_INCOMPLETE);
 				goto err;
 			}
 
@@ -1228,7 +1232,9 @@ overflow:		if (!ovflok) {
 					if (dup_1.data == NULL ||
 					    dup_2.data == NULL) {
 						DB_ASSERT(env, !ovflok);
-						F_SET(pip, VRFY_INCOMPLETE);
+						if (pip != NULL)
+							F_SET(pip,
+							    VRFY_INCOMPLETE);
 						goto err;
 					}
 
@@ -1238,7 +1244,8 @@ overflow:		if (!ovflok) {
 					 * until we do the structure check
 					 * and see whether DUPSORT is set.
 					 */
-					if (dupfunc(dbp, &dup_1, &dup_2) > 0)
+					if (dupfunc(dbp, &dup_1, &dup_2) > 0 &&
+					    pip != NULL)
 						F_SET(pip, VRFY_DUPS_UNSORTED);
 
 					if (freedup_1)
@@ -2051,7 +2058,7 @@ __bam_vrfy_treeorder(dbp, ip, h, lp, rp, func, flags)
 	DBT dbt;
 	ENV *env;
 	db_indx_t last;
-	int ret, cmp;
+	int cmp, ret, t_ret;
 
 	env = dbp->env;
 	memset(&dbt, 0, sizeof(DBT));
@@ -2078,7 +2085,6 @@ __bam_vrfy_treeorder(dbp, ip, h, lp, rp, func, flags)
 		return (__db_unknown_path(env, "__bam_vrfy_treeorder"));
 	}
 
-	/* Populate a dummy cursor. */
 	if ((ret = __db_cursor_int(dbp, ip, NULL, DB_BTREE,
 	    PGNO_INVALID, 0, DB_LOCK_INVALIDID, &dbc)) != 0)
 		return (ret);
@@ -2096,9 +2102,6 @@ __bam_vrfy_treeorder(dbp, ip, h, lp, rp, func, flags)
 	 * parent and falsely report a failure.)
 	 */
 	if (lp != NULL && TYPE(h) != P_IBTREE) {
-		if ((ret = __db_cursor_int(dbp, ip, NULL, DB_BTREE,
-		    PGNO_INVALID, 0, DB_LOCK_INVALIDID, &dbc)) != 0)
-			return (ret);
 		if (lp->type == B_KEYDATA) {
 			dbt.data = lp->data;
 			dbt.size = lp->len;
@@ -2106,12 +2109,12 @@ __bam_vrfy_treeorder(dbp, ip, h, lp, rp, func, flags)
 			bo = (BOVERFLOW *)lp->data;
 			if ((ret = __db_goff(dbc, &dbt,
 			    bo->tlen, bo->pgno, NULL, NULL)) != 0)
-				return (ret);
-		} else
-			return (
-			    __db_unknown_path(env, "__bam_vrfy_treeorder"));
+				goto err;
+		} else {
+			ret = __db_unknown_path(env, "__bam_vrfy_treeorder");
+			goto err;
+		}
 
-		/* On error, fall through, free if needed, and return. */
 		if ((ret = __bam_cmp(dbc, &dbt, h, 0, func, &cmp)) == 0) {
 			if (cmp > 0) {
 				EPRINT((env, DB_STR_A("1092",
@@ -2127,7 +2130,7 @@ __bam_vrfy_treeorder(dbp, ip, h, lp, rp, func, flags)
 		if (dbt.data != lp->data)
 			__os_ufree(env, dbt.data);
 		if (ret != 0)
-			return (ret);
+			goto err;
 	}
 
 	if (rp != NULL) {
@@ -2138,12 +2141,12 @@ __bam_vrfy_treeorder(dbp, ip, h, lp, rp, func, flags)
 			bo = (BOVERFLOW *)rp->data;
 			if ((ret = __db_goff(dbc, &dbt,
 			    bo->tlen, bo->pgno, NULL, NULL)) != 0)
-				return (ret);
-		} else
-			return (
-			    __db_unknown_path(env, "__bam_vrfy_treeorder"));
+				goto err;
+		} else {
+			ret = __db_unknown_path(env, "__bam_vrfy_treeorder");
+			goto err;
+		}
 
-		/* On error, fall through, free if needed, and return. */
 		if ((ret = __bam_cmp(dbc, &dbt, h, last, func, &cmp)) == 0) {
 			if (cmp < 0) {
 				EPRINT((env, DB_STR_A("1094",
@@ -2159,6 +2162,9 @@ __bam_vrfy_treeorder(dbp, ip, h, lp, rp, func, flags)
 		if (dbt.data != rp->data)
 			__os_ufree(env, dbt.data);
 	}
+err:
+	if ((t_ret = __dbc_close(dbc)) != 0 && ret == 0)
+		ret = t_ret;
 
 	return (ret);
 }
