@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2011 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2012 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -189,7 +189,6 @@ struct __ckp_verify_params {
 #define LOGTYPE_NAME(lvh, type) (lvh->logtype_names[type] == NULL ? \
 	NULL : lvh->logtype_names[type] + 3)
 #define NUMCMP(i1, i2) ((i1) > (i2) ? 1 : ((i1) < (i2) ? -1 : 0))
-#define LSN_CMP(l1, l2) LOG_COMPARE(&(l1), &(l2))
 
 #define INVAL_DBREGID -1
 

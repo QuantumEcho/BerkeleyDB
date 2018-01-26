@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2011 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2012 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -1056,6 +1056,7 @@ __bam_rsplit_recover(env, dbtp, lsnp, op, info)
 	}
 	if ((ret = __memp_fput(mpf, ip, pagep, dbc->priority)) != 0)
 		goto out;
+	pagep = NULL;
 
 do_page:
 	/*

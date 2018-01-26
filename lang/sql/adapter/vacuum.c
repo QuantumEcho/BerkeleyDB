@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2010, 2011 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2010, 2012 Oracle and/or its affiliates.  All rights reserved.
  */
 
 /*
@@ -27,6 +27,7 @@ void sqlite3Vacuum(Parse *pParse) {
 int btreeVacuum(Btree *p, char **pzErrMsg) {
 	sqlite3 *db;
 	int rc;
+	u_int32_t truncatedPages;
 
 	db = p->db;
 
@@ -47,9 +48,12 @@ int btreeVacuum(Btree *p, char **pzErrMsg) {
 
 	p->inVacuum = 1;
 
+	truncatedPages = 0;
+	/* Go through all tables */
 	do {
-		rc = btreeIncrVacuum(p);
+		rc = btreeIncrVacuum(p, &truncatedPages);
 	} while (rc == SQLITE_OK);
+	p->needVacuum = 0;
 
 	if (rc != SQLITE_DONE) {
 		sqlite3SetString(pzErrMsg, db,

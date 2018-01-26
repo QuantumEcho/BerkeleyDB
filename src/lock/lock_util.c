@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2011 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2012 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -92,6 +92,7 @@ __lock_nomem(env, res)
 	ENV *env;
 	const char *res;
 {
-	__db_errx(env, "Lock table is out of available %s", res);
+	__db_errx(env, DB_STR_A("2055", "Lock table is out of available %s",
+	    "%s"), res);
 	return (ENOMEM);
 }

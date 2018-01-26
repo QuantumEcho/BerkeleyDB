@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2011 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2012 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -70,6 +70,8 @@ struct __db_foreign_info {
 #define	DB_ADD_PAGE_COMPAT	5	/* Compatibility for 4.2 db_relink */
 #define	DB_REM_PAGE_COMPAT	6	/* Compatibility for 4.2 db_relink */
 #define	DB_APPEND_BIG	7
+#define	DB_ADD_HEAP	8
+#define	DB_REM_HEAP	9
 
 #define OP_MODE_SHIFT   8
 #define OP_PAGE_MASK    0xff

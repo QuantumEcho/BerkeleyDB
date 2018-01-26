@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2011 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2012 Oracle and/or its affiliates.  All rights reserved.
  */
 /*
  * $Id$
@@ -37,6 +37,7 @@ typedef struct __part_internal {
 #ifdef HAVE_PARTITION
 #define	PART_NAME	"__dbp.%s.%03d"
 #define	PART_LEN	(strlen("__dbp..")+3)
+#define	PART_PREFIX	"__dbp."
 
 #define	DB_IS_PARTITIONED(dbp)						\
       (dbp->p_internal != NULL &&					\

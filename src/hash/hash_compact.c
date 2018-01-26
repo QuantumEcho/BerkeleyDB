@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2011 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2012 Oracle and/or its affiliates.  All rights reserved.
  * $Id$
  */
 
@@ -348,7 +348,7 @@ __ham_copy_data(dbc, pg, c_data, pgs_donep)
 			c_data->compact_pages_examine++;
 			c_data->compact_pages_free++;
 			COMPACT_TRUNCATE(c_data);
-		} 
+		}
 		if (ncp->page != NULL &&
 		    (t_ret = __memp_fput(mpf, dbc->thread_info,
 		    ncp->page, dbc->priority)) != 0 && ret == 0)
@@ -429,7 +429,7 @@ __ham_compact_hash(dbp, ip, txn, c_data)
 	int flags, local_txn, ret, t_ret;
 	u_int32_t bucket, i;
 
-	local_txn =  IS_DB_AUTO_COMMIT(dbp, txn);
+	local_txn = IS_DB_AUTO_COMMIT(dbp, txn);
 	oldpage = NULL;
 	dbc = NULL;
 	LOCK_INIT(lock);

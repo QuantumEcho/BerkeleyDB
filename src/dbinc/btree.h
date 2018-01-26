@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2011 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2012 Oracle and/or its affiliates.  All rights reserved.
  */
 /*
  * Copyright (c) 1990, 1993, 1994, 1995, 1996
@@ -429,6 +429,8 @@ struct __cursor {
 		if (F_ISSET(dbc, DBC_OPD) ||				\
 		    !F_ISSET((dbc)->dbp, DB_AM_SUBDB) ||		\
 		     (__t->bt_root == __root &&				\
+		     (LEVEL(page) == LEAFLEVEL || TYPE(page) == 	\
+		     (dbc->dbtype == DB_BTREE ? P_IBTREE : P_IRECNO)) &&\
 		     __rev == (dbc)->dbp->mpf->mfp->revision)) {	\
 			root_pgno = __root;				\
 			break;						\

@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2011 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2012 Oracle and/or its affiliates.  All rights reserved.
  */
 /*
  * Copyright (c) 1995, 1996
@@ -1082,7 +1082,7 @@ __ham_contract_recover(env, dbtp, lsnp, op, info)
 	DBC *dbc;
 	HASH_CURSOR *hcp;
 	HMETA *meta;
-	int cmp_n, cmp_p, ret;
+	int cmp_n, cmp_p, ret, t_ret;
 
 	ip = ((DB_TXNHEAD *)info)->thread_info;
 	REC_PRINT(__ham_contract_print);
@@ -1120,7 +1120,8 @@ __ham_contract_recover(env, dbtp, lsnp, op, info)
 	}
 	*lsnp = argp->prev_lsn;
 
-out:	ret = __ham_release_meta(dbc);
+out:	if ((t_ret = __ham_release_meta(dbc)) != 0 && ret == 0)
+		ret = t_ret;
 done:	REC_CLOSE;
 }
 
@@ -1409,8 +1410,8 @@ __ham_curadj_recover(env, dbtp, lsnp, op, info)
 		hamc_mode = DB_HAM_CURADJ_ADDMOD;
 		break;
 	default:
-		__db_errx(env,
-		    "Invalid flag in __ham_curadj_recover");
+		__db_errx(env, DB_STR("1122",
+		    "Invalid flag in __ham_curadj_recover"));
 		ret = EINVAL;
 		goto out;
 	}
@@ -1812,8 +1813,8 @@ __ham_groupalloc_42_recover(env, dbtp, lsnp, op, info)
 		/*
 		 * We cannot roll back 4.2 style allocations.
 		 */
-		__db_errx(env,
-"Cannot replicate prepared transactions from master running release 4.2.");
+		__db_errx(env, DB_STR("1123",
+"Cannot replicate prepared transactions from master running release 4.2."));
 		ret = __env_panic(env, EINVAL);
 		goto out;
 	}

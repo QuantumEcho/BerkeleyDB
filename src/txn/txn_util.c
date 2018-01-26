@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001, 2011 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2001, 2012 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -103,20 +103,20 @@ __txn_remevent(env, txn, name, fileid, inmem)
 
 	if (fileid != NULL) {
 		if ((ret = __os_calloc(env,
-		    1, DB_FILE_ID_LEN, &e->u.r.fileid)) != 0)
-			return (ret);
+		    1, DB_FILE_ID_LEN, &e->u.r.fileid)) != 0) {
+			__os_free(env, e->u.r.name);
+			goto err;
+		}
 		memcpy(e->u.r.fileid, fileid, DB_FILE_ID_LEN);
 	}
 
 	e->u.r.inmem = inmem;
 	e->op = TXN_REMOVE;
-	TXN_TOP_PARENT(txn);
 	TAILQ_INSERT_TAIL(&txn->events, e, links);
 
 	return (0);
 
-err:	if (e != NULL)
-		__os_free(env, e);
+err:	__os_free(env, e);
 
 	return (ret);
 }
@@ -136,7 +136,6 @@ __txn_remrem(env, txn, name)
 {
 	TXN_EVENT *e, *next_e;
 
-	TXN_TOP_PARENT(txn);
 	for (e = TAILQ_FIRST(&txn->events); e != NULL; e = next_e) {
 		next_e = TAILQ_NEXT(e, links);
 		if (e->op != TXN_REMOVE || strcmp(name, e->u.r.name) != 0)
@@ -224,6 +223,11 @@ __txn_remlock(env, txn, lock, locker)
  *
  * PUBLIC: int __txn_doevents __P((ENV *, DB_TXN *, int, int));
  */
+
+/*
+ * Trade a locker associated with a thread for one that is associated
+ * only with the handle. Mark the locker so failcheck will know.
+ */
 #define	DO_TRADE do {							\
 	memset(&req, 0, sizeof(req));					\
 	req.lock = e->u.t.lock;						\
@@ -237,6 +241,8 @@ __txn_remlock(env, txn, lock, locker)
 		} else {						\
 			e->op = TXN_TRADED;				\
 			e->u.t.dbp->cur_locker = e->u.t.locker;		\
+			F_SET(e->u.t.dbp->cur_locker,			\
+			    DB_LOCKER_HANDLE_LOCKER);			\
 			if (opcode != TXN_PREPARE)			\
 				e->u.t.dbp->cur_txn = NULL;		\
 		}							\
@@ -305,7 +311,10 @@ __txn_doevents(env, txn, opcode, preprocess)
 				ret = t_ret;
 			break;
 		case TXN_REMOVE:
-			if (e->u.r.fileid != NULL) {
+			if (txn->parent != NULL)
+				TAILQ_INSERT_TAIL(
+				    &txn->parent->events, e, links);
+			else if (e->u.r.fileid != NULL) {
 				if ((t_ret = __memp_nameop(env,
 				    e->u.r.fileid, NULL, e->u.r.name,
 				    NULL, e->u.r.inmem)) != 0 && ret == 0)
@@ -327,6 +336,13 @@ __txn_doevents(env, txn, opcode, preprocess)
 			if ((t_ret = __lock_downgrade(env,
 			    &e->u.t.lock, DB_LOCK_READ, 0)) != 0 && ret == 0)
 				ret = t_ret;
+			/* Update the handle lock mode. */
+			if (ret == 0 && e->u.t.lock.off ==
+			    e->u.t.dbp->handle_lock.off &&
+			    e->u.t.lock.ndx ==
+			    e->u.t.dbp->handle_lock.ndx)
+				e->u.t.dbp->handle_lock.mode =
+				    DB_LOCK_READ;
 			break;
 		default:
 			/* This had better never happen. */
@@ -336,6 +352,8 @@ dofree:
 		/* Free resources here. */
 		switch (e->op) {
 		case TXN_REMOVE:
+			if (txn->parent != NULL)
+				continue;
 			if (e->u.r.fileid != NULL)
 				__os_free(env, e->u.r.fileid);
 			__os_free(env, e->u.r.name);
@@ -441,25 +459,40 @@ __txn_dref_fname(env, txn)
 	ptd = txn->parent != NULL ? txn->parent->td : NULL;
 
 	np = R_ADDR(&mgr->reginfo, td->log_dbs);
-	np += td->nlog_dbs - 1;
-	for (i = 0; i < td->nlog_dbs; i++, np--) {
-		fname = R_ADDR(&dblp->reginfo, *np);
-		MUTEX_LOCK(env, fname->mutex);
-		if (ptd != NULL) {
+	/* 
+	 * The order in which FNAMEs are cleaned up matters.  Cleaning up
+	 * in the wrong order can result in database handles leaking.  If
+	 * we are passing the FNAMEs to the parent transaction make sure 
+	 * they are passed in order.  If we are cleaning up the FNAMEs, 
+	 * make sure that is done in reverse order.
+	 */
+	if (ptd != NULL) {
+		for (i = 0; i < td->nlog_dbs; i++, np++) {
+			fname = R_ADDR(&dblp->reginfo, *np);
+			MUTEX_LOCK(env, fname->mutex);
 			ret = __txn_record_fname(env, txn->parent, fname);
 			fname->txn_ref--;
 			MUTEX_UNLOCK(env, fname->mutex);
-		} else if (fname->txn_ref == 1) {
-			MUTEX_UNLOCK(env, fname->mutex);
-			DB_ASSERT(env, fname->txn_ref != 0);
-			ret = __dbreg_close_id_int(
-			    env, fname, DBREG_CLOSE, 0);
-		} else {
-			fname->txn_ref--;
-			MUTEX_UNLOCK(env, fname->mutex);
+			if (ret != 0)
+				break;
 		}
-		if (ret != 0 && ret != EIO)
-			break;
+	} else {
+		np += td->nlog_dbs - 1;
+		for (i = 0; i < td->nlog_dbs; i++, np--) {
+			fname = R_ADDR(&dblp->reginfo, *np);
+			MUTEX_LOCK(env, fname->mutex);
+			if (fname->txn_ref == 1) {
+				MUTEX_UNLOCK(env, fname->mutex);
+				DB_ASSERT(env, fname->txn_ref != 0);
+				ret = __dbreg_close_id_int(
+				    env, fname, DBREG_CLOSE, 0);
+			} else {
+				fname->txn_ref--;
+				MUTEX_UNLOCK(env, fname->mutex);
+			}
+			if (ret != 0 && ret != EIO)
+				break;
+		}
 	}
 
 	return (ret);
@@ -592,10 +625,10 @@ __txn_flush_fe_files(txn)
 		if (db->mpf->mfp->fe_nlws > 0 &&
 		    (ret = __memp_sync_int(env, db->mpf, 0,
 		    DB_SYNC_FILE, NULL, NULL)))
-			return ret;
+			return (ret);
 	}
 
-	return 0;
+	return (0);
 }
 
 /*
@@ -621,7 +654,7 @@ __txn_pg_above_fe_watermark(txn, mpf, pgno)
 
 	if (txn == NULL || (!F_ISSET(txn, TXN_BULK)) ||
 	    mpf->fe_watermark == PGNO_INVALID)
-		return 0;
+		return (0);
 
 	env = txn->mgrp->env;
 
@@ -631,7 +664,7 @@ __txn_pg_above_fe_watermark(txn, mpf, pgno)
 		skip = 1;
 	TXN_SYSTEM_UNLOCK(env);
 	if (skip)
-		return 0;
+		return (0);
 
 	/*
 	 * If the watermark is a valid page number, then the extending

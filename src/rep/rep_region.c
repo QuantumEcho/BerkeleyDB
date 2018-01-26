@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001, 2011 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2001, 2012 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -152,8 +152,9 @@ __rep_open(env)
 		    F_ISSET(rep, REP_F_APP_BASEAPI)) ||
 		    (F_ISSET(db_rep, DBREP_APP_BASEAPI) &&
 		    F_ISSET(rep, REP_F_APP_REPMGR))) {
-			__db_errx(env,
-"Application type mismatch for a replication process joining the environment");
+			__db_errx(env, DB_STR("3535",
+			    "Application type mismatch for a replication "
+			    "process joining the environment"));
 			return (EINVAL);
 		}
 #ifdef HAVE_REPLICATION_THREADS

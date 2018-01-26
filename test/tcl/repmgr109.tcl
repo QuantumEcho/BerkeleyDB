@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2009, 2011 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2009, 2012 Oracle and/or its affiliates.  All rights reserved.
 #
 # TEST repmgr109
 # TEST Test repmgr's internal juggling of peer EID's.
@@ -119,7 +119,7 @@ proc repmgr109_sub { {a_too false} {while_active true} } {
 	puts $c1 "start client"
 	gets $c1
 	set cenv [berkdb_env -home $dirc]
-	await_startup_done $cenv 10
+	await_startup_done $cenv 
 
 	puts "\tRepmgr$tnum.c: Check resulting statistics."
 	# Make sure we used B, not A, as the c2c peer.

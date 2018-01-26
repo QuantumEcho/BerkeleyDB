@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2009, 2011 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2009, 2012 Oracle and/or its affiliates.  All rights reserved.
 #
 # TEST	repmgr110
 # TEST  Multi-process repmgr start-up policies.
@@ -19,7 +19,6 @@ proc repmgr110 { } {
 	file mkdir [set dirc $testdir/C]
 	
 	set conf {
-		{rep_set_nsites 3}
 		{rep_set_timeout DB_REP_ELECTION_RETRY 3000000}
 	}
 	make_dbconfig $dira $conf

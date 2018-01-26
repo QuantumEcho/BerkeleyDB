@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information. 
 #
-# Copyright (c) 2007, 2011 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2007, 2012 Oracle and/or its affiliates.  All rights reserved.
 # 
 # $Id$
 #
@@ -256,9 +256,17 @@ proc backup { {nentries 1000} } {
 			# Repeat with directories already there to test cleaning.
 			# We are not doing an update this time.
 			puts "\tBackuptest.g:\
-			    Hot backup with DB_CONFIG (non-update)."
+			    Hot backup with -D (non-update)."
 			if { [catch { eval exec $util_path/db_hotbackup\
 			    -${c}vh $testdir -b $backupdir -D } res] } {
+				error "FAIL: $res"
+			}
+
+			# We are not doing an update this time.
+			puts "\tBackuptest.g:\
+			    Hot backup with DB_CONFIG (non-update)."
+			if { [catch { eval exec $util_path/db_hotbackup\
+			    -${c}vh $testdir -b $backupdir } res] } {
 				error "FAIL: $res"
 			}
 

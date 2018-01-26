@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001, 2011 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2001, 2012 Oracle and/or its affiliates.  All rights reserved.
  *
  * Some parts of this code originally written by Adam Stubblefield,
  * -- astubble@rice.edu.
@@ -177,16 +177,16 @@ __db_check_chksum(env, hdr, db_cipher, chksum, data, data_len, is_hmac)
 	 */
 	if (is_hmac == 0) {
 		if (db_cipher != NULL) {
-			__db_errx(env,
-    "Unencrypted checksum with a supplied encryption key");
+			__db_errx(env, DB_STR("0195",
+    "Unencrypted checksum with a supplied encryption key"));
 			return (EINVAL);
 		}
 		sum_len = sizeof(u_int32_t);
 		mac_key = NULL;
 	} else {
 		if (db_cipher == NULL) {
-			__db_errx(env,
-    "Encrypted checksum: no encryption key specified");
+			__db_errx(env, DB_STR("0196",
+    "Encrypted checksum: no encryption key specified"));
 			return (EINVAL);
 		}
 		sum_len = DB_MAC_KEY;
