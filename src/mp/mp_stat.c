@@ -88,14 +88,16 @@ __memp_stat(env, gspp, fspp, flags)
 	uintmax_t tmp_wait, tmp_nowait;
 
 	/*
-	 * The array holding the lengths related to the buffer allocated for *fspp.
-	 * The first element of the array holds the number of entries allocated.
-	 * The second element of the array holds the total number of bytes allocated.
+	 * The array holding the lengths related to the buffer allocated
+	 * for *fspp.  The first element of the array holds the number of
+	 * entries allocated.  The second element of the array holds the
+	 * total number of bytes allocated.
 	 */
 	u_int32_t fsp_len[2];
 
 	dbmp = env->mp_handle;
 	mp = dbmp->reginfo[0].primary;
+	tfsp = NULL;
 
 	/* Global statistics. */
 	if (gspp != NULL) {
@@ -211,9 +213,9 @@ __memp_stat(env, gspp, fspp, flags)
 			/* Count the MPOOLFILE structures. */
 			i = 0;
 			/*
-			 * Allow space for the first __memp_get_files() to align the
-			 * structure array to uintmax_t, DB_MPOOL_STAT's most
-			 * restrictive field.  [#23150]
+			 * Allow space for the first __memp_get_files() to
+			 * align the structure array to uintmax_t,
+			 * DB_MPOOL_STAT's most restrictive field.  [#23150]
 			 */
 			len = sizeof(uintmax_t);
 			if ((ret = __memp_walk_files(env,
@@ -223,10 +225,10 @@ __memp_stat(env, gspp, fspp, flags)
 			if (i == 0)
 				return (0);
 
-			/* 
-			 * Copy the number of DB_MPOOL_FSTAT entries and the number of
-			 * bytes allocated for them into fsp_len. Do not count the space
-			 * reserved for allignment.
+			/*
+			 * Copy the number of DB_MPOOL_FSTAT entries and the
+			 * number of bytes allocated for them into fsp_len. Do
+			 * not count the space reserved for allignment.
 			 */
 			fsp_len[0] = i;
 			fsp_len[1] = len - sizeof(uintmax_t);
@@ -242,14 +244,17 @@ __memp_stat(env, gspp, fspp, flags)
 			*tfsp = NULL;
 
 			/*
-			 * Files may have been opened since we counted, if we walk off
-			 * the end of the allocated space specified in fsp_len, retry.
+			 * Files may have been opened since we counted, if we
+			 * walk off the end of the allocated space specified
+			 * in fsp_len, retry.
 			 */
 			if ((ret = __memp_walk_files(env,
-			    mp, __memp_get_files, &tfsp, fsp_len, flags)) != 0) {
+			    mp, __memp_get_files, &tfsp,
+			    fsp_len, flags)) != 0) {
 				if (ret == DB_BUFFER_SMALL) {
 					__os_ufree(env, *fspp);
 					*fspp = NULL;
+					tfsp = NULL;
 				} else
 					return (ret);
 			}
@@ -382,7 +387,9 @@ __memp_get_files(env, mfp, argp, fsp_len, flags)
 	name = __memp_fns(dbmp, mfp);
 	nlen = strlen(name) + 1;
 
-	/* The space required for file names is larger than argp was allocated for. */
+	/* The space required for file names is larger than
+	 *argp was allocated for.
+	 */
 	tlen = sizeof(DB_MPOOL_FSTAT *) + sizeof(DB_MPOOL_FSTAT) + nlen;
 	if (fsp_len[1] < tlen)
 		return DB_BUFFER_SMALL;
@@ -670,7 +677,7 @@ __memp_print_all(env, flags)
 		STAT_ULONG("Cache priority", dbmfp->priority);
 		STAT_POINTER("mmap address", dbmfp->addr);
 		STAT_ULONG("mmap length", dbmfp->len);
-		__db_prflags(env, NULL, dbmfp->flags, cfn, NULL, "\tFlags");
+		__db_prflags(env, NULL, dbmfp->config_flags, cfn, NULL, "\tFlags");
 		__db_print_fh(env, "File handle", dbmfp->fhp, flags);
 	}
 

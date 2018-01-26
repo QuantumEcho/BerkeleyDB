@@ -22,24 +22,12 @@ static int __log_printf_int __P((ENV *, DB_TXN *, const char *, va_list));
  * PUBLIC:    __attribute__ ((__format__ (__printf__, 3, 4)));
  */
 int
-#ifdef STDC_HEADERS
 __log_printf_capi(DB_ENV *dbenv, DB_TXN *txnid, const char *fmt, ...)
-#else
-__log_printf_capi(dbenv, txnid, fmt, va_alist)
-	DB_ENV *dbenv;
-	DB_TXN *txnid;
-	const char *fmt;
-	va_dcl
-#endif
 {
 	va_list ap;
 	int ret;
 
-#ifdef STDC_HEADERS
 	va_start(ap, fmt);
-#else
-	va_start(ap);
-#endif
 	ret = __log_printf_pp(dbenv, txnid, fmt, ap);
 	va_end(ap);
 
@@ -88,24 +76,12 @@ __log_printf_pp(dbenv, txnid, fmt, ap)
  * PUBLIC:    __attribute__ ((__format__ (__printf__, 3, 4)));
  */
 int
-#ifdef STDC_HEADERS
 __log_printf(ENV *env, DB_TXN *txnid, const char *fmt, ...)
-#else
-__log_printf(env, txnid, fmt, va_alist)
-	ENV *env;
-	DB_TXN *txnid;
-	const char *fmt;
-	va_dcl
-#endif
 {
 	va_list ap;
 	int ret;
 
-#ifdef STDC_HEADERS
 	va_start(ap, fmt);
-#else
-	va_start(ap);
-#endif
 	ret = __log_printf_int(env, txnid, fmt, ap);
 	va_end(ap);
 

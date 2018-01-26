@@ -48,7 +48,7 @@ __os_unique_id(env, idp)
 /*
  * __os_srandom --
  *	Set the random number generator seed for BDB.
- * 
+ *
  * PUBLIC: void __os_srandom __P((u_int));
  */
 void
@@ -57,7 +57,7 @@ __os_srandom(seed)
 {
 	DB_GLOBAL(random_seeded) = 1;
 #ifdef HAVE_RANDOM_R
-	(void)initstate_r(seed, &DB_GLOBAL(random_state),
+	(void)initstate_r(seed, &DB_GLOBAL(random_state[0]),
 	    sizeof(DB_GLOBAL(random_state)), &DB_GLOBAL(random_data));
 	(void)srandom_r(seed, &DB_GLOBAL(random_data));
 #elif defined(HAVE_RANDOM)
@@ -70,7 +70,7 @@ __os_srandom(seed)
 /*
  * __os_random --
  *	Return the next the random number generator for BDB.
- * 
+ *
  * PUBLIC: u_int __os_random __P((void));
  */
 u_int

@@ -56,9 +56,10 @@ __txn_checkpoint_pp(dbenv, kbytes, minutes, flags)
 	DB_ENV *dbenv;
 	u_int32_t kbytes, minutes, flags;
 {
+	DB_ENV *slice;
 	DB_THREAD_INFO *ip;
 	ENV *env;
-	int ret;
+	int i, ret;
 
 	env = dbenv->env;
 
@@ -81,6 +82,12 @@ __txn_checkpoint_pp(dbenv, kbytes, minutes, flags)
 	REPLICATION_WRAP(env,
 	    (__txn_checkpoint(env, kbytes, minutes, flags)), 0, ret);
 	ENV_LEAVE(env, ip);
+
+	if (ret == 0)
+		SLICE_FOREACH(dbenv, slice, i)
+			if ((ret = __txn_checkpoint_pp(slice,
+			    kbytes, minutes, flags)) != 0)
+				break;
 	return (ret);
 }
 

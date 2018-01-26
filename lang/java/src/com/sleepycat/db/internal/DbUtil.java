@@ -7,6 +7,8 @@
  */
 package com.sleepycat.db.internal;
 
+import java.util.Arrays;
+
 /**
  *  DbUtil is a simple class that holds a few static utility functions other
  *  parts of the package share and that don't have a good home elsewhere. (For
@@ -141,6 +143,19 @@ public class DbUtil {
             }
         }
         return sb.toString();
+    }
+
+    /**
+     *  Convert a int array to a string suitable
+     *  for use in toString methods of the *Stat classes.
+     *
+     * @return    A string representation of the array.
+     */
+    public static String integerArrayToString(int[] iarr) {
+        if (iarr == null) {
+            return "null";
+        }
+	return Arrays.toString(iarr);
     }
 
 

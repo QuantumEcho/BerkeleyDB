@@ -30,13 +30,13 @@ __db_file_extend(env, fhp, size)
 #ifdef HAVE_MMAP_EXTEND
 	unsigned pagesize;
 
- 	/*
+	/*
 	 * Round up size to the VM pagesize. If it isn't aligned, then the bytes
 	 * ending the mapping might have no corresponding backing location on
 	 * disk, and could be silently lost when the process exits. [#23290]
-         */
+	 */
 	if (F_ISSET(fhp, DB_FH_REGION)) {
-		pagesize = (unsigned)getpagesize();
+		pagesize = (unsigned int)getpagesize();
 		size = DB_ALIGN(size, pagesize);
 	}
 #endif

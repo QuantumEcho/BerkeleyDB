@@ -310,7 +310,7 @@ retry:
 	if (!F_ISSET(dbp, DB_AM_COMPENSATE) && !F_ISSET(dbp, DB_AM_RECOVER))
 		GET_ENVLOCK(env, locker, &elock);
 	if (name == NULL)
-		ret = ENOENT;
+		ret = USR_ERR(env, ENOENT);
 	else if (F_ISSET(dbp, DB_AM_INMEM)) {
 		ret = __env_mpool(dbp, name, flags);
 		/*
@@ -406,7 +406,7 @@ reopen:		if (!F_ISSET(dbp, DB_AM_INMEM) && (ret =
 			 * retries is exhausted, then throw an error.
 			 */
 			if (ret == 0 && (ret = __db_chk_meta(env, dbp,
-			    (DBMETA *)mbuf, DB_CHK_META)) == DB_CHKSUM_FAIL) {
+			    (DBMETA *)mbuf, DB_CHK_META)) == DB_META_CHKSUM_FAIL) {
 				if ((t_ret = __ENV_LPUT(env, elock)) != 0) {
 					ret = t_ret;
 					goto err;
@@ -419,9 +419,9 @@ reopen:		if (!F_ISSET(dbp, DB_AM_INMEM) && (ret =
 					__db_errx(env, DB_STR_A("0210",
 			"%s: metadata page checksum error", "%s"), real_name);
 					if (F_ISSET(dbp, DB_AM_RECOVER))
-						ret = ENOENT;
+						ret = USR_ERR(env, ENOENT);
 					else
-						ret = EINVAL;
+						ret = USR_ERR(env, EINVAL);
 					goto err;
 				}
 				CLOSE_HANDLE(dbp, fhp);
@@ -526,14 +526,14 @@ reopen:		if (!F_ISSET(dbp, DB_AM_INMEM) && (ret =
 				LF_SET(DB_CREATE);
 				goto create;
 			} else {
-				ret = ENOENT;
+				ret = USR_ERR(env, ENOENT);
 				goto err;
 			}
 		}
 
 		/* If we get here, a was_inval is bad. */
 		if (was_inval) {
-			ret = EINVAL;
+			ret = USR_ERR(env, EINVAL);
 			goto err;
 		}
 
@@ -587,9 +587,9 @@ reopen:		if (!F_ISSET(dbp, DB_AM_INMEM) && (ret =
 
 create:	if (txn != NULL && IS_REP_CLIENT(env) &&
 	    !F_ISSET(dbp, DB_AM_NOT_DURABLE)) {
+		ret = USR_ERR(env, EINVAL);
 		__db_errx(env, DB_STR("0003",
 		    "Transactional create on replication client disallowed"));
-		ret = EINVAL;
 		goto err;
 	}
 
@@ -908,7 +908,7 @@ retry:	if ((ret = __db_master_open(dbp,
 	}
 
 	/*
-	 * XXX
+	 * Note:
 	 * This should have been done at the top of this routine.  The problem
 	 * is that __db_init_subdb() uses "standard" routines to process the
 	 * meta-data page and set information in the DB handle based on it.
@@ -1096,7 +1096,7 @@ retry:	if (LOCKING_ON(env)) {
 	} else if ((ret = __ENV_LPUT(env, elock)) != 0)
 		goto err;
 	else if (F_ISSET(dbp, DB_AM_IN_RENAME))
-		ret = ENOENT;
+		ret = USR_ERR(env, ENOENT);
 
 	if (0) {
 err:		(void)__ENV_LPUT(env, elock);
@@ -1155,11 +1155,11 @@ __fop_read_meta(env, name, buf, size, fhp, errok, nbytesp)
 	}
 
 	if (nr != size) {
+		ret = USR_ERR(env, EINVAL);
 		if (!errok)
 			__db_errx(env, DB_STR_A("0004",
 			    "fop_read_meta: %s: unexpected file type or format",
 			    "%s"), name);
-		ret = EINVAL;
 	}
 
 err:
@@ -1420,8 +1420,6 @@ __fop_inmem_read_meta(dbp, txn, name, flags, chkflags)
 	} else
 		ret = __db_meta_setup(
 		    dbp->env, dbp, name, metap, flags, chkflags);
-	if (ret == DB_CHKSUM_FAIL)
-		ret = DB_META_CHKSUM_FAIL;
 
 	if ((t_ret =
 	    __memp_fput(dbp->mpf, ip, metap, dbp->priority)) && ret == 0)

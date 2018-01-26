@@ -70,7 +70,7 @@ loop:	renv = NULL;
 		ret = __os_strdup(env, "process-private", &infop->name);
 	else {
 		(void)snprintf(buf, sizeof(buf), "%s", DB_REGION_ENV);
-		ret = __db_appname(env, DB_APP_NONE, buf, NULL, &infop->name);
+		ret = __db_appname(env, DB_APP_REGION, buf, NULL, &infop->name);
 	}
 	if (ret != 0)
 		goto err;
@@ -288,7 +288,7 @@ user_map_functions:
 	 * I'd rather play permissions games using the underlying file, but I
 	 * can't because Windows/NT filesystems won't open files mode 0.
 	 */
-	if (renv->envid == ENVID_PANIC && !F_ISSET(dbenv, DB_ENV_NOPANIC)) {
+	if (renv->panic && !F_ISSET(dbenv, DB_ENV_NOPANIC)) {
 		ret = __env_panic_msg(env);
 		goto err;
 	}
@@ -298,7 +298,6 @@ user_map_functions:
 	 * process, remember the env creation time to record that recovery was
 	 * the reason that the open failed.
 	 */
-	env->envid = renv->envid;
 	if (renv->magic != DB_REGION_MAGIC) {
 		if (renv->magic == DB_REGION_MAGIC_RECOVER)
 			create_time = renv->timestamp;
@@ -313,7 +312,7 @@ user_map_functions:
 	if (dbenv->blob_threshold != 0 &&
 	    renv->blob_threshold != dbenv->blob_threshold)
 		__db_msg(env, DB_STR("1591",
-	    "Warning: Ignoring blob_threshold size when joining environment"));
+"Warning: Ignoring ext_file_threshold size when joining environment"));
 
 	/*
 	 * Get a reference to the underlying REGION information for this
@@ -340,11 +339,8 @@ user_map_functions:
 	 * map function only knows how to join regions, it has no clue how big
 	 * those regions are.
 	 */
-	if (DB_GLOBAL(j_region_map) == NULL && rp->size != size) {
-		DB_DEBUG_MSG(env, "attach sees bad region size 0x%lx != 0x%lx",
-		    (u_long)rp->size, (u_long)size);
+	if (DB_GLOBAL(j_region_map) == NULL && rp->size != size)
 		goto retry;
-	}
 
 	/*
 	 * Check our callers configuration flags, it's an error to configure
@@ -409,10 +405,10 @@ creation:
 		tregion.max += (roff_t)__log_region_max(env);
 		tregion.max += (roff_t)__env_thread_max(env);
 	} else if (tregion.size > tregion.max) {
+		ret = USR_ERR(env, EINVAL);
 		__db_errx(env, DB_STR_A("1542",
 	"Minimum environment memory size %ld is bigger than spcified max %ld.",
 		    "%ld %ld"), (u_long)tregion.size, (u_long)tregion.max);
-		ret = USR_ERR(env, EINVAL);
 		goto err;
 	} else if (F_ISSET(env, ENV_PRIVATE))
 		infop->max_alloc = dbenv->memory_max;
@@ -460,6 +456,7 @@ creation:
 	 */
 	renv = infop->primary;
 	renv->magic = 0;
+	renv->panic = 0;
 
 	(void)db_version(&majver, &minver, &patchver);
 	renv->majver = (u_int32_t)majver;
@@ -470,11 +467,7 @@ creation:
 	renv->failure_symptom[0] = '\0';
 
 	(void)time(&renv->timestamp);
-
-	/* Get an envid that isn't one of the reserved envid values. */
-	do {
-		__os_unique_id(env, &renv->envid);
-	} while (renv->envid == ENVID_UNKNOWN || renv->envid == ENVID_PANIC);
+	__os_unique_id(env, &renv->envid);
 
 	/*
 	 * Initialize init_flags to store the flags that any other environment
@@ -513,10 +506,10 @@ creation:
 	 * the REGION structure.
 	 */
 	if ((ret = __env_des_get(env, infop, infop, &rp)) != 0) {
-find_err:	__db_errx(env, DB_STR_A("1544",
-		    "%s: unable to find environment", "%s"), infop->name);
-		if (ret == 0)
+find_err:	if (ret == 0)
 			ret = USR_ERR(env, EINVAL);
+		__db_errx(env, DB_STR_A("1544",
+		    "%s: unable to find environment", "%s"), infop->name);
 		goto err;
 	}
 	infop->rp = rp;
@@ -531,7 +524,7 @@ find_err:	__db_errx(env, DB_STR_A("1544",
 	 * attach to the shared memory segment.  So, we write the shared memory
 	 * identifier into the file, to be read by those other processes.
 	 *
-	 * XXX
+	 * !!!
 	 * This is really OS-layer information, but I can't see any easy way
 	 * to move it down there without passing down information that it has
 	 * no right to know, e.g., that this is the one-and-only REGENV region
@@ -560,7 +553,6 @@ find_err:	__db_errx(env, DB_STR_A("1544",
 	}
 
 	/* Everything looks good, we're done. */
-	env->envid = renv->envid;
 	env->reginfo = infop;
 	return (0);
 
@@ -686,13 +678,10 @@ __env_turn_off(env, flags)
 	 * any thread of control attempting to connect (or racing with us) will
 	 * back off and retry, or just die.
 	 */
-	if (renv->refcnt > 0 && !LF_ISSET(DB_FORCE) && /*!renv->defunct_panic */
-		(renv->envid == env->envid && env->envid != ENVID_UNKNOWN)) {
-		DB_DEBUG_MSG(env, "env_turn_off sets EBUSY %u ? == ? %u",
-		    renv->envid, env->envid);
+	if (renv->refcnt > 0 && !LF_ISSET(DB_FORCE) && !renv->panic)
 		ret = EBUSY;
-	} else
-		renv->envid = ENVID_PANIC;
+	else
+		renv->panic = 1;
 
 	/*
 	 * Unlock the environment (nobody should need this lock because
@@ -709,10 +698,6 @@ __env_turn_off(env, flags)
 /*
  * __env_panic_set --
  *	Set/clear unrecoverable error.
- *	A panic is announced by changing the environment id stored in the
- *	primary region (REGENV). A normal panic sets it to zero.  A re-created
- *	environment gets a new non-zero envid in the REGENV, which triggers the
- *	panic check in any previously attached handles.
  *
  * PUBLIC: void __env_panic_set __P((ENV *, int));
  */
@@ -733,12 +718,10 @@ __env_panic_set(env, on)
 			F_SET(env, ENV_REMEMBER_PANIC);
 			if (F_ISSET(env->dbenv, DB_ENV_FAILCHK))
 				renv->failure_panic = 1;
-			renv->envid = ENVID_PANIC;
 		}
-		else {
+		else
 			F_CLR(env, ENV_REMEMBER_PANIC);
-			renv->envid = env->envid;
-		}
+		renv->panic = on ? 1 : 0;
 	}
 }
 
@@ -971,10 +954,9 @@ __env_remove_env(env)
 	renv = infop->primary;
 
 	/*
-	 * Kill the environment, if it's not already dead.  Set both to the same
-	 * value so PANIC_CHECK does not fire while unlinking the region files.
+	 * Kill the environment, if it's not already dead.
 	 */
-	env->envid = renv->envid = ENVID_PANIC;
+	renv->panic = 1;
 
 	/*
 	 * Walk the array of regions.  Connect to each region and disconnect
@@ -1045,10 +1027,10 @@ __env_remove_file(env)
 	const char *dir;
 	char saved_char, *p, **names, *path, buf[sizeof(DB_REGION_FMT) + 20];
 
-	/* Get the full path of a file in the environment. */
+	/* Get the full path of a region file in the environment. */
 	(void)snprintf(buf, sizeof(buf), "%s", DB_REGION_ENV);
 	if ((ret = __db_appname(env,
-	    DB_APP_NONE, buf, NULL, &path)) != 0)
+	    DB_APP_REGION, buf, NULL, &path)) != 0)
 		return;
 
 	/* Get the parent directory for the environment. */
@@ -1108,7 +1090,7 @@ __env_remove_file(env)
 
 		/* Remove the file. */
 		if (__db_appname(env,
-		    DB_APP_NONE, names[cnt], NULL, &path) == 0) {
+		    DB_APP_REGION, names[cnt], NULL, &path) == 0) {
 			/*
 			 * Overwrite region files.  Temporary files would have
 			 * been maintained in encrypted format, so there's no
@@ -1125,7 +1107,7 @@ __env_remove_file(env)
 
 	if (lastrm != -1)
 		if (__db_appname(env,
-		    DB_APP_NONE, names[lastrm], NULL, &path) == 0) {
+		    DB_APP_REGION, names[lastrm], NULL, &path) == 0) {
 			(void)__os_unlink(env, path, 1);
 			__os_free(env, path);
 		}
@@ -1172,7 +1154,7 @@ __env_region_attach(env, infop, init, max)
 	/* Join/create the underlying region. */
 	(void)snprintf(buf, sizeof(buf), DB_REGION_FMT, infop->id);
 	if ((ret = __db_appname(env,
-	    DB_APP_NONE, buf, NULL, &infop->name)) != 0)
+	    DB_APP_REGION, buf, NULL, &infop->name)) != 0)
 		goto err;
 	if ((ret = __env_sys_attach(env, infop, rp)) != 0)
 		goto err;

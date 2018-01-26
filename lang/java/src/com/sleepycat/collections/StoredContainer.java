@@ -210,6 +210,8 @@ public abstract class StoredContainer implements Cloneable {
      * {@link java.util.Map#size} interfaces.
      *
      *
+     * @return the number of records.
+     *
      *
      * @throws RuntimeExceptionWrapper if a checked exception is thrown,
      * including a {@code DatabaseException} on BDB (C edition).

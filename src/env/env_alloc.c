@@ -221,7 +221,7 @@ __env_alloc(infop, len, retp)
 
 	if (len == 0) {
 #ifdef DIAGNOSTIC
-		__db_errx(env, DB_STR("1597", "allocation of 0-length block"));
+		__db_errx(env, DB_STR("1600", "allocation of 0-length block"));
 		__os_stack(env);
 #endif
 		return (EINVAL);
@@ -260,7 +260,7 @@ __env_alloc(infop, len, retp)
 		/* Check if we're over the limit. */
 		if (envinfop->max_alloc != 0 &&
 		     envinfop->allocated + len > envinfop->max_alloc)
-			return (USR_ERR(env, ENOMEM));
+			return (ENOMEM);
 
 		/* Allocate the space. */
 		if ((ret = __os_malloc(env, len, &p)) != 0)
@@ -347,7 +347,7 @@ retry:
 	 * the region, if not then we are done.
 	 */
 	if (elp == NULL) {
-		ret = USR_ERR(env, ENOMEM);
+		ret = ENOMEM;
 #ifdef HAVE_MMAP_EXTEND
 		if (infop->rp->size < infop->rp->max &&
 		     (ret = __env_region_extend(env, infop)) == 0)
@@ -633,7 +633,7 @@ __env_region_extend(env, infop)
 	ret = 0;
 	rp = infop->rp;
 	if (rp->size >= rp->max)
-		return (USR_ERR(env, ENOMEM));
+		return (ENOMEM);
 	elp = (ALLOC_ELEMENT *)((u_int8_t *)infop->addr + rp->size);
 	if (rp->size + rp->alloc > rp->max)
 		rp->alloc = rp->max - rp->size;

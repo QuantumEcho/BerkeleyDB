@@ -16,8 +16,7 @@ static const char copyright[] =
 #endif
 
 int db_verify_main __P((int, char *[]));
-int db_verify_usage __P((void));
-int db_verify_version_check __P((void));
+void db_verify_usage __P((void));
 
 const char *progname;
 
@@ -49,19 +48,17 @@ db_verify_main(argc, argv)
 	int quiet, resize, ret;
 	char *blob_dir, *dname, *fname, *home, *passwd;
 
-	if ((progname = __db_rpath(argv[0])) == NULL)
-		progname = argv[0];
-	else
-		++progname;
+	progname = __db_util_arg_progname(argv[0]);
 
-	if ((ret = db_verify_version_check()) != 0)
+	if ((ret = __db_util_version_check(progname)) != 0)
 		return (ret);
 
 	dbenv = NULL;
 	dbp = NULL;
 	cache = MEGABYTE;
-	exitval = mflag = nflag = quiet = 0;
+	mflag = nflag = quiet = 0;
 	flags = 0;
+	exitval = EXIT_SUCCESS;
 	blob_dir = home = passwd = NULL;
 	__db_getopt_reset = 1;
 	while ((ch = getopt(argc, argv, "b:h:mNoP:quV")) != EOF)
@@ -79,19 +76,9 @@ db_verify_main(argc, argv)
 			nflag = 1;
 			break;
 		case 'P':
-			if (passwd != NULL) {
-				fprintf(stderr, DB_STR("5132",
-					"Password may not be specified twice"));
-				free(passwd);
-				return (EXIT_FAILURE);
-			}
-			passwd = strdup(optarg);
-			memset(optarg, 0, strlen(optarg));
-			if (passwd == NULL) {
-				fprintf(stderr, "%s: strdup: %s\n",
-				    progname, strerror(errno));
-				return (EXIT_FAILURE);
-			}
+			if (__db_util_arg_password(progname, 
+ 			    optarg, &passwd) != 0)
+  				goto err;
 			break;
 		case 'o':
 			LF_SET(DB_NOORDERCHK);
@@ -104,16 +91,16 @@ db_verify_main(argc, argv)
 			break;
 		case 'V':
 			printf("%s\n", db_version(NULL, NULL, NULL));
-			return (EXIT_SUCCESS);
+			goto done;
 		case '?':
 		default:
-			return (db_verify_usage());
+			goto usage_err;
 		}
 	argc -= optind;
 	argv += optind;
 
 	if (argc <= 0)
-		return (db_verify_usage());
+		goto usage_err;
 
 	/* Handle possible interruptions. */
 	__db_util_siginit();
@@ -160,24 +147,9 @@ retry:	if ((ret = db_env_create(&dbenv, 0)) != 0) {
 	 * private region.  In the latter case, declare a reasonably large
 	 * cache so that we don't fail when verifying large databases.
 	 */
-	private = 0;
-	if ((ret =
-	    dbenv->open(dbenv, home, DB_INIT_MPOOL | DB_USE_ENVIRON, 0)) != 0) {
-		if (ret != DB_VERSION_MISMATCH && ret != DB_REP_LOCKOUT) {
-			if ((ret =
-			    dbenv->set_cachesize(dbenv, 0, cache, 1)) != 0) {
-				dbenv->err(dbenv, ret, "set_cachesize");
-				goto err;
-			}
-			private = 1;
-			ret = dbenv->open(dbenv, home, DB_CREATE |
-			    DB_INIT_MPOOL | DB_PRIVATE | DB_USE_ENVIRON, 0);
-		}
-		if (ret != 0) {
-			dbenv->err(dbenv, ret, "DB_ENV->open");
-			goto err;
-		}
-	}
+	if (__db_util_env_open(dbenv, home, DB_INIT_MPOOL,
+	    1, DB_INIT_MPOOL, cache, &private) != 0)
+		goto err;
 
 	/*
 	 * Find out if we have a transactional environment so that we can
@@ -257,7 +229,7 @@ retry:	if ((ret = db_env_create(&dbenv, 0)) != 0) {
 		ret = dbp->verify(dbp, fname, dname, NULL, flags);
 		dbp = NULL;
 		if (ret != 0)
-			exitval = 1;
+			exitval = EXIT_FAILURE;
 		if (!quiet)
 			printf(DB_STR_A("5105", "Verification of %s %s.\n",
 			    "%s %s\n"), argv[0], ret == 0 ? 
@@ -265,15 +237,16 @@ retry:	if ((ret = db_env_create(&dbenv, 0)) != 0) {
 	}
 
 	if (0) {
-err:		exitval = 1;
+usage_err:	db_verify_usage();
+err:		exitval = EXIT_FAILURE;
 	}
-
+done:
 	if (dbp != NULL && (ret = dbp->close(dbp, 0)) != 0) {
-		exitval = 1;
+		exitval = EXIT_FAILURE;
 		dbenv->err(dbenv, ret, DB_STR("5106", "close"));
 	}
 	if (dbenv != NULL && (ret = dbenv->close(dbenv, 0)) != 0) {
-		exitval = 1;
+		exitval = EXIT_FAILURE;
 		fprintf(stderr,
 		    "%s: dbenv->close: %s\n", progname, db_strerror(ret));
 	}
@@ -284,30 +257,12 @@ err:		exitval = 1;
 	/* Resend any caught signal. */
 	__db_util_sigresend();
 
-	return (exitval == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+	return (exitval);
 }
 
-int
+void
 db_verify_usage()
 {
 	fprintf(stderr, "usage: %s %s\n", progname,
 	    "[-mNoqV] [-b blob_dir] [-h home] [-P password] db_file ...");
-	return (EXIT_FAILURE);
-}
-
-int
-db_verify_version_check()
-{
-	int v_major, v_minor, v_patch;
-
-	/* Make sure we're loaded with the right version of the DB library. */
-	(void)db_version(&v_major, &v_minor, &v_patch);
-	if (v_major != DB_VERSION_MAJOR || v_minor != DB_VERSION_MINOR) {
-		fprintf(stderr, DB_STR_A("5107",
-		    "%s: version %d.%d doesn't match library version %d.%d\n",
-		    "%s %d %d %d %d\n"), progname, DB_VERSION_MAJOR,
-		    DB_VERSION_MINOR, v_major, v_minor);
-		return (EXIT_FAILURE);
-	}
-	return (0);
 }

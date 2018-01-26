@@ -1,6 +1,6 @@
 # DO NOT EDIT: automatically built by dist/s_android.
 # Makefile for building a drop-in replacement of SQLite using
-# Berkeley DB 12c Release 1, library version 12.1.6.1.36: (July 21, 2017)
+# Berkeley DB 12c Release 1, library version 12.1.6.2.32: (April  5, 2017)
 ###################################################################
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
@@ -10,7 +10,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libsqlite
 
 # BDB_TOP will change with release numbers
-BDB_TOP := db-6.1.36
+BDB_TOP := db-6.2.32
 BDB_PATH := $(LOCAL_PATH)/$(BDB_TOP)/src
 
 # This directive results in arm (vs thumb) code.  It's necessary to
@@ -90,6 +90,7 @@ LOCAL_SRC_FILES := \
 	$(BDB_TOP)/src/db/db_ret.c \
 	$(BDB_TOP)/src/db/db_setid.c \
 	$(BDB_TOP)/src/db/db_setlsn.c \
+	$(BDB_TOP)/src/db/db_slice.c \
 	$(BDB_TOP)/src/db/db_sort_multiple.c \
 	$(BDB_TOP)/src/db/db_stati.c \
 	$(BDB_TOP)/src/db/db_truncate.c \
@@ -115,6 +116,7 @@ LOCAL_SRC_FILES := \
 	$(BDB_TOP)/src/env/env_region.c \
 	$(BDB_TOP)/src/env/env_register.c \
 	$(BDB_TOP)/src/env/env_sig.c \
+	$(BDB_TOP)/src/env/env_slice.c \
 	$(BDB_TOP)/src/env/env_stat.c \
 	$(BDB_TOP)/src/fileops/fileops_auto.c \
 	$(BDB_TOP)/src/fileops/fop_basic.c \
@@ -217,8 +219,19 @@ LOCAL_SRC_FILES := \
 	$(BDB_TOP)/src/common/crypto_stub.c \
 	$(BDB_TOP)/lang/sql/generated/sqlite3.c
 
+# Common source files for command line tools
+COMMON_TOOL_SRCS := \
+	$(BDB_TOP)/src/common/util_arg.c \
+	$(BDB_TOP)/src/common/util_cache.c \
+	$(BDB_TOP)/src/common/util_env.c \
+	$(BDB_TOP)/src/common/util_log.c \
+	$(BDB_TOP)/src/common/util_sig.c \
+	$(BDB_TOP)/src/common/util_ver_check.c
+
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 #
@@ -273,7 +286,9 @@ LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1
@@ -292,13 +307,15 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
 	$(BDB_TOP)/util/db_archive.c \
-	$(BDB_TOP)/src/common/util_sig.c
+	$(COMMON_TOOL_SRCS)
 LOCAL_SHARED_LIBRARIES := libsqlite
 LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1
@@ -317,14 +334,15 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
 	$(BDB_TOP)/util/db_checkpoint.c \
-	$(BDB_TOP)/src/common/util_log.c \
-	$(BDB_TOP)/src/common/util_sig.c
+	$(COMMON_TOOL_SRCS)
 LOCAL_SHARED_LIBRARIES := libsqlite
 LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1
@@ -343,14 +361,15 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
 	$(BDB_TOP)/util/db_deadlock.c \
-	$(BDB_TOP)/src/common/util_log.c \
-	$(BDB_TOP)/src/common/util_sig.c
+	$(COMMON_TOOL_SRCS)
 LOCAL_SHARED_LIBRARIES := libsqlite
 LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1
@@ -369,14 +388,15 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
 	$(BDB_TOP)/util/db_dump.c \
-	$(BDB_TOP)/src/common/util_cache.c \
-	$(BDB_TOP)/src/common/util_sig.c
+	$(COMMON_TOOL_SRCS)
 LOCAL_SHARED_LIBRARIES := libsqlite
 LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1
@@ -395,13 +415,15 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
 	$(BDB_TOP)/util/db_hotbackup.c \
-	$(BDB_TOP)/src/common/util_sig.c
+	$(COMMON_TOOL_SRCS)
 LOCAL_SHARED_LIBRARIES := libsqlite
 LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1
@@ -420,14 +442,15 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
 	$(BDB_TOP)/util/db_load.c \
-	$(BDB_TOP)/src/common/util_cache.c \
-	$(BDB_TOP)/src/common/util_sig.c
+	$(COMMON_TOOL_SRCS)
 LOCAL_SHARED_LIBRARIES := libsqlite
 LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1
@@ -446,7 +469,7 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
 	$(BDB_TOP)/util/db_printlog.c \
-	$(BDB_TOP)/src/common/util_sig.c \
+	$(COMMON_TOOL_SRCS) \
 	$(BDB_TOP)/src/btree/btree_autop.c \
 	$(BDB_TOP)/src/db/crdel_autop.c \
 	$(BDB_TOP)/src/db/db_autop.c \
@@ -463,7 +486,9 @@ LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1
@@ -482,13 +507,15 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
 	$(BDB_TOP)/util/db_recover.c \
-	$(BDB_TOP)/src/common/util_sig.c
+	$(COMMON_TOOL_SRCS)
 LOCAL_SHARED_LIBRARIES := libsqlite
 LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1
@@ -507,13 +534,15 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
 	$(BDB_TOP)/util/db_replicate.c \
-	$(BDB_TOP)/src/common/util_sig.c
+	$(COMMON_TOOL_SRCS)
 LOCAL_SHARED_LIBRARIES := libsqlite
 LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1
@@ -532,14 +561,15 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
 	$(BDB_TOP)/util/db_stat.c \
-	$(BDB_TOP)/src/common/util_cache.c \
-	$(BDB_TOP)/src/common/util_sig.c
+	$(COMMON_TOOL_SRCS)
 LOCAL_SHARED_LIBRARIES := libsqlite
 LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1
@@ -558,13 +588,15 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
 	$(BDB_TOP)/util/db_tuner.c \
-	$(BDB_TOP)/src/common/util_sig.c
+	$(COMMON_TOOL_SRCS)
 LOCAL_SHARED_LIBRARIES := libsqlite
 LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1
@@ -583,13 +615,15 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
 	$(BDB_TOP)/util/db_upgrade.c \
-	$(BDB_TOP)/src/common/util_sig.c
+	$(COMMON_TOOL_SRCS)
 LOCAL_SHARED_LIBRARIES := libsqlite
 LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1
@@ -608,14 +642,15 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
 	$(BDB_TOP)/util/db_verify.c \
-	$(BDB_TOP)/src/common/util_cache.c \
-	$(BDB_TOP)/src/common/util_sig.c
+	$(COMMON_TOOL_SRCS)
 LOCAL_SHARED_LIBRARIES := libsqlite
 LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1
@@ -634,14 +669,15 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
 	$(BDB_TOP)/util/db_log_verify.c \
-	$(BDB_TOP)/src/common/util_cache.c \
-	$(BDB_TOP)/src/common/util_sig.c
+	$(COMMON_TOOL_SRCS)
 LOCAL_SHARED_LIBRARIES := libsqlite
 LOCAL_C_INCLUDES := $(BDB_PATH) $(LOCAL_PATH)/$(BDB_TOP)/build_android\
 	 $(LOCAL_PATH)/$(BDB_TOP)/lang/sql/generated $(LOCAL_PATH)/../android
 
 ifneq ($(TARGET_ARCH),arm)
+ifneq ($(TARGET_ARCH),arm64)
 LOCAL_LDLIBS += -lpthread -ldl
+endif
 endif
 
 LOCAL_CFLAGS += -DHAVE_USLEEP=1 -DTHREADSAFE=1 -DNDEBUG=1

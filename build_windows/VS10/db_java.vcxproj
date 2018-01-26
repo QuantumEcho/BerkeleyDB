@@ -60,7 +60,7 @@
       <PreprocessorDefinitions>DB_CREATE_DLL;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libdb61d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libdb62d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CustomBuildStep>
       <Command>
@@ -84,7 +84,7 @@ echo Java build finished</Command>
       <PreprocessorDefinitions>DB_CREATE_DLL;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libdb61.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libdb62.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CustomBuildStep>
       <Command>
@@ -108,7 +108,7 @@ echo Java build finished</Command>
       <PreprocessorDefinitions>DB_CREATE_DLL;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libdb61d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libdb62d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CustomBuildStep>
       <Command>
@@ -132,7 +132,7 @@ echo Java build finished</Command>
       <PreprocessorDefinitions>DB_CREATE_DLL;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libdb61.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libdb62.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CustomBuildStep>
       <Command>
@@ -159,7 +159,7 @@ echo Java build finished</Command>
   </ImportGroup>
   <ItemGroup>
     <ProjectReference Condition="exists('db.vcxproj')" Include="db.vcxproj">
-      <Project>{fd045d60-abad-4a6c-9794-9bfb085fc3e7}</Project>
+      <Project>{FD045D60-ABAD-4A6C-9794-9BFB085FC3E7}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>

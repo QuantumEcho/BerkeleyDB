@@ -246,7 +246,7 @@ usage()
 }
 
 TpcbExample::TpcbExample(const char *home, int cachesize, int flags)
-:	DbEnv(0)
+:	DbEnv((u_int32_t)0)
 {
 	u_int32_t local_flags;
 

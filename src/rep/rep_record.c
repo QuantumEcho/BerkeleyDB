@@ -20,14 +20,14 @@ static int __rep_collect_txn
     __P((ENV *, DB_LSN *, LSN_COLLECTION *, DELAYED_BLOB_LIST **));
 static int __rep_remove_delayed_blobs
     __P((ENV *, db_seq_t, u_int32_t ,DELAYED_BLOB_LIST **));
-static int __rep_do_ckp __P((ENV *, DBT *, __rep_control_args *));
+static int __rep_do_ckp __P((ENV *, DBT *, __rep_control_args *, DB_LSN *));
 static int __rep_fire_newmaster __P((ENV *, u_int32_t, int));
 static int __rep_fire_startupdone __P((ENV *, u_int32_t, int));
 static int __rep_getnext __P((ENV *, DB_THREAD_INFO *));
 static int __rep_lsn_cmp __P((const void *, const void *));
 static int __rep_newfile __P((ENV *, __rep_control_args *, DBT *));
 static int __rep_process_rec __P((ENV *, DB_THREAD_INFO *, __rep_control_args *,
-    DBT *, db_timespec *, DB_LSN *));
+    DBT *, db_timespec *, DB_LSN *, DB_LSN *));
 static int __rep_remfirst __P((ENV *, DB_THREAD_INFO *, DBT *, DBT *));
 static int __rep_skip_msg __P((ENV *, REP *, int, u_int32_t));
 
@@ -199,7 +199,8 @@ __rep_process_message_pp(dbenv, control, rec, eid, ret_lsnp)
 	}
 
 	ENV_ENTER(env, ip);
-	ret = __rep_process_message_int(env, control, rec, eid, ret_lsnp);
+	ret = __rep_process_message_int(env, control, rec, eid, ret_lsnp,
+	    NULL);
 	ENV_LEAVE(env, ip);
 
 	__dbt_userfree(env, control, rec, NULL);
@@ -212,14 +213,15 @@ __rep_process_message_pp(dbenv, control, rec, eid, ret_lsnp)
  * This routine performs the internal steps to process an incoming message.
  *
  * PUBLIC: int __rep_process_message_int
- * PUBLIC:     __P((ENV *, DBT *, DBT *, int, DB_LSN *));
+ * PUBLIC:     __P((ENV *, DBT *, DBT *, int, DB_LSN *, DB_LSN *));
  */
 int
-__rep_process_message_int(env, control, rec, eid, ret_lsnp)
+__rep_process_message_int(env, control, rec, eid, ret_lsnp, ckp_lsnp)
 	ENV *env;
 	DBT *control, *rec;
 	int eid;
 	DB_LSN *ret_lsnp;
+	DB_LSN *ckp_lsnp;
 {
 	DBT data_dbt;
 	DB_LOG *dblp;
@@ -230,12 +232,10 @@ __rep_process_message_int(env, control, rec, eid, ret_lsnp)
 	REGENV *renv;
 	REGINFO *infop;
 	REP *rep;
-	REP_46_CONTROL *rp46;
-	REP_OLD_CONTROL *orp;
 	__rep_control_args *rp, tmprp;
 	__rep_egen_args egen_arg;
 	size_t len;
-	u_int32_t gen, rep_version;
+	u_int32_t gen;
 	int cmp, do_sync, lockout, master_id, recovering, ret, t_ret;
 	time_t savetime;
 	u_int8_t buf[__REP_MAXMSG_SIZE];
@@ -249,49 +249,10 @@ __rep_process_message_int(env, control, rec, eid, ret_lsnp)
 	lp = dblp->reginfo.primary;
 	infop = env->reginfo;
 	renv = infop->primary;
-	/*
-	 * Casting this to REP_OLD_CONTROL is just kind of stylistic: the
-	 * rep_version field of course has to be in the same offset in all
-	 * versions in order for this to work.
-	 *
-	 * We can look at the rep_version unswapped here because if we're
-	 * talking to an old version, it will always be unswapped.  If
-	 * we're talking to a new version, the only issue is if it is
-	 * swapped and we take one of the old version conditionals
-	 * incorrectly.  The rep_version would need to be very, very
-	 * large for a swapped version to look like a small, older
-	 * version.  There is no problem here looking at it unswapped.
-	 */
-	rep_version = ((REP_OLD_CONTROL *)control->data)->rep_version;
-	if (rep_version <= DB_REPVERSION_45) {
-		orp = (REP_OLD_CONTROL *)control->data;
-		if (rep_version == DB_REPVERSION_45 &&
-		    F_ISSET(orp, REPCTL_INIT_45)) {
-			F_CLR(orp, REPCTL_INIT_45);
-			F_SET(orp, REPCTL_INIT);
-		}
-		tmprp.rep_version = orp->rep_version;
-		tmprp.log_version = orp->log_version;
-		tmprp.lsn = orp->lsn;
-		tmprp.rectype = orp->rectype;
-		tmprp.gen = orp->gen;
-		tmprp.flags = orp->flags;
-		tmprp.msg_sec = 0;
-		tmprp.msg_nsec = 0;
-	} else if (rep_version == DB_REPVERSION_46) {
-		rp46 = (REP_46_CONTROL *)control->data;
-		tmprp.rep_version = rp46->rep_version;
-		tmprp.log_version = rp46->log_version;
-		tmprp.lsn = rp46->lsn;
-		tmprp.rectype = rp46->rectype;
-		tmprp.gen = rp46->gen;
-		tmprp.flags = rp46->flags;
-		tmprp.msg_sec = (u_int32_t)rp46->msg_time.tv_sec;
-		tmprp.msg_nsec = (u_int32_t)rp46->msg_time.tv_nsec;
-	} else
-		if ((ret = __rep_control_unmarshal(env, &tmprp,
-		    control->data, control->size, NULL)) != 0)
-			return (ret);
+
+	if ((ret = __rep_control_unmarshal(env, &tmprp,
+	    control->data, control->size, NULL)) != 0)
+		return (ret);
 	rp = &tmprp;
 	if (ret_lsnp != NULL)
 		ZERO_LSN(*ret_lsnp);
@@ -535,9 +496,7 @@ __rep_process_message_int(env, control, rec, eid, ret_lsnp)
 		 * Handle even if we're recovering.
 		 */
 		ANYSITE(rep);
-		if (rp->rep_version < DB_REPVERSION_47)
-			egen_arg.egen = *(u_int32_t *)rec->data;
-		else if ((ret = __rep_egen_unmarshal(env, &egen_arg,
+		if ((ret = __rep_egen_unmarshal(env, &egen_arg,
 		    rec->data, rec->size, NULL)) != 0)
 			return (ret);
 		REP_SYSTEM_LOCK(env);
@@ -582,15 +541,10 @@ __rep_process_message_int(env, control, rec, eid, ret_lsnp)
 		REP_SYSTEM_LOCK(env);
 		egen_arg.egen = rep->egen;
 		REP_SYSTEM_UNLOCK(env);
-		if (rep->version < DB_REPVERSION_47)
-			DB_INIT_DBT(data_dbt, &egen_arg.egen,
-			    sizeof(egen_arg.egen));
-		else {
-			if ((ret = __rep_egen_marshal(env,
-			    &egen_arg, buf, __REP_EGEN_SIZE, &len)) != 0)
-				goto errlock;
-			DB_INIT_DBT(data_dbt, buf, len);
-		}
+		if ((ret = __rep_egen_marshal(env,
+		    &egen_arg, buf, __REP_EGEN_SIZE, &len)) != 0)
+			goto errlock;
+		DB_INIT_DBT(data_dbt, buf, len);
 		(void)__rep_send_message(env,
 		    eid, REP_ALIVE, &lsn, &data_dbt, 0, 0);
 		break;
@@ -601,9 +555,9 @@ __rep_process_message_int(env, control, rec, eid, ret_lsnp)
 		CLIENT_REREQ;
 		break;
 	case REP_BLOB_ALL_REQ:
-		/* Blobs do not support peer-to-peer. */
 		RECOVERING_SKIP;
-		MASTER_ONLY(rep, rp);
+		CLIENT_MASTERCHK;
+		MASTER_UPDATE(env, renv);
 		ret = __rep_blob_allreq(env, eid, rec);
 		CLIENT_REREQ;
 		break;
@@ -615,9 +569,9 @@ __rep_process_message_int(env, control, rec, eid, ret_lsnp)
 			ret = 0;
 		break;
 	case REP_BLOB_CHUNK_REQ:
-		/* Blobs do not support peer-to-peer. */
 		RECOVERING_SKIP;
-		MASTER_ONLY(rep, rp);
+		CLIENT_MASTERCHK;
+		MASTER_UPDATE(env, renv);
 		ret = __rep_blob_chunk_req(env, eid, rec);
 		CLIENT_REREQ;
 		break;
@@ -627,15 +581,14 @@ __rep_process_message_int(env, control, rec, eid, ret_lsnp)
 		break;
 	case REP_BLOB_UPDATE_REQ:
 		MASTER_ONLY(rep, rp);
-		infop = env->reginfo;
-		renv = infop->primary;
 		MASTER_UPDATE(env, renv);
-		ret = __rep_blob_update_req(env, ip, rec);
+		ret = __rep_blob_update_req(env, eid, ip, rec);
 		break;
 	case REP_BULK_LOG:
 		RECOVERING_LOG_SKIP;
 		CLIENT_ONLY(rep, rp);
-		ret = __rep_bulk_log(env, ip, rp, rec, savetime, ret_lsnp);
+		ret = __rep_bulk_log(env, ip, rp, rec, savetime, ret_lsnp,
+		    ckp_lsnp);
 		break;
 	case REP_BULK_PAGE:
 		/*
@@ -737,7 +690,8 @@ __rep_process_message_int(env, control, rec, eid, ret_lsnp)
 	case REP_LOG_MORE:
 		RECOVERING_LOG_SKIP;
 		CLIENT_ONLY(rep, rp);
-		ret = __rep_log(env, ip, rp, rec, eid, savetime, ret_lsnp);
+		ret = __rep_log(env, ip, rp, rec, eid, savetime, ret_lsnp,
+		    ckp_lsnp);
 		break;
 	case REP_LOG_REQ:
 		RECOVERING_SKIP;
@@ -850,15 +804,10 @@ __rep_process_message_int(env, control, rec, eid, ret_lsnp)
 				lockout = 0;
 			}
 			REP_SYSTEM_UNLOCK(env);
-			if (rep->version < DB_REPVERSION_47)
-				DB_INIT_DBT(data_dbt, &egen_arg.egen,
-				    sizeof(egen_arg.egen));
-			else {
-				if ((ret = __rep_egen_marshal(env, &egen_arg,
-				    buf, __REP_EGEN_SIZE, &len)) != 0)
-					goto errlock;
-				DB_INIT_DBT(data_dbt, buf, len);
-			}
+			if ((ret = __rep_egen_marshal(env, &egen_arg,
+			    buf, __REP_EGEN_SIZE, &len)) != 0)
+				goto errlock;
+			DB_INIT_DBT(data_dbt, buf, len);
 			(void)__rep_send_message(env, DB_EID_BROADCAST,
 			    REP_ALIVE, &rp->lsn, &data_dbt, 0, 0);
 			break;
@@ -887,15 +836,10 @@ __rep_process_message_int(env, control, rec, eid, ret_lsnp)
 			if (eid == rep->master_id)
 				rep->master_id = DB_EID_INVALID;
 			REP_SYSTEM_UNLOCK(env);
-			if (rep->version < DB_REPVERSION_47)
-				DB_INIT_DBT(data_dbt, &egen_arg.egen,
-				    sizeof(egen_arg.egen));
-			else {
-				if ((ret = __rep_egen_marshal(env, &egen_arg,
-				    buf, __REP_EGEN_SIZE, &len)) != 0)
-					goto errlock;
-				DB_INIT_DBT(data_dbt, buf, len);
-			}
+			if ((ret = __rep_egen_marshal(env, &egen_arg,
+			    buf, __REP_EGEN_SIZE, &len)) != 0)
+				goto errlock;
+			DB_INIT_DBT(data_dbt, buf, len);
 			(void)__rep_send_message(env, eid,
 			    REP_ALIVE, &rp->lsn, &data_dbt, 0, 0);
 		}
@@ -904,7 +848,7 @@ __rep_process_message_int(env, control, rec, eid, ret_lsnp)
 		RECOVERING_LOG_SKIP;
 		CLIENT_ONLY(rep, rp);
 		ret = __rep_apply(env,
-		     ip, rp, rec, ret_lsnp, NULL, &last_lsn);
+		     ip, rp, rec, ret_lsnp, NULL, &last_lsn, ckp_lsnp);
 		if (ret == DB_REP_LOGREADY)
 			ret = __rep_logready(env, rep, savetime, &last_lsn);
 		break;
@@ -1068,7 +1012,7 @@ __rep_process_message_int(env, control, rec, eid, ret_lsnp)
 		/*
 		 * Handle even if we're recovering.
 		 */
-		ret = __rep_vote2(env, rp, rec, eid);
+		ret = __rep_vote2(env, rec, eid);
 		break;
 	default:
 		__db_errx(env, DB_STR_A("3521",
@@ -1118,10 +1062,10 @@ out:
  * we try to process as much as possible from __db.rep.db to catch up.
  *
  * PUBLIC: int __rep_apply __P((ENV *, DB_THREAD_INFO *, __rep_control_args *,
- * PUBLIC:     DBT *, DB_LSN *, int *, DB_LSN *));
+ * PUBLIC:     DBT *, DB_LSN *, int *, DB_LSN *, DB_LSN *));
  */
 int
-__rep_apply(env, ip, rp, rec, ret_lsnp, is_dupp, last_lsnp)
+__rep_apply(env, ip, rp, rec, ret_lsnp, is_dupp, last_lsnp, ckp_lsnp)
 	ENV *env;
 	DB_THREAD_INFO *ip;
 	__rep_control_args *rp;
@@ -1129,6 +1073,7 @@ __rep_apply(env, ip, rp, rec, ret_lsnp, is_dupp, last_lsnp)
 	DB_LSN *ret_lsnp;
 	int *is_dupp;
 	DB_LSN *last_lsnp;
+	DB_LSN *ckp_lsnp;
 {
 	DB *dbp;
 	DBT control_dbt, key_dbt;
@@ -1227,7 +1172,7 @@ __rep_apply(env, ip, rp, rec, ret_lsnp, is_dupp, last_lsnp)
 		if (rp->rectype == REP_NEWFILE)
 			newfile_seen = 1;
 		if ((ret = __rep_process_rec(env, ip,
-		    rp, rec, &max_ts, &max_lsn)) != 0)
+		    rp, rec, &max_ts, &max_lsn, ckp_lsnp)) != 0)
 			goto err;
 		/*
 		 * If we get the record we are expecting, reset
@@ -1260,7 +1205,7 @@ gap_check:
 			if (rp->rectype == REP_NEWFILE)
 				newfile_seen = 1;
 			if ((ret = __rep_process_rec(env, ip,
-			    rp, rec, &max_ts, &max_lsn)) != 0)
+			    rp, rec, &max_ts, &max_lsn, ckp_lsnp)) != 0)
 				goto err;
 
 			STAT(--rep->stat.st_log_queued);
@@ -1635,27 +1580,15 @@ __rep_process_txn(env, rec)
 		 * We're the end of a transaction.  Make sure this is
 		 * really a commit and not an abort!
 		 */
-		if (rep->version >= DB_REPVERSION_44) {
-			if ((ret = __txn_regop_read(
-			    env, rec->data, &txn_args)) != 0)
-				return (ret);
-			if (txn_args->opcode != TXN_COMMIT) {
-				__os_free(env, txn_args);
-				return (0);
-			}
-			prev_lsn = txn_args->prev_lsn;
-			lock_dbt = &txn_args->locks;
-		} else {
-			if ((ret = __txn_regop_42_read(
-			    env, rec->data, &txn42_args)) != 0)
-				return (ret);
-			if (txn42_args->opcode != TXN_COMMIT) {
-				__os_free(env, txn42_args);
-				return (0);
-			}
-			prev_lsn = txn42_args->prev_lsn;
-			lock_dbt = &txn42_args->locks;
+		if ((ret = __txn_regop_read(
+		    env, rec->data, &txn_args)) != 0)
+			return (ret);
+		if (txn_args->opcode != TXN_COMMIT) {
+			__os_free(env, txn_args);
+			return (0);
 		}
+		prev_lsn = txn_args->prev_lsn;
+		lock_dbt = &txn_args->locks;
 	} else {
 		/* We're a prepare. */
 		DB_ASSERT(env, rectype == DB___txn_prepare);
@@ -2023,14 +1956,7 @@ __rep_newfile(env, rp, rec)
 	if (F_ISSET(rep, REP_F_NEWFILE))
 		return (0);
 	if (rp->lsn.file + 1 > lp->ready_lsn.file) {
-		if (rec == NULL || rec->size == 0) {
-			RPRINT(env, (env, DB_VERB_REP_MISC,
-"rep_newfile: Old-style NEWFILE msg.  Use control msg log version: %lu",
-    (u_long) rp->log_version));
-			nf_args.version = rp->log_version;
-		} else if (rp->rep_version < DB_REPVERSION_47)
-			nf_args.version = *(u_int32_t *)rec->data;
-		else if ((ret = __rep_newfile_unmarshal(env, &nf_args,
+		if ((ret = __rep_newfile_unmarshal(env, &nf_args,
 		    rec->data, rec->size, NULL)) != 0)
 			return (ret);
 		RPRINT(env, (env, DB_VERB_REP_MISC,
@@ -2072,14 +1998,14 @@ __rep_newfile(env, rp, rec)
  * and must not be holding the region mutex.
  */
 static int
-__rep_do_ckp(env, rec, rp)
+__rep_do_ckp(env, rec, rp, ckp_lsnp)
 	ENV *env;
 	DBT *rec;
 	__rep_control_args *rp;
+	DB_LSN *ckp_lsnp;
 {
 	DB_ENV *dbenv;
 	__txn_ckp_args *ckp_args;
-	DB_LSN ckp_lsn;
 	REP *rep;
 	int ret;
 
@@ -2088,7 +2014,7 @@ __rep_do_ckp(env, rec, rp)
 	/* Crack the log record and extract the checkpoint LSN. */
 	if ((ret = __txn_ckp_read(env, rec->data, &ckp_args)) != 0)
 		return (ret);
-	ckp_lsn = ckp_args->ckp_lsn;
+	*ckp_lsnp = ckp_args->ckp_lsn;
 	__os_free(env, ckp_args);
 
 	rep = env->rep_handle->region;
@@ -2109,7 +2035,7 @@ __rep_do_ckp(env, rec, rp)
 	 */
 	(void)__memp_set_config(dbenv, DB_MEMP_SUPPRESS_WRITE, 1);
 	MUTEX_LOCK(env, rep->mtx_ckp);
-	ret = __memp_sync(env, DB_SYNC_CHECKPOINT, &ckp_lsn);
+	ret = __memp_sync(env, DB_SYNC_CHECKPOINT, ckp_lsnp);
 	MUTEX_UNLOCK(env, rep->mtx_ckp);
 	(void)__memp_set_config(dbenv, DB_MEMP_SUPPRESS_WRITE, 0);
 
@@ -2119,7 +2045,7 @@ __rep_do_ckp(env, rec, rp)
 	else {
 		__db_errx(env, DB_STR_A("3525",
 		    "Error syncing ckp [%lu][%lu]", "%lu %lu"),
-		    (u_long)ckp_lsn.file, (u_long)ckp_lsn.offset);
+		    (u_long)ckp_lsnp->file, (u_long)ckp_lsnp->offset);
 		ret = __env_panic(env, ret);
 	}
 
@@ -2232,13 +2158,14 @@ err:	if ((t_ret = __dbc_close(dbc)) != 0 && ret == 0)
  * the log.
  */
 static int
-__rep_process_rec(env, ip, rp, rec, ret_tsp, ret_lsnp)
+__rep_process_rec(env, ip, rp, rec, ret_tsp, ret_lsnp, ckp_lsnp)
 	ENV *env;
 	DB_THREAD_INFO *ip;
 	__rep_control_args *rp;
 	DBT *rec;
 	db_timespec *ret_tsp;
 	DB_LSN *ret_lsnp;
+	DB_LSN *ckp_lsnp;
 {
 	DB *dbp;
 	DBT control_dbt, key_dbt, rec_dbt;
@@ -2420,7 +2347,7 @@ __rep_process_rec(env, ip, rp, rec, ret_tsp, ret_lsnp)
 		 * will act like we never received the
 		 * checkpoint.
 		 */
-		if ((ret = __rep_do_ckp(env, rec, rp)) == 0)
+		if ((ret = __rep_do_ckp(env, rec, rp, &lsn)) == 0)
 			ret = __log_rep_put(env, &rp->lsn, rec,
 			    DB_LOG_CHKPNT);
 		if ((t_ret = __rep_remfirst(env, ip,
@@ -2432,6 +2359,8 @@ __rep_process_rec(env, ip, rp, rec, ret_tsp, ret_lsnp)
 		 */
 		if (ret == 0) {
 			*ret_lsnp = rp->lsn;
+			if (ckp_lsnp != NULL)
+ 				*ckp_lsnp = lsn;
 			ret = __log_flush(env, NULL);
 			if (ret == 0 && lp->db_log_autoremove)
 				__log_autoremove(env);
@@ -2525,7 +2454,7 @@ __rep_resend_req(env, rereq)
 		} else {
 			MUTEX_LOCK(env, rep->mtx_clientdb);
 			REP_SYSTEM_LOCK(env);
-			ret = __rep_blob_rereq(env, rep);
+			ret = __rep_blob_rereq(env, rep, gapflags);
 			REP_SYSTEM_UNLOCK(env);
 			MUTEX_UNLOCK(env, rep->mtx_clientdb);
 		}

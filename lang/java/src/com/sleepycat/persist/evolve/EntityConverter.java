@@ -36,6 +36,11 @@ public class EntityConverter extends Converter {
     /**
      * Creates a mutation for converting all instances of the given entity
      * class version to the current version of the class.
+     *
+     * @param entityClassName the entity class to which this mutation applies.
+     * @param classVersion the class version to which this mutation applies.
+     * @param conversion converter instance.
+     * @param deletedKeys the set of key names that are to be deleted.
      */
     public EntityConverter(String entityClassName,
                            int classVersion,
@@ -53,6 +58,8 @@ public class EntityConverter extends Converter {
 
     /**
      * Returns the set of key names that are to be deleted.
+     *
+     * @return the set of key names that are to be deleted.
      */
     public Set<String> getDeletedKeys() {
         return Collections.unmodifiableSet(deletedKeys);

@@ -78,6 +78,15 @@
        } else {
          puts " Ok"
        }
+@@ -883,7 +907,7 @@
+   sqlite3_reset_auto_extension
+ 
+   sqlite3_soft_heap_limit 0
+-  set nTest [incr_ntest]
++  set nTest [set_test_counter count]
+   set nErr [set_test_counter errors]
+ 
+   set nKnown 0
 @@ -1224,12 +1248,6 @@
    return $ret
  }
@@ -242,3 +251,11 @@
    $(TOP)/ext/fts3/fts3_tokenizer.c \
    $(TOP)/ext/fts3/fts3_write.c \
    $(TOP)/ext/async/sqlite3async.c
+@@ -948,7 +948,7 @@
+ TESTFIXTURE_SRC0 = $(TESTSRC2) libsqlite3.la
+ TESTFIXTURE_SRC1 = sqlite3.c
+ TESTFIXTURE_SRC = $(TESTSRC) $(TOP)/src/tclsqlite.c
+-TESTFIXTURE_SRC += $(TESTFIXTURE_SRC$(USE_AMALGAMATION))
++TESTFIXTURE_SRC += $(TESTFIXTURE_SRC1)
+ 
+ testfixture$(TEXE): $(TESTFIXTURE_SRC)

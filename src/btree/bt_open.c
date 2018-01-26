@@ -82,7 +82,7 @@ __bam_open(dbp, ip, txn, name, base_pgno, flags)
 	 * also specify a comparison routine, they can't know enough about our
 	 * comparison routine to get it right.
 	 */
-	if (t->bt_compare == __bam_defcmp && t->bt_prefix != __bam_defpfx) {
+	if (t->bt_compare == __dbt_defcmp && t->bt_prefix != __bam_defpfx) {
 		__db_errx(dbp->env, DB_STR("1006",
 "prefix comparison may not be specified for default comparison routine"));
 		return (EINVAL);
@@ -228,9 +228,9 @@ __bam_metachk(dbp, name, btm)
 		}
 
 	if (F_ISSET(&btm->dbmeta, BTM_DUPSORT)) {
-		/* Turning on the DB_DUPSORT flag is not as simple as just
-		 * setting the bit as previous checks do. Therefore, we
-		 * reuse __db_set_flags() to do it.
+		/* Turning on the DB_DUPSORT flag isnt as simple as just setting
+		 * the bit as previous checks do. Therefore, we reuse
+		 * __db_set_flags() to do it.
 		 */
 		if ((ret = __db_set_flags(dbp, DB_DUPSORT)) != 0)
 			return (ret);
@@ -280,15 +280,15 @@ __bam_metachk(dbp, name, btm)
 	/* Blob databases must be upgraded. */
 	if (vers == 9 && (dbp->blob_file_id != 0 || dbp->blob_sdb_id != 0)) {
 	    __db_errx(env, DB_STR_A("1207",
-"%s: databases that support blobs must be upgraded.", "%s"),
+"%s: databases that support external files must be upgraded.", "%s"),
 		    name);
 		return (EINVAL);
 	}
 #ifndef HAVE_64BIT_TYPES
 	if (dbp->blob_file_id != 0 || dbp->blob_sdb_id != 0) {
 		__db_errx(env, DB_STR_A("1199",
-		    "%s: blobs require 64 integer compiler support.", "%s"),
-		    name);
+		    "%s: external files require 64 integer compiler support.",
+		    "%s"), name);
 		return (DB_OPNOTSUP);
 	}
 #endif
@@ -343,8 +343,23 @@ __bam_read_root(dbp, ip, txn, base_pgno, flags)
 	    F_ISSET(dbp, DB_AM_RECOVER) ? DB_RECOVER : 0)) != 0)
 		return (ret);
 
-	/* Get the metadata page. */
-	if ((ret =
+	/*
+	 * Copy a few fields from the metadata page into our bt_internal.  If
+	 * this is the first page of the file (PGNO_BASE_MD) we do not need to
+	 * lock it: these particular fields never change. Even for subdatabases,
+	 * the shared latch that __memp_fget() obtains on the page prevents any
+	 * changes from being made while we are looking at the fields:
+	 *	base_pgno itself - changeable by compact, but only for a subdb
+	 *	meta->root	 - changeable by compact, but only for a subdb
+	 *	meta->minkey	 - settable only before the database is created.
+	 *	meta->re_pad	 - settable only before the database is created.
+	 *	meta->re_len	 - settable only before the database is created.
+	 * The file's revsion count is saved here, to detect when a subdb's root
+	 * or base_pgno is changed by compact. We go to this trouble to allow
+	 * opening a database while a long running update which allocates or
+	 * frees pages has the metadata page write-locked. 
+	 */
+	if (base_pgno != PGNO_BASE_MD && (ret =
 	    __db_lget(dbc, 0, base_pgno, DB_LOCK_READ, 0, &metalock)) != 0)
 		goto err;
 	if ((ret = __memp_fget(mpf, &base_pgno, ip, dbc->txn, 0, &meta)) != 0)
@@ -439,6 +454,10 @@ __bam_init_meta(dbp, meta, pgno, lsnp)
 		meta->dbmeta.encrypt_alg = env->crypto_handle->alg;
 		DB_ASSERT(env, meta->dbmeta.encrypt_alg != 0);
 		meta->crypto_magic = meta->dbmeta.magic;
+	}
+	if (FLD_ISSET(dbp->open_flags, DB_SLICED)) {
+		FLD_SET(meta->dbmeta.metaflags, DBMETA_SLICED);
+		F_SET(&meta->dbmeta, BTM_SLICED);
 	}
 	meta->dbmeta.type = P_BTREEMETA;
 	meta->dbmeta.free = PGNO_INVALID;

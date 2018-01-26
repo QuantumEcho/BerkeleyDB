@@ -72,10 +72,7 @@ __os_stack_text(env, result, bufsize, nframes, skip)
 {
 	DB_MSGBUF mb;
 
-	DB_MSGBUF_INIT(&mb);
-	mb.buf = mb.cur = result;
-	mb.len = bufsize;
-	F_SET(&mb, DB_MSGBUF_PREALLOCATED);
+	DB_MSGBUF_INIT_BUFFER(&mb, result, bufsize);
 	__os_stack_msgadd(env, &mb, nframes, skip, NULL);
 }
 

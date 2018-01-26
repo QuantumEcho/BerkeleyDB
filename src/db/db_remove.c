@@ -40,11 +40,17 @@ __env_dbremove_pp(dbenv, txn, name, subdb, flags)
 	DB_THREAD_INFO *ip;
 	ENV *env;
 	int handle_check, ret, t_ret, txn_local;
+#ifdef HAVE_SLICES
+	u_int32_t slice_txn_flags;
+#endif
 
 	dbp = NULL;
 	env = dbenv->env;
 	txn_local = 0;
 	handle_check = 0;
+#ifdef HAVE_SLICES
+	slice_txn_flags = flags & ~DB_AUTO_COMMIT;
+#endif
 
 	ENV_ILLEGAL_BEFORE_OPEN(env, "DB_ENV->dbremove");
 
@@ -69,6 +75,12 @@ __env_dbremove_pp(dbenv, txn, name, subdb, flags)
 		goto err;
 	}
 
+	if (handle_check && IS_REP_CLIENT(env)) {
+		__db_errx(env, DB_STR("2588",
+		    "dbremove disallowed on replication client"));
+		goto err;
+	}
+
 	/*
 	 * Create local transaction as necessary, check for consistent
 	 * transaction usage.
@@ -82,7 +94,7 @@ __env_dbremove_pp(dbenv, txn, name, subdb, flags)
 		ret = __db_not_txn_env(env);
 		goto err;
 	} else if (txn != NULL && LF_ISSET(DB_LOG_NO_DATA)) {
-		ret = EINVAL;
+		ret = USR_ERR(env, EINVAL);
 		__db_errx(env, DB_STR("0690",
 	    "DB_LOG_NO_DATA may not be specified within a transaction."));
 		goto err;
@@ -96,7 +108,15 @@ __env_dbremove_pp(dbenv, txn, name, subdb, flags)
 		goto err;
 	LF_CLR(DB_TXN_NOT_DURABLE);
 
-	ret = __db_remove_int(dbp, ip, txn, name, subdb, flags);
+#ifdef HAVE_SLICES
+	/*
+	 * Remove the slices (if any) first, because then container's portion
+	 * of the database needs to the used in order to remove the slices.
+	 */
+	ret = __db_slice_remove(dbenv, txn, name, subdb, slice_txn_flags);
+#endif
+	if (ret == 0)
+		ret = __db_remove_int(dbp, ip, txn, name, subdb, flags);
 
 	if (txn_local) {
 		/*
@@ -190,6 +210,12 @@ __db_remove_pp(dbp, name, subdb, flags)
 		goto err;
 	}
 
+	if (handle_check && IS_REP_CLIENT(env)) {
+		__db_errx(env, DB_STR("2588",
+		    "dbremove disallowed on replication client"));
+		goto err;
+	}
+
 	/* Remove the file. */
 	ret = __db_remove(dbp, ip, NULL, name, subdb, flags);
 
@@ -248,9 +274,9 @@ __db_remove_int(dbp, ip, txn, name, subdb, flags)
 	real_name = tmpname = NULL;
 
 	if (name == NULL && subdb == NULL) {
+		ret = USR_ERR(env, EINVAL);
 		__db_errx(env, DB_STR("0691",
 		    "Remove on temporary files invalid"));
-		ret = EINVAL;
 		goto err;
 	}
 

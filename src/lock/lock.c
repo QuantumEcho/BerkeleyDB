@@ -285,7 +285,7 @@ __lock_vec(env, sh_locker, flags, list, nlist, elistp)
 			if ((ret = __lock_getobj(lt, list[i].obj,
 			    ndx, 0, &sh_obj)) != 0 || sh_obj == NULL) {
 				if (ret == 0)
-					ret = EINVAL;
+					ret = USR_ERR(env, EINVAL);
 				OBJECT_UNLOCK(lt, region, ndx);
 				break;
 			}
@@ -352,9 +352,9 @@ __lock_vec(env, sh_locker, flags, list, nlist, elistp)
 			break;
 #endif
 		default:
+			ret = USR_ERR(env, EINVAL);
 			__db_errx(env, DB_STR_A("2035",
 			    "Invalid lock operation: %d", "%d"), list[i].op);
-			ret = EINVAL;
 			break;
 		}
 
@@ -578,7 +578,7 @@ again:	if (obj == NULL) {
 			goto err;
 #ifdef DIAGNOSTIC
 		if (sh_obj == NULL) {
-			ret = ENOENT;
+			ret = USR_ERR(env, ENOENT);
 			goto err;
 		}
 		if (LF_ISSET(DB_LOCK_UPGRADE)) {
@@ -1243,8 +1243,8 @@ __lock_downgrade(env, lock, new_mode, flags)
 
 	lockp = R_ADDR(&lt->reginfo, lock->off);
 	if (lock->gen != lockp->gen) {
+		ret = USR_ERR(env, EINVAL);
 		__db_errx(env, LOCK_INVALID_ERR, "lock_downgrade");
-		ret = EINVAL;
 		goto out;
 	}
 

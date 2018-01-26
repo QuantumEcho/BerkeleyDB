@@ -21,7 +21,7 @@ import com.sleepycat.db.*;
 
 public class RepmgrElectionTest extends EventHandlerAdapter
 {
-    static String address = "localhost";
+    static String address = "::1";
     static int    basePort = 4242;
     static String baseDirName = "";
     File homedir;

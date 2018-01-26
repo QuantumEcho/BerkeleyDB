@@ -7,22 +7,23 @@
 
 proc repmgr108 { } {
 	source ./include.tcl
+	global ipversion
 
 	set tnum "108"
 	puts "Repmgr$tnum: Subordinate\
 	    connections should not trigger elections."
 
 	env_cleanup $testdir
-
+	set hoststr [get_hoststr $ipversion]
 	foreach {mport cport} [available_ports 2] {}
 	file mkdir [set mdir $testdir/MASTER]
 	file mkdir [set cdir $testdir/CLIENT]
 
 	make_dbconfig $mdir \
-	    [list [list repmgr_site 127.0.0.1 $mport db_local_site on]]
+	    [list [list repmgr_site $hoststr $mport db_local_site on]]
 	make_dbconfig $cdir \
-	    [list [list repmgr_site 127.0.0.1 $cport db_local_site on] \
-	    [list repmgr_site 127.0.0.1 $mport db_bootstrap_helper on]]
+	    [list [list repmgr_site $hoststr $cport db_local_site on] \
+	    [list repmgr_site $hoststr $mport db_bootstrap_helper on]]
 
 	puts "\tRepmgr$tnum.a: Set up a pair of sites, two processes on master."
 	set cmds {

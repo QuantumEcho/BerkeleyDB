@@ -68,13 +68,6 @@ public class RepConfig
         return thisHost;
     }
 
-    public ReplicationHostAddress getThisHostAddress()
-    {
-        if (!gotListenAddress)
-              System.err.println("Warning: no host specified, returning default.");
-        return thisHost.getAddress();
-      }
-
     public boolean gotListenAddress() {
         return gotListenAddress;
     }
@@ -99,13 +92,6 @@ public class RepConfig
         if (currOtherHost >= otherHosts.size())
             return null;
         return (ReplicationHostAddress)otherHosts.get(currOtherHost);
-    }
-
-    public ReplicationHostAddress getOtherHost(int i)
-    {
-        if (i >= otherHosts.size())
-            return null;
-        return (ReplicationHostAddress)otherHosts.get(i);
     }
 }
 

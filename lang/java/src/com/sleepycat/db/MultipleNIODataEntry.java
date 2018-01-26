@@ -53,7 +53,7 @@ public class MultipleNIODataEntry extends MultipleEntry {
     {@link com.sleepycat.db.Cursor Cursor} get method with this object as the data parameter.
     <p>
     When used with the Queue and Recno access methods,
-    <code>data.getData()<code> will return <code>null</code> for deleted
+    <code>data.getData()</code> will return <code>null</code> for deleted
     records.
     <p>
     @param data

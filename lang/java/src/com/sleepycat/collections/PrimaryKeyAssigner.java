@@ -21,7 +21,12 @@ import com.sleepycat.db.DatabaseException;
 public interface PrimaryKeyAssigner {
 
     /**
-     * Assigns a new primary key value into the given data buffer.
+     * Assigns a new primary key value into the given buffer.
+     *
+     * @param keyData the buffer.
+     *
+     * @throws DatabaseException to stop the operation and cause this exception
+     * to be propagated to the caller of <code>StoredMap.append()</code>.
      */
     void assignKey(DatabaseEntry keyData)
         throws DatabaseException;

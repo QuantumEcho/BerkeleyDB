@@ -8,7 +8,7 @@
 DB_HOME=`dirname $0`/..
 
 javadoc $JAVADOC_ARGS -protected -d $DB_HOME/docs/java \
--use -link http://download.oracle.com/javaee/7/api/ \
+-use -link http://docs.oracle.com/javase/8/docs/api/ \
     -sourcepath $DB_HOME/lang/java/src \
     -stylesheetfile $DB_HOME/lang/java/doc/style.css \
     -header '<b>Berkeley DB</b><br><font size="-1"> version '$DB_VERSION_MAJOR.$DB_VERSION_MINOR.$DB_VERSION_PATCH'</font>' \

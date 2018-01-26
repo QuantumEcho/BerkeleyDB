@@ -109,13 +109,9 @@ __crypto_region_init(env)
 
 	/*
 	 * On success, no matter if we allocated it or are using the already
-	 * existing one, we are done with the passwd in the env.  We smash
-	 * N-1 bytes so that we don't overwrite the nul.
+	 * existing one, we are done with the passwd in the env.
 	 */
-	randomize(env, dbenv->passwd, dbenv->passwd_len - 1);
-	__os_free(env, dbenv->passwd);
-	dbenv->passwd = NULL;
-	dbenv->passwd_len = 0;
+	__crypto_erase_passwd(env, &dbenv->passwd, &dbenv->passwd_len);
 
 	return (ret);
 }
@@ -137,10 +133,7 @@ __crypto_env_close(env)
 	dbenv = env->dbenv;
 
 	if (dbenv->passwd != NULL) {
-		randomize(env, dbenv->passwd, dbenv->passwd_len - 1);
-		__os_free(env, dbenv->passwd);
-		dbenv->passwd = NULL;
-		dbenv->passwd_len = 0;
+		__crypto_erase_passwd(env, &dbenv->passwd, &dbenv->passwd_len);
 	}
 
 	if (!CRYPTO_ON(env))
@@ -422,8 +415,27 @@ __crypto_set_passwd(env_src, env_dest)
 }
 
 /*
+ * __crypto_erase_passwd --
+ *	Erase the password stored in the given pointer and nullify the pointer.
+ *
+ * PUBLIC: void __crypto_erase_passwd __P((ENV*, char **, size_t *));
+ */
+void
+__crypto_erase_passwd (env, passwdp, passwd_lenp)
+	ENV *env;
+	char **passwdp;
+	size_t *passwd_lenp;
+{
+	/* We smash N-1 bytes so that we don't overwrite the null. */
+	randomize(env, *passwdp, *passwd_lenp - 1);
+	__os_free(env, *passwdp);
+	*passwdp = NULL;
+	*passwd_lenp = 0;
+}
+
+/*
  * randomize
- *	
+ *
  */
 static void
 randomize(env, base, size)
@@ -444,7 +456,7 @@ randomize(env, base, size)
 		{
 		default:
 			memmove(p, &value, sizeof(int32_t));
-		    	break;
+			break;
 		case 3:
 			p[2] = (u_int8_t)(value >> 16);
 			/* FALLTHROUGH */
@@ -461,4 +473,5 @@ randomize(env, base, size)
 
 	}
 	DB_ASSERT(env, last == *p);
+	COMPQUIET(env, NULL);
 }

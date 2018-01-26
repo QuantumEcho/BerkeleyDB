@@ -23,7 +23,8 @@ public interface Hasher {
     The byte string to be hashed.
     @param len
     The length of the byte string in bytes.
-    <p>    @return
+    <p>
+    @return
     The hash value of the byte string.
     */
     int hash(Database db, byte[] data, int len);

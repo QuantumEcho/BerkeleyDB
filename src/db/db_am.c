@@ -19,7 +19,6 @@
 #include "dbinc/qam.h"
 #include "dbinc/txn.h"
 
-static int __db_secondary_get __P((DB *, DB_TXN *, DBT *, DBT *, u_int32_t));
 static int __dbc_set_priority __P((DBC *, DB_CACHE_PRIORITY));
 static int __dbc_get_priority __P((DBC *, DB_CACHE_PRIORITY* ));
 
@@ -322,9 +321,9 @@ __db_cursor_int(dbp, ip, txn, dbtype, root, flags, locker, dbcp)
 			 * writing another's uncommitted changes.
 			 */
 			if (dbp->cur_txn != NULL && dbp->cur_txn != txn) {
+				ret = USR_ERR(env, EINVAL);
 			    __db_errx(env, DB_STR("0749",
 "Exclusive database handles can only have one active transaction at a time."));
-				ret = EINVAL;
 				goto err;
 			}
 			/* Do not trade a second time. */
@@ -819,6 +818,17 @@ __db_sync(dbp)
 		ret = __partition_sync(dbp);
 	else
 #endif
+
+        /*
+         * No need to sync the top level external file database, since it is
+         * only opened when creating a new external file database, and is
+         * immediately closed after the external file directory id is obtained
+		 * from it.
+         */
+        if (dbp->blob_meta_db != NULL) {
+                if ((t_ret = __db_sync(dbp->blob_meta_db)) != 0 && ret == 0)
+                        ret = t_ret;
+        }
 	if (dbp->type == DB_QUEUE)
 		ret = __qam_sync(dbp);
 	else
@@ -1003,8 +1013,11 @@ err:	if (sdbc != NULL && (t_ret = __dbc_close(sdbc)) != 0 && ret == 0)
  * __db_secondary_get --
  *	This wrapper function for DB->pget() is the DB->get() function
  *	on a database which has been made into a secondary index.
+ *
+ * PUBLIC: int __db_secondary_get
+ * PUBLIC:     __P((DB *, DB_TXN *, DBT *, DBT *, u_int32_t));
  */
-static int
+int
 __db_secondary_get(sdbp, txn, skey, data, flags)
 	DB *sdbp;
 	DB_TXN *txn;

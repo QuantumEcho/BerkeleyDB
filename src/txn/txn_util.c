@@ -168,8 +168,8 @@ __txn_lockevent(env, txn, dbp, lock, locker)
 	DB_LOCK *lock;
 	DB_LOCKER *locker;
 {
-	int ret;
 	TXN_EVENT *e;
+	int ret;
 
 	if (!LOCKING_ON(env))
 		return (0);
@@ -332,6 +332,13 @@ __txn_doevents(env, txn, opcode, preprocess)
 				ret = t_ret;
 			break;
 		case TXN_REMOVE:
+			if (FLD_ISSET(env->dbenv->verbose,
+			    DB_VERB_FILEOPS | DB_VERB_FILEOPS_ALL))
+				__db_msg(env, DB_STR_A("4575",
+				    "txn_doevents: remove %s %s",
+				    "%s %s"), e->u.r.name,
+				    txn->parent == NULL ?
+					"" : "merge into parent");
 			if (txn->parent != NULL) {
 				TAILQ_INSERT_TAIL(
 				    &txn->parent->events, e, links);
@@ -341,6 +348,11 @@ __txn_doevents(env, txn, opcode, preprocess)
 				    e->u.r.fileid, NULL, e->u.r.name,
 				    NULL, e->u.r.inmem)) != 0 && ret == 0)
 					ret = t_ret;
+#ifdef HAVE_SLICES
+				if (ret == 0 && SLICES_ON(env))
+					ret = __env_slice_dbremove(env,
+					    e->u.r.name, NULL, DB_AUTO_COMMIT);
+#endif
 			} else if ((t_ret = __os_unlink(
 			    env, e->u.r.name, 0)) != 0 && ret == 0) {
 				/*

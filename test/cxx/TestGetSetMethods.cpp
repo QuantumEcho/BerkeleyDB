@@ -20,7 +20,7 @@ using namespace std;
 int main(int argc, char *argv[])
 {
 	try {
-		DbEnv *dbenv = new DbEnv(0);
+		DbEnv *dbenv = new DbEnv((u_int32_t)0);
 		DbTxn *dbtxn;
 		u_int8_t conflicts[10];
 

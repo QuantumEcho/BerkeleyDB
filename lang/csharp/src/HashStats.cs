@@ -55,13 +55,17 @@ namespace BerkeleyDB {
         /// </summary>
         public uint MagicNumber { get { return st.hash_magic; } }
         /// <summary>
-        /// Number of blob records.
+        /// Deprecated.  Replaced by nExternalFiles.
         /// </summary>
-        public uint nBlobRecords { get { return st.hash_nblobs; } }
+        public uint nBlobRecords { get { return st.hash_ext_files; } }
         /// <summary>
         /// Number of data items. 
         /// </summary>
         public uint nData { get { return st.hash_ndata; } }
+	/// <summary>
+        /// Number of external file records.
+        /// </summary>
+        public uint nExternalFiles { get { return st.hash_ext_files; } }
         /// <summary>
         /// Number of hash buckets. 
         /// </summary>

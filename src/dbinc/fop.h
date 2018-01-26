@@ -36,7 +36,6 @@ extern "C" {
 #define	DB_FOP_WRITE		0x00000020 /* File is writeable. */
 #define	DB_FOP_SYNC_WRITE	0x00000040 /* Sync file on each write. */
 
-
 #include "dbinc_auto/fileops_auto.h"
 #include "dbinc_auto/fileops_ext.h"
 

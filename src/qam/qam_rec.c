@@ -153,8 +153,8 @@ __qam_incfirst_recover(env, dbtp, lsnp, op, info)
 			LSN(meta) = *lsnp;
 		}
 		if (QAM_BEFORE_FIRST(meta, argp->recno)) {
-                        REC_DIRTY(mpf, ip, dbc->priority, &meta);
-                        meta->first_recno = argp->recno;
+			REC_DIRTY(mpf, ip, dbc->priority, &meta);
+			meta->first_recno = argp->recno;
 		}
 		if ((ret = __qam_adjust_first(file_dbp,
 		    dbc, meta, argp->recno + 1)) != 0)

@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 12.1.6.1</p>
+        <p>Library Version 12.1.6.2</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -134,6 +134,10 @@ DB-&gt;join(DB *primary,
         </ul>
       </div>
       <p>
+          The <code class="methodname">DB-&gt;join()</code> method can not be used
+          with a sliced database.
+      </p>
+      <p>
           The <code class="methodname">DB-&gt;join()</code> <span>
             <span>
                   method returns a non-zero error value on failure and 0 on success.
@@ -145,7 +149,7 @@ DB-&gt;join(DB *primary,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140588513647552"></a>Parameters</h3>
+              <h3 class="title"><a id="idm140711186702240"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -153,7 +157,7 @@ DB-&gt;join(DB *primary,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140588514568112"></a>curslist</h4>
+                <h4 class="title"><a id="idm140711186697248"></a>curslist</h4>
               </div>
             </div>
           </div>
@@ -189,7 +193,7 @@ DB-&gt;join(DB *primary,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140588514479952"></a>dbcp</h4>
+                <h4 class="title"><a id="idm140711187057104"></a>dbcp</h4>
               </div>
             </div>
           </div>
@@ -202,7 +206,7 @@ DB-&gt;join(DB *primary,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140588514816400"></a>flags</h4>
+                <h4 class="title"><a id="idm140711187902976"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -234,7 +238,7 @@ DB-&gt;join(DB *primary,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140588513083024"></a>Errors</h3>
+              <h3 class="title"><a id="idm140711186981760"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -250,7 +254,7 @@ DB-&gt;join(DB *primary,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140588515622576"></a>  DB_REP_HANDLE_DEAD</h4>
+                <h4 class="title"><a id="idm140711188720688"></a>  DB_REP_HANDLE_DEAD</h4>
               </div>
             </div>
           </div>
@@ -269,7 +273,7 @@ DB-&gt;join(DB *primary,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140588516573168"></a>DB_REP_LOCKOUT</h4>
+                <h4 class="title"><a id="idm140711188600112"></a>DB_REP_LOCKOUT</h4>
               </div>
             </div>
           </div>
@@ -281,7 +285,7 @@ DB-&gt;join(DB *primary,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140588516214240"></a>DB_SECONDARY_BAD</h4>
+                <h4 class="title"><a id="idm140711188784448"></a>DB_SECONDARY_BAD</h4>
               </div>
             </div>
           </div>
@@ -293,13 +297,14 @@ DB-&gt;join(DB *primary,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140588517379904"></a>EINVAL</h4>
+                <h4 class="title"><a id="idm140711189328848"></a>EINVAL</h4>
               </div>
             </div>
           </div>
           <p>
                           If cursor methods other than  <a class="xref" href="dbcget.html" title="DBcursor-&gt;get()">DBcursor-&gt;get()</a>  
                           or <a class="xref" href="dbcclose.html" title="DBcursor-&gt;close()">DBcursor-&gt;close()</a>  were called;
+                          if this method is called on a sliced database; 
                           or if an invalid flag value or parameter was specified.
                         </p>
         </div>
@@ -308,7 +313,7 @@ DB-&gt;join(DB *primary,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140588515121520"></a>Class</h3>
+              <h3 class="title"><a id="idm140711187918928"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -320,7 +325,7 @@ DB-&gt;join(DB *primary,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140588516967488"></a>See Also</h3>
+              <h3 class="title"><a id="idm140711190337152"></a>See Also</h3>
             </div>
           </div>
         </div>

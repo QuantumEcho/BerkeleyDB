@@ -510,6 +510,13 @@ proc test046 { method args } {
 		incr i
 	}
 
+	# Read dups backwards.
+	for { set ret [$dbc get -current]} {[llength $ret] != 0} {\
+	    set ret [$dbc get -prevdup] } {
+		incr i -1
+		set dup_set($i) [lindex [lindex $ret 0] 1]
+	}
+
 	# put cursor on item in middle of dups
 	set i [expr $ndups/2]
 	set ret [$dbc get -get_both $keym $dup_set($i)]

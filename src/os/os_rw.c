@@ -112,7 +112,7 @@ slow:
 		ret = __os_write(env, fhp, buf, io_len, niop);
 		break;
 	default:
-		ret = EINVAL;
+		ret = USR_ERR(env, EINVAL);
 		break;
 	}
 

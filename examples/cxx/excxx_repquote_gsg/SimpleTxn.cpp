@@ -106,7 +106,7 @@ err:
     return 0;
 }
 
-RepMgr::RepMgr() : app_config(0), dbenv(0)
+RepMgr::RepMgr() : app_config(0), dbenv((u_int32_t)0)
 {
 }
 

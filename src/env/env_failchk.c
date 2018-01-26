@@ -113,27 +113,11 @@ __env_failchk_int(dbenv)
 	DB_ENV *dbenv;
 {
 	ENV *env;
-	int do_open, ret, t_ret;
-	char *name;
+	int ret, t_ret;
 
 	env = dbenv->env;
 	ret = 0;
 	F_SET(dbenv, DB_ENV_FAILCHK);
-	
-	/*
-	 * Check for and open, any existing registry file, unless the caller has
-	 * already opened it (i.e., __envreg_add() is the caller).  Later
-	 * __env_clear_state() removes dead slots, for 'soft recovery' cases.
-	 */
-	name = NULL;
-	do_open = dbenv->registry == NULL;
-	if (do_open &&
-	    (ret = __envreg_registry_open(env, &name, 0)) != 0) {
-		if (ret == ENOENT)
-			ret = 0;
-		else
-			goto err;
-	}
 
 	/*
 	 * We check for dead threads that hold mutexes first as this would
@@ -177,10 +161,6 @@ err:
 	/* Any dead blocked thread slots are no longer needed; allow reuse. */
 	if (ret == 0)
 		__env_clear_state(env);
-	if (do_open && (t_ret = __envreg_registry_close(env)) != 0 && ret == 0)
-	    	ret = t_ret;
-	if (name != NULL)
-		__os_free(env, name);
 	if (ret == DB_RUNRECOVERY) {
 		/* Announce a panic; avoid __env_panic()'s diag core dump. */
 		__env_panic_set(env, 1);
@@ -420,22 +400,15 @@ __env_holds_mutex(env)
 
 	for (i = 0; i < env->thr_nbucket; i++)
 		SH_TAILQ_FOREACH(ip, &htab[i], dbth_links, __db_thread_info) {
-retry:
 			pid = ip->dbth_pid;
 			if (ip->dbth_state == THREAD_SLOT_NOT_IN_USE ||
 			    ip->dbth_state == THREAD_BLOCKED_DEAD ||
 			    (ip->dbth_state == THREAD_OUT &&
-			    thread->thr_count < thread->thr_max))
+			    thread->thr_count <  thread->thr_max))
 				continue;
-			if (dbenv->is_alive(dbenv, pid, ip->dbth_tid, 0))
+			if (dbenv->is_alive(
+			    dbenv, ip->dbth_pid, ip->dbth_tid, 0))
 				continue;
-			/*
-			 * Now we know that pid is dead, so its slot cannot be
-			 * change from here on, if it is still the pid that we
-			 * checked.  Retry if the slot belongs to another pid.
-			 */
-			if (ip->dbth_pid != pid)
-				goto retry;
                         /*
                          * If a thread died in the API, and neither held any
 			 * exclusive mutexes nor was it interrupted in the
@@ -453,14 +426,8 @@ retry:
 				unpin = 1;
 				continue;
 			}
-			/*
-			 * Mark this thread as having crashed outside of the
-			 * api. It will stay around until __env_clear_state(),
-			 * so that its locks, txns or other resources still 
-			 * have an owner.
-			 */
 			if (ip->dbth_state == THREAD_OUT) {
-				ip->dbth_state = THREAD_OUT_DEAD;
+				ip->dbth_state = THREAD_SLOT_NOT_IN_USE;
 				continue;
 			}
 			/*

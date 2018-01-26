@@ -51,6 +51,11 @@
 #include "dbinc/heap.h"
 #include "dbinc/qam.h"
 
+static int __db_convert_extent
+    __P((ENV *, const char *, u_int32_t, u_int32_t));
+static int __db_convert_extent_names __P((DB *, DBMETA *, char *, char ***));
+static int __db_swap __P((DB *, char *, u_int32_t, DB_FH *, PAGE *, int *));
+
 /*
  * __db_pgin --
  *	Primary page-swap routine.
@@ -439,151 +444,6 @@ __db_encrypt_and_checksum_pg (env, dbp, pagep)
 			 P_32_SWAP(chksum);
 	}
 	return (0);
-}
-
-static int
-__db_swap(dbp, real_name, flags, fhp, h, dirtyp)
-	DB *dbp;
-	char *real_name;
-	u_int32_t flags;
-	DB_FH *fhp;
-	PAGE *h;
-	int *dirtyp;
-{
-	*dirtyp = 1;
-	return __db_pageswap(dbp->env, dbp,
-	    h, dbp->pgsize, NULL, F_ISSET(dbp, DB_AM_SWAP));
-}
-
-static int (* const func_swap[P_PAGETYPE_MAX])
-    __P((DB *, char *, u_int32_t, DB_FH *, PAGE *, int *)) = {
-	NULL,			/* P_INVALID */
-	__db_swap,		/* __P_DUPLICATE */
-	__db_swap,		/* P_HASH_UNSORTED */
-	__db_swap,		/* P_IBTREE */
-	__db_swap,		/* P_IRECNO */
-	__db_swap,		/* P_LBTREE */
-	__db_swap,		/* P_LRECNO */
-	__db_swap,		/* P_OVERFLOW */
-	__db_swap,		/* P_HASHMETA */
-	__db_swap,		/* P_BTREEMETA */
-	__db_swap,		/* P_QAMMETA */
-	__db_swap,		/* P_QAMDATA */
-	__db_swap,		/* P_LDUP */
-	__db_swap,		/* P_HASH */
-	__db_swap,		/* P_HEAPMETA */
-	__db_swap,		/* P_HEAP */
-	__db_swap,		/* P_IHEAP */
-};
-
-/*
- * __db_convert_pp --
- *	DB->convert pre/post processing.
- *
- * PUBLIC: int __db_convert_pp __P((DB *, const char *, u_int32_t));
- */
-int
-__db_convert_pp(dbp, fname, lorder)
-	DB *dbp;
-	const char *fname;
-	u_int32_t lorder;
-{
-	DB_THREAD_INFO *ip;
-	ENV *env;
-	int ret;
-
-	env = dbp->env;
-
-	ENV_ENTER(env, ip);
-	ret = __db_convert(dbp, fname, lorder);
-	ENV_LEAVE(env, ip);
-	return (ret);
-}
-
-/*
- * __db_convert --
- * 	Convert the byte order of a database.
- *
- * PUBLIC: int __db_convert __P((DB *, const char *, u_int32_t));
- */
-int
-__db_convert(dbp, fname, lorder)
-	DB *dbp;
-	const char *fname;
-	u_int32_t lorder;
-{
-	ENV *env;
-	DB_FH *fhp;
-	u_int8_t mbuf[DBMETASIZE];
-	char *real_name;
-	size_t len;
-	u_int32_t native_order, db_order;
-	int t_ret, ret;
-
-	env = dbp->env;
-	fhp = NULL;
-	real_name = NULL;
-	len = 0;
-	ret = t_ret = 0;
-
-	/* Get the real backing file name. */
-	if ((ret = __db_appname(env,
-	    DB_APP_DATA, fname, NULL, &real_name)) != 0)
-		return (ret);
-
-	/* Open the file. */
-	if ((ret = __os_open(env, real_name, 0, 0, 0, &fhp)) != 0) {
-		__db_err(env, ret, "%s", real_name);
-		goto err;
-	}
-
-	/* Read the metadata page. */
-	if ((ret = __fop_read_meta(env, real_name, mbuf, sizeof(mbuf),
-	    fhp, 0, &len)) != 0)
-		goto err;
-
-	native_order = __db_isbigendian() ? 4321 : 1234;
-	db_order = native_order;
-	F_CLR(dbp, DB_AM_SWAP);
-
-	/* Get the byte order of the database file. */
-order_retry:
-	switch (((DBMETA *)mbuf)->magic) {
-	case DB_BTREEMAGIC:
-	case DB_HASHMAGIC:
-	case DB_HEAPMAGIC:
-	case DB_QAMMAGIC:
-	case DB_RENAMEMAGIC:
-		break;
-	default:
-		if (db_order != native_order) {
-			/* It's been swapped, so it isn't a BDB file. */
-			ret = USR_ERR(env, EINVAL);
-			goto err;
-		}
-		/* Swap the magic, pagesize and byte order and retry. */
-		M_32_SWAP(((DBMETA *)mbuf)->magic);
-		M_32_SWAP(((DBMETA *)mbuf)->pagesize);
-		F_SET(dbp, DB_AM_SWAP);
-		db_order = native_order == 1234 ? 4321 : 1234;
-		goto order_retry;
-	}
-
-	if (db_order != lorder) {
-		memcpy(&dbp->pgsize,
-		    &((DBMETA *)mbuf)->pagesize, sizeof(u_int32_t));
-		if ((ret = __db_page_pass(dbp,
-		    real_name, 0, func_swap, fhp)) != 0)
-			goto err;
-		ret = __os_fsync(env, fhp);
-	}
-
-err:	if (fhp != NULL &&
-	    (t_ret = __os_closehandle(env, fhp)) != 0 && ret == 0)
-		ret = t_ret;
-	__os_free(env, real_name);
-
-	return (ret);
 }
 
 /*
@@ -1158,4 +1018,266 @@ __db_recordswap(op, size, hdr, data, pgin)
 	default:
 		DB_ASSERT(NULL, op != op);
 	}
+}
+
+/*
+ * __db_swap --
+ *	Swap the byte order for a page. Used by __db_page_pass.
+ */
+static int
+__db_swap(dbp, real_name, flags, fhp, h, dirtyp)
+	DB *dbp;
+	char *real_name;
+	u_int32_t flags;
+	DB_FH *fhp;
+	PAGE *h;
+	int *dirtyp;
+{
+	COMPQUIET(real_name, NULL);
+	COMPQUIET(flags, 0);
+	COMPQUIET(fhp, NULL);
+	*dirtyp = 1;
+	return __db_pageswap(dbp->env, dbp,
+	    h, dbp->pgsize, NULL, !F_ISSET(dbp, DB_AM_SWAP));
+}
+
+static int (* const func_swap[P_PAGETYPE_MAX])
+    __P((DB *, char *, u_int32_t, DB_FH *, PAGE *, int *)) = {
+	NULL,			/* P_INVALID */
+	__db_swap,		/* __P_DUPLICATE */
+	__db_swap,		/* P_HASH_UNSORTED */
+	__db_swap,		/* P_IBTREE */
+	__db_swap,		/* P_IRECNO */
+	__db_swap,		/* P_LBTREE */
+	__db_swap,		/* P_LRECNO */
+	__db_swap,		/* P_OVERFLOW */
+	__db_swap,		/* P_HASHMETA */
+	__db_swap,		/* P_BTREEMETA */
+	__db_swap,		/* P_QAMMETA */
+	__db_swap,		/* P_QAMDATA */
+	__db_swap,		/* P_LDUP */
+	__db_swap,		/* P_HASH */
+	__db_swap,		/* P_HEAPMETA */
+	__db_swap,		/* P_HEAP */
+	__db_swap,		/* P_IHEAP */
+};
+
+/*
+ * __db_convert_pp --
+ *	DB->convert pre/post processing.
+ *
+ * PUBLIC: int __db_convert_pp __P((DB *, const char *, u_int32_t));
+ */
+int
+__db_convert_pp(dbp, fname, lorder)
+	DB *dbp;
+	const char *fname;
+	u_int32_t lorder;
+{
+	DB_THREAD_INFO *ip;
+	ENV *env;
+	int ret;
+
+	env = dbp->env;
+
+	ENV_ENTER(env, ip);
+	ret = __db_convert(dbp, fname, lorder);
+
+#ifdef HAVE_SLICES
+	if (ret == 0)
+		ret = __db_slice_process(dbp, fname, lorder,
+		    __db_convert_pp, "db_convert");
+#endif
+
+	ENV_LEAVE(env, ip);
+	return (ret);
+}
+
+/*
+ * __db_convert_extent --
+ *	Convert the byte order of each database extent (a queue or partition
+ * 	extent).
+ */
+static int
+__db_convert_extent(env, fname, pagesize, flags)
+	ENV *env;
+	const char *fname;
+	u_int32_t pagesize;
+	u_int32_t flags;
+{
+	DB *dbp;
+	DB_FH *fhp;
+	char *real_name;
+	int ret, t_ret;
+
+	dbp = NULL;
+	fhp = NULL;
+	ret = t_ret = 0;
+
+	/* Get the real backing file name. */
+	if ((ret = __db_appname(env,
+	    DB_APP_DATA, fname, NULL, &real_name)) != 0)
+		return (ret);
+
+	/* Open the file. */
+	if ((ret = __os_open(env, real_name, 0, 0, 0, &fhp)) != 0) {
+		__db_err(env, ret, "%s", real_name);
+		goto err;
+	}
+
+	if ((ret = __db_create_internal(&dbp, env, 0)) != 0)
+		goto err;
+
+	dbp->pgsize = pagesize;
+	dbp->flags = flags;
+
+	if ((ret = __db_page_pass(dbp,
+	    real_name, 0, func_swap, fhp, DB_CONVERT)) != 0)
+		goto err;
+	ret = __os_fsync(env, fhp);
+
+err:	
+	if (fhp != NULL && 
+	    (t_ret = __os_closehandle(env, fhp)) != 0 && ret == 0)
+		ret = t_ret;
+	if (dbp != NULL && (t_ret = __db_close(dbp, NULL, 0) != 0) && ret == 0)
+		ret = t_ret;
+	__os_free(env, real_name);
+
+	return (ret);
+}
+
+static int
+__db_convert_extent_names(dbp, mbuf, fname, namelistp)
+	DB *dbp;
+	DBMETA *mbuf;
+	char *fname;
+	char ***namelistp;
+{
+	ENV *env;
+
+	env = dbp->env;
+	*namelistp = NULL;
+
+	switch(mbuf->magic) {
+	case DB_BTREEMAGIC:
+	case DB_HASHMAGIC:
+#ifdef HAVE_PARTITION
+		if (dbp->p_internal != NULL) {
+			return __partition_extent_names(dbp, fname, namelistp);
+		}
+#endif
+		break;
+	case DB_QAMMAGIC:
+		if (F_ISSET(dbp, DB_AM_CHKSUM) &&
+		    ((QMETA*)mbuf)->page_ext != 0) {
+			return __qam_extent_names(env, fname, namelistp);
+		}
+		break;
+	case DB_HEAPMAGIC:
+	default:
+		break;
+	}
+
+	return (0);
+}
+
+/*
+ * __db_convert --
+ * 	Convert the byte order of a database.
+ *
+ * PUBLIC: int __db_convert __P((DB *, const char *, u_int32_t));
+ */
+int
+__db_convert(dbp, fname, lorder)
+	DB *dbp;
+	const char *fname;
+	u_int32_t lorder;
+{
+	ENV *env;
+	DB_FH *fhp;
+	u_int8_t mbuf[DBMETASIZE];
+	char *real_name, **extent_names, **ename;
+	size_t len;
+	u_int32_t db_order;
+	int t_ret, ret;
+
+	env = dbp->env;
+	fhp = NULL;
+	extent_names = NULL;
+	real_name = NULL;
+	len = 0;
+	ret = t_ret = 0;
+
+	/* Get the real backing file name. */
+	if ((ret = __db_appname(env,
+	    DB_APP_DATA, fname, NULL, &real_name)) != 0)
+		return (ret);
+
+	/* Open the file. */
+	if ((ret = __os_open(env, real_name, 0, 0, 0, &fhp)) != 0) {
+		__db_err(env, ret, "%s", real_name);
+		goto err;
+	}
+
+	/* Read the metadata page. */
+	if ((ret = __fop_read_meta(env, real_name, mbuf, sizeof(mbuf),
+	    fhp, 0, &len)) != 0)
+		goto err;
+
+	switch (__db_needswap(((DBMETA *)mbuf)->magic)) {
+	case 0:
+		db_order = __db_isbigendian() ? 4321 : 1234;
+		F_SET(dbp, DB_AM_SWAP);
+		break;
+	case DB_SWAPBYTES:
+		db_order = __db_isbigendian() ? 1234 : 4321;
+		M_32_SWAP(((DBMETA *)mbuf)->magic);
+		M_32_SWAP(((DBMETA *)mbuf)->pagesize);
+		F_CLR(dbp, DB_AM_SWAP);
+		break;
+	default:
+		ret = USR_ERR(env, EINVAL);
+		goto err;
+	}
+
+	if (db_order != lorder) {
+		dbp->pgsize = ((DBMETA*)mbuf)->pagesize;
+		if (FLD_ISSET(((DBMETA *)mbuf)->metaflags, DBMETA_CHKSUM))
+			F_SET(dbp, DB_AM_CHKSUM);
+		if (((DBMETA*)mbuf)->encrypt_alg != 0) {
+			if (!CRYPTO_ON(dbp->env)) {
+				ret = USR_ERR(env, EINVAL);
+				__db_errx(env, DB_STR("0667",
+"Attempt to convert an encrypted database without providing a password."));
+				goto err;
+			}
+			F_SET(dbp, DB_AM_ENCRYPT);
+		}
+		if ((ret = __db_page_pass(dbp,
+		    real_name, 0, func_swap, fhp, DB_CONVERT)) != 0)
+			goto err;
+		ret = __os_fsync(env, fhp);
+
+		if ((ret = __db_convert_extent_names(dbp,
+		    (DBMETA*)mbuf, (char*)fname, &extent_names)) != 0)
+			goto err;
+		if (extent_names != NULL) {
+			for (ename = extent_names; *ename != NULL; ename++) {
+				if ((t_ret = __db_convert_extent(env, *ename,
+				    dbp->pgsize, dbp->flags)) != 0 && ret == 0)
+					ret = t_ret;
+			}
+		}
+	}
+
+err:	if (fhp != NULL &&
+	    (t_ret = __os_closehandle(env, fhp)) != 0 && ret == 0)
+		ret = t_ret;
+	if (real_name != NULL)
+		__os_free(env, real_name);
+	if (extent_names != NULL)
+		__os_free(env, extent_names);
+
+	return (ret);
 }

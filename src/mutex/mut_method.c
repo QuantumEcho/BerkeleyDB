@@ -424,59 +424,37 @@ static inline db_mutex_t atomic_get_mutex(env, v)
 }
 
 /*
- * __atomic_inc
- *	Use a mutex to provide an atomic increment function
+ * __atomic_add_int
+ *	Use a mutex to provide an atomic add function
  *
  * PUBLIC: #if !defined(HAVE_ATOMIC_SUPPORT) && defined(HAVE_MUTEX_SUPPORT)
- * PUBLIC: atomic_value_t __atomic_inc __P((ENV *, db_atomic_t *));
+ * PUBLIC: atomic_value_t __atomic_add_int __P((ENV *, db_atomic_t *, int));
  * PUBLIC: #endif
  */
 atomic_value_t
-__atomic_inc(env, v)
+__atomic_add_int(env, v, delta)
 	ENV *env;
 	db_atomic_t *v;
+	int delta;
 {
 	db_mutex_t mtx;
 	int ret;
 
 	mtx = atomic_get_mutex(env, v);
 	MUTEX_LOCK(env, mtx);
-	ret = ++v->value;
+	v->value += delta;
+	ret = v->value;
 	MUTEX_UNLOCK(env, mtx);
 
 	return (ret);
 }
 
 /*
- * __atomic_dec
+ * __atomic_compare_exchange_int
  *	Use a mutex to provide an atomic decrement function
  *
  * PUBLIC: #if !defined(HAVE_ATOMIC_SUPPORT) && defined(HAVE_MUTEX_SUPPORT)
- * PUBLIC: atomic_value_t __atomic_dec __P((ENV *, db_atomic_t *));
- * PUBLIC: #endif
- */
-atomic_value_t
-__atomic_dec(env, v)
-	ENV *env;
-	db_atomic_t *v;
-{
-	db_mutex_t mtx;
-	int ret;
-
-	mtx = atomic_get_mutex(env, v);
-	MUTEX_LOCK(env, mtx);
-	ret = --v->value;
-	MUTEX_UNLOCK(env, mtx);
-
-	return (ret);
-}
-
-/*
- * atomic_compare_exchange
- *	Use a mutex to provide an atomic decrement function
- *
- * PUBLIC: #if !defined(HAVE_ATOMIC_SUPPORT) && defined(HAVE_MUTEX_SUPPORT)
- * PUBLIC: int atomic_compare_exchange
+ * PUBLIC: int __atomic_compare_exchange_int
  * PUBLIC:     __P((ENV *, db_atomic_t *, atomic_value_t, atomic_value_t));
  * PUBLIC: #endif
  *	Returns 1 if the *v was equal to oldval, else 0
@@ -485,7 +463,7 @@ __atomic_dec(env, v)
  *		Sets the value to newval if and only if returning 1
  */
 int
-atomic_compare_exchange(env, v, oldval, newval)
+__atomic_compare_exchange_int(env, v, oldval, newval)
 	ENV *env;
 	db_atomic_t *v;
 	atomic_value_t oldval;

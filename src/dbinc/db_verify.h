@@ -29,7 +29,7 @@ extern "C" {
 
 /* Complain about a totally zeroed page where we don't expect one. */
 #define	ZEROPG_ERR_PRINT(dbenv, pgno, str) do {				\
-	EPRINT(((dbenv), DB_STR_A("0501", 				\
+	EPRINT(((dbenv), DB_STR_A("0501",				\
 	    "Page %lu: %s is of inappropriate type %lu", "%lu %s %lu"),	\
 	    (u_long)(pgno), str, (u_long)P_INVALID));			\
 	EPRINT(((dbenv), DB_STR_A("0502",				\
@@ -173,16 +173,17 @@ struct __vrfy_pageinfo {
 #define	VRFY_HAS_PART_RANGE	0x00010	/* Has the flag set. */
 #define	VRFY_HAS_PART_CALLBACK	0x00020	/* Has the flag set. */
 #define	VRFY_HAS_RECNUMS	0x00040
-#define	VRFY_HAS_SUBDBS		0x00080
-#define	VRFY_INCOMPLETE		0x00100	/* Meta or item order checks incomp. */
-#define	VRFY_IS_ALLZEROES	0x00200	/* Hash page we haven't touched? */
-#define	VRFY_IS_FIXEDLEN	0x00400
-#define	VRFY_IS_RECNO		0x00800
-#define	VRFY_IS_RRECNO		0x01000
-#define	VRFY_ITEM_BAD		0x02000	/* The page has a bad inp or item. */
-#define	VRFY_OVFL_LEAFSEEN	0x04000
-#define	VRFY_HAS_COMPRESS	0x08000
-#define	VRFY_NONEXISTENT	0x10000
+#define	VRFY_HAS_SLICES		0x00080
+#define	VRFY_HAS_SUBDBS		0x00100
+#define	VRFY_INCOMPLETE		0x00200	/* Meta or item order checks incomp. */
+#define	VRFY_IS_ALLZEROES	0x00400	/* Hash page we haven't touched? */
+#define	VRFY_IS_FIXEDLEN	0x00800
+#define	VRFY_IS_RECNO		0x01000
+#define	VRFY_IS_RRECNO		0x02000
+#define	VRFY_ITEM_BAD		0x04000	/* The page has a bad inp or item. */
+#define	VRFY_OVFL_LEAFSEEN	0x08000
+#define	VRFY_HAS_COMPRESS	0x10000
+#define	VRFY_NONEXISTENT	0x20000
 	u_int32_t	flags;
 
 	LIST_ENTRY(__vrfy_pageinfo) links;

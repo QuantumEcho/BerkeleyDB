@@ -110,7 +110,7 @@ __lock_inherit_timeout(env, parent, locker)
 	if (parent == NULL ||
 	    (timespecisset(&parent->tx_expire) &&
 	    !F_ISSET(parent, DB_LOCKER_TIMEOUT))) {
-		ret = EINVAL;
+		ret = USR_ERR(env, EINVAL);
 		goto err;
 	}
 
@@ -120,7 +120,7 @@ __lock_inherit_timeout(env, parent, locker)
 		locker->lk_timeout = parent->lk_timeout;
 		F_SET(locker, DB_LOCKER_TIMEOUT);
 		if (!timespecisset(&parent->tx_expire))
-			ret = EINVAL;
+			ret = USR_ERR(env, EINVAL);
 	}
 
 err:	LOCK_REGION_UNLOCK(env);

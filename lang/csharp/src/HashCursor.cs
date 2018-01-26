@@ -21,11 +21,11 @@ namespace BerkeleyDB {
 
         /// <summary>
         /// Create a database stream pointing to a key/value pair where the
-        /// data item is a blob.
+        /// data item is an external file.
         /// </summary>
         /// <returns>A newly created database stream</returns>
         /// <exception cref="DatabaseException">
-        /// Thrown if the data item is not a blob.
+        /// Thrown if the data item is not an external file.
         /// </exception>
         public DatabaseStream DbStream() {
             return DbStream(new DatabaseStreamConfig());
@@ -33,7 +33,7 @@ namespace BerkeleyDB {
 
         /// <summary>
         /// Create a database stream pointing to a key/value pair where the
-        /// data item is a blob with the given configuration.
+        /// data item is an external file with the given configuration.
         /// </summary>
         /// <param name="cfg">
         /// The configuration properties for the database stream.
@@ -41,7 +41,7 @@ namespace BerkeleyDB {
         /// <returns>A newly created database stream</returns>
         /// <exception cref="DatabaseException">
         /// Thrown if the data of the key/value pair it is pointing to is not
-        /// a blob.
+        /// an external file.
         /// </exception>
         public DatabaseStream DbStream(DatabaseStreamConfig cfg) {
             return new DatabaseStream(dbc.db_stream(cfg.flags), cfg);

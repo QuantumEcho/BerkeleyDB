@@ -583,7 +583,7 @@ err:	if (h != NULL && (t_ret = __memp_fput(mpf,
 
 	PERFMON4(dbp->env, alloc, free, dbp->fname, dbp->dname, pgno, ret);
 	/*
-	 * XXX
+	 * !!!
 	 * We have to unlock the caller's page in the caller!
 	 */
 	return (ret);

@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 12.1.6.1</p>
+        <p>Library Version 12.1.6.2</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -40,22 +40,22 @@
         <dl>
           <dt>
             <span class="sect2">
-              <a href="intro_dbisnot.html#idm140495775699632">Berkeley DB is not a relational database</a>
+              <a href="intro_dbisnot.html#idm140526461042080">Berkeley DB is not a relational database</a>
             </span>
           </dt>
           <dt>
             <span class="sect2">
-              <a href="intro_dbisnot.html#idm140495775780512">Berkeley DB is not an object-oriented database</a>
+              <a href="intro_dbisnot.html#idm140526461145408">Berkeley DB is not an object-oriented database</a>
             </span>
           </dt>
           <dt>
             <span class="sect2">
-              <a href="intro_dbisnot.html#idm140495775829456">Berkeley DB is not a network database</a>
+              <a href="intro_dbisnot.html#idm140526461156096">Berkeley DB is not a network database</a>
             </span>
           </dt>
           <dt>
             <span class="sect2">
-              <a href="intro_dbisnot.html#idm140495775883776">Berkeley DB is not a database server</a>
+              <a href="intro_dbisnot.html#idm140526461290752">Berkeley DB is not a database server</a>
             </span>
           </dt>
         </dl>
@@ -125,14 +125,14 @@
         to treat large objects in a special way, so that they are
         accessed in a more efficient manner. Note that these
         specially-treated large objects are not confined to the four
-        gigabyte limit used for other database objects. See <a class="xref" href="blobs.html" title="BLOB support">BLOB support</a> for more
+        gigabyte limit used for other database objects. See <a class="xref" href="blobs.html" title="External File support">External File support</a> for more
         information. 
     </p>
       <div class="sect2" lang="en" xml:lang="en">
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140495775699632"></a>Berkeley DB is not a relational database</h3>
+              <h3 class="title"><a id="idm140526461042080"></a>Berkeley DB is not a relational database</h3>
             </div>
           </div>
         </div>
@@ -220,7 +220,7 @@
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140495775780512"></a>Berkeley DB is not an object-oriented database</h3>
+              <h3 class="title"><a id="idm140526461145408"></a>Berkeley DB is not an object-oriented database</h3>
             </div>
           </div>
         </div>
@@ -249,7 +249,7 @@
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140495775829456"></a>Berkeley DB is not a network database</h3>
+              <h3 class="title"><a id="idm140526461156096"></a>Berkeley DB is not a network database</h3>
             </div>
           </div>
         </div>
@@ -268,7 +268,7 @@
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140495775883776"></a>Berkeley DB is not a database server</h3>
+              <h3 class="title"><a id="idm140526461290752"></a>Berkeley DB is not a database server</h3>
             </div>
           </div>
         </div>
@@ -282,7 +282,12 @@
             interfere with one another. 
         </p>
         <p> 
-            It is possible to build a server application that uses
+            Berkeley DB does support the client-server architecture by 
+            providing a stand-alone server program and client driver APIs.
+            For more information, see <a class="xref" href="bdb_server.html" title="Chapter 6. Berkeley DB Server">Berkeley DB Server</a>.
+        </p>
+        <p> 
+            It is also possible to build a server application that uses
             Berkeley DB for data management. For example, many
             commercial and open source Lightweight Directory Access
             Protocol (LDAP) servers use Berkeley DB for record

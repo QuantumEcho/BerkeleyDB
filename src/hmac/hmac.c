@@ -18,9 +18,6 @@
 #include "dbinc/hmac.h"
 #include "dbinc/log.h"
 
-#define	HMAC_OUTPUT_SIZE	20
-#define	HMAC_BLOCK_SIZE	64
-
 static void __db_hmac __P((u_int8_t *, u_int8_t *, size_t, u_int8_t *));
 
 /*

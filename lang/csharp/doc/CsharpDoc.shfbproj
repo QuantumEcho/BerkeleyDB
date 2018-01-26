@@ -24,7 +24,7 @@
     <MissingTags>AutoDocumentCtors</MissingTags>
     <VisibleItems>InheritedMembers, InheritedFrameworkMembers</VisibleItems>
     <DocumentationSources>
-      <DocumentationSource sourceFile="..\src\db_dotnet.csproj" />
+      <DocumentationSource sourceFile="..\src\VS8\db_dotnet.csproj" />
     </DocumentationSources>
     <FeedbackEMailLinkText>
     </FeedbackEMailLinkText>

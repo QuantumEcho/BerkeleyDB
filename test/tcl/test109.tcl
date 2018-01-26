@@ -412,6 +412,10 @@ proc test_sequence_args_combine { tnum method env txnenv sargs filetype\
 		error_check_good err_txn_commit [$err_txn_id commit] 0
 		error_check_good err_env_close [$err_env close] 0
 	}
+
+	if { $is_qnx_test } {
+		fileremove -f $err_env_home
+	}
 }
 
 proc test_with_db_args { err_txn_id sargs env omethod testfile rdflag\

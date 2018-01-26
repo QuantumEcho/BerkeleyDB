@@ -139,8 +139,24 @@ __envreg_register(env, need_recoveryp, flags)
 	if (FLD_ISSET(dbenv->verbose, DB_VERB_REGISTER))
 		__db_msg(env, DB_STR_A("1524",
 		    "%lu: register environment", "%lu"), (u_long)pid);
-	if ((ret = __envreg_registry_open(env, &pp, DB_OSO_CREATE)) != 0)
- 		goto err;
+
+	/* Build the path name and open the registry file. */
+	if ((ret = __db_appname(env,
+	    DB_APP_NONE, REGISTER_FILE, NULL, &pp)) != 0)
+		goto err;
+	if ((ret = __os_open(env, pp, 0,
+	    DB_OSO_CREATE, DB_MODE_660, &dbenv->registry)) != 0)
+		goto err;
+
+	/*
+	 * Wait for an exclusive lock on the file.
+	 *
+	 * !!!
+	 * We're locking bytes that don't yet exist, but that's OK as far as
+	 * I know.
+	 */
+	if ((ret = REGISTRY_EXCL_LOCK(env, 0)) != 0)
+		goto err;
 
 	/*
 	 * If the file size is 0, initialize the file.
@@ -175,7 +191,9 @@ err:
 		 * !!!
 		 * Closing the file handle must release all of our locks.
 		 */
-		(void)__envreg_registry_close(env);
+		if (dbenv->registry != NULL)
+			(void)__os_closehandle(env, dbenv->registry);
+		dbenv->registry = NULL;
 	}
 	if (pp != NULL)
 		__os_free(env, pp);
@@ -312,11 +330,11 @@ kill_all:	/*
 	}
 
 	/* Check for a panic; if so there's no need to call failchk. */
-	if ((t_ret = __env_attach(env, NULL, 0, 0)) != 0)
+	if (__env_attach(env, NULL, 0, 0) != 0)
 		goto sig_proc;
 	infop = env->reginfo;
 	renv = infop->primary;
-	*need_recoveryp = renv->envid != env->envid;
+	*need_recoveryp = renv->panic != 0;
 	(void)__env_detach(env, 0);
 	if (*need_recoveryp)
 		return (0);
@@ -338,9 +356,10 @@ kill_all:	/*
 				__db_msg(env,
 				    "%lu: performing failchk", (u_long)pid);
 
-			if (LF_ISSET(DB_FAILCHK_ISALIVE) && (ret =
-			    __envreg_create_active_pid(env, pid_buf)) != 0)
-				goto sig_proc;
+			if (LF_ISSET(DB_FAILCHK_ISALIVE))
+				if ((ret = __envreg_create_active_pid(
+				    env, pid_buf)) != 0)
+					goto sig_proc;
 
 			/*
 			 * The environment will already exist, so we do not
@@ -356,9 +375,8 @@ kill_all:	/*
 			F_SET(dbenv, DB_ENV_FAILCHK);
 			/* Attach to environment and subsystems. */
 			if ((ret = __env_attach_regions(
-			    dbenv, flags, orig_flags, 0)) != 0) {
+			    dbenv, flags, orig_flags, 0)) != 0)
 				goto sig_proc;
-			}
 			if ((t_ret = __env_set_state(env,
 			   &ip, THREAD_FAILCHK)) != 0 && ret == 0)
 				ret = t_ret;
@@ -408,7 +426,7 @@ sig_proc:
 			 * mechanism in the code that everything looks for.
 			 */
 			renv->reg_panic = 1;
-			renv->envid = ENVID_PANIC;
+			renv->panic = 1;
 			(void)__env_detach(env, 0);
 		}
 
@@ -492,68 +510,6 @@ add:	if ((ret = __os_seek(env, dbenv->registry, 0, 0, 0)) != 0)
 }
 
 /*
- * __envreg_unregister_pid --
- *	Unregister a process by pid, optionally with its offset in the registry.
- *
- * Parameters:
- *	If the caller knows the entry's loation in the registry, they can pass
- *	it in via 'offset'. If not known, pass in 0.
- *
- * PUBLIC: int __envreg_unregister_pid __P((ENV *, pid_t, u_int32_t));
- */
-int
-__envreg_unregister_pid(env, pid, offset)
-	ENV *env;
-	pid_t  pid;
-	u_int32_t offset;
-{
-	DB_FH *registry;
-	size_t nbytes;
-	int ret;
-	char buf[PID_LEN];
-
-	registry = env->dbenv->registry;
-	if (offset != 0) {
-		/* Verify that the pid is at the specified offset. */
-		if ((ret = __os_io(env, DB_IO_READ,
-		    registry, 0, 0, offset, PID_LEN, (u_int8_t *)buf, &nbytes)) != 0)
-		    	goto err;
-		if (nbytes != PID_LEN || pid != (pid_t)strtoul(buf, NULL, 10)) {
-not_found:
-			ret = USR_ERR(env, DB_NOTFOUND);
-			__db_errx(env, "__envreg_unregister_pid: %lu not found",
-				    (u_long)pid);
-			goto err;
-		}
-	} else {
-		/*
-		 * The caller did not tell us where to find the process, so
-		 * search for it.
-		 */
-		if ((ret = __os_seek(env, registry, 0, 0, 0)) != 0)
-			goto err;
-		for (;;) {
-			if ((ret = __os_read(
-			    env, registry, buf, PID_LEN, &nbytes)) != 0)
-				goto err;
-			/*
-			 * A too-short record means that we reached EOF without
-			 * finding the process.
-			 */
-			if (nbytes != PID_LEN)
-				goto not_found;
-			if (pid == (pid_t)strtoul(buf, NULL, 10))
-				break;
-			offset += PID_LEN;
-		}
-	}
-	ret = __os_io(env, DB_IO_WRITE,
-	    registry, 0, 0, offset, PID_LEN, (u_int8_t *)PID_EMPTY, &nbytes);
-err:
-	return (ret);
-}
-
-/*
  * __envreg_unregister --
  *	Unregister a ENV handle.
  *
@@ -565,6 +521,7 @@ __envreg_unregister(env, recovery_failed)
 	int recovery_failed;
 {
 	DB_ENV *dbenv;
+	size_t nw;
 	int ret, t_ret;
 
 	dbenv = env->dbenv;
@@ -586,8 +543,10 @@ __envreg_unregister(env, recovery_failed)
 	 * lock, and threads of control reviewing the register file ignore any
 	 * slots which they can't lock.
 	 */
-	if ((ret = __envreg_unregister_pid(env,
-	    env->pid_cache, dbenv->registry_off)) != 0)
+	if ((ret = __os_seek(env,
+	    dbenv->registry, 0, 0, dbenv->registry_off)) != 0 ||
+	    (ret = __os_write(
+	    env, dbenv->registry, PID_EMPTY, PID_LEN, &nw)) != 0)
 		goto err;
 
 	/*
@@ -604,90 +563,13 @@ __envreg_unregister(env, recovery_failed)
 	 * don't think.
 	 */
 err:
-	if ((t_ret = __envreg_registry_close(env)) != 0 && ret == 0)
+	if (dbenv->registry != NULL &&
+	    (t_ret = __os_closehandle(env, dbenv->registry)) != 0 && ret == 0)
 		ret = t_ret;
 
 	dbenv->registry = NULL;
 	return (ret);
 }
-
-/*
- * __envreg_registry_open --
- *	Open the registry file, possibly creating it if the open mode contains
- *	DB_OSO_CREATE. Obtain an exclusive lock on the registry.
- *
- * PUBLIC: int __envreg_registry_open __P((ENV *, char **, u_int32_t));
- */
-int
-__envreg_registry_open(env, namep, os_open_flags)
-	ENV *env;
-	char **namep;
-	u_int32_t os_open_flags;
-{
-	int ret;
-
-	ret = 0;
-
-	/* Build the path name and open the registry file. */
-	if ((ret = __db_appname(env,
-	    DB_APP_NONE, REGISTER_FILE, NULL, namep)) != 0) {
-		__db_err(env, ret,
-		    "__envreg_register_open: appname failed for %s",
-		    REGISTER_FILE);
-		goto err;
-	}
-	if ((ret = __os_open(env, *namep, 0,
-	    os_open_flags, DB_MODE_660, &env->dbenv->registry)) != 0) {
-		if (ret != ENOENT)
-			__db_err(env, ret,
-			    "__envreg_register_open failed for %s", *namep);
-		goto err;
-	}
-
-	/*
-	 * Wait for an exclusive lock on the file.
-	 *
-	 * !!!
-	 * We're locking bytes that don't yet exist, but that's OK as far as
-	 * I know.
-	 */
-	if ((ret = REGISTRY_EXCL_LOCK(env, 0)) != 0)
-		goto err;
-	if (FLD_ISSET(env->dbenv->verbose, DB_VERB_REGISTER))
-		__db_msg(env, "opened registry %s", *namep);
-	if (0) {
-err:
-		(void)__envreg_registry_close(env);
-		if (*namep != NULL) {
-			__os_free(env, *namep);
-			*namep = NULL;
-		}
-	}
-	return (ret);
-}
-
-
-/*
- * __envreg_registry_close --
- *	Close the registry file, if any. That also releases any registry lock.
- *
- * PUBLIC: int __envreg_registry_close __P((ENV *));
- */
-int
-__envreg_registry_close(env)
-	ENV *env;
-{
-	DB_ENV *dbenv;
-	int ret;
-
-	ret = 0;
-	dbenv = env->dbenv;
-	if (dbenv->registry != NULL) {
-		ret = __os_closehandle(env, dbenv->registry);
-		dbenv->registry = NULL;
-	}
- 	return (ret);
- }
 
 /*
  * __envreg_xunlock --
@@ -842,7 +724,8 @@ __envreg_create_active_pid(env, my_pid)
 
 /*
  * __envreg_add_active_pid --
- *	Add an active pid into array, if need more room in array then double size.
+ *	Add an active pid into array, if need more room in array
+ *	then double size.
  */
 static int
 __envreg_add_active_pid(env, pid)

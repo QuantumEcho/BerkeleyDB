@@ -16,7 +16,7 @@
 #include "dbinc_auto/sequence_ext.h"
 
 static int __blob_open_meta_db __P((
-    DB *, DB_TXN *, DB **, DB_SEQUENCE **, int, int));
+    DB *, DB_TXN *, DB **, DB_SEQUENCE **, int, int, int));
 static int __blob_clean_dir
     __P((ENV *, DB_TXN *, const char *, const char *, int));
 static int __blob_copy_dir __P((DB *, const char *, const char *));
@@ -52,7 +52,7 @@ __blob_make_sub_dir(env, blob_sub_dir, file_id, db_id)
 		return (0);
 
 	if (db_id < 0 || file_id < 0)
-		return (EINVAL);
+		return (USR_ERR(env, EINVAL));
 
 	/* The master db has no subdb id. */
 	if (db_id != 0)
@@ -161,13 +161,14 @@ err:	if (blob_dir != NULL)
  *	the per-db db used to generate blob ids (__db.bl001).
  */
 static int
-__blob_open_meta_db(dbp, txn, meta_db, seq, file, create)
+__blob_open_meta_db(dbp, txn, meta_db, seq, file, create, force_txn)
 	DB *dbp;
 	DB_TXN *txn;
 	DB **meta_db;
 	DB_SEQUENCE **seq;
 	int file;
 	int create;
+	int force_txn;
 {
 #ifdef HAVE_64BIT_TYPES
 	ENV *env;
@@ -216,21 +217,13 @@ __blob_open_meta_db(dbp, txn, meta_db, seq, file, create)
 		goto err;
 
 	path = fullname;
-#ifdef DB_WIN32
-	/*
-	 * Absolute paths on windows can result in it creating a "C" or "D"
-	 * directory in the working directory.
-	 */
-	if (__os_abspath(path))
-		path += 2;
-#endif
 	/*
 	 * Create the blob, database file, and database name directories. The
 	 * mkdir isn't logged, so __fop_create_recover needs to do this as well.
 	 */
 	if (__os_exists(env, fullname, NULL) != 0) {
 	    if (!create) {
-		    ret = ENOENT;
+		    ret = USR_ERR(env, ENOENT);
 		    goto err;
 	    } else if ((ret = __db_mkpath(env, path)) != 0)
 		    goto err;
@@ -239,8 +232,20 @@ __blob_open_meta_db(dbp, txn, meta_db, seq, file, create)
 	if ((ret = __db_create_internal(&blob_meta_db, env, 0)) != 0)
 		goto err;
 
-	if (create)
+	if (create) {
 		LF_SET(DB_CREATE);
+		/*
+		 * Make the pagesize of the meta database the same as that
+		 * of the dbp passed in.  For the environment-wide db this
+		 * will be the first database created.  For a per-db db
+		 * this will be the owning database.
+		 */
+		if (dbp->pgsize != 0) {
+			if ((ret = __db_set_pagesize(
+			    blob_meta_db, dbp->pgsize)) != 0)
+				goto err;
+		}
+	}
 
 	/* Disable blobs in the blob meta databases themselves. */
 	if ((ret = __db_set_blob_threshold(blob_meta_db, 0, 0)) != 0)
@@ -248,13 +253,17 @@ __blob_open_meta_db(dbp, txn, meta_db, seq, file, create)
 
 	/*
 	 * To avoid concurrency issues, the blob meta database is
-	 * opened and operated on in a local transaction.  The one
+	 * opened and operated on in a local transaction.  One
 	 * exception is when the blob meta database is created in the
 	 * same txn as the parent db.  Then the blob meta database
 	 * shares the given txn, so if the txn is rolled back, the
 	 * creation of the blob meta database will also be rolled back.
+	 * Another exception is when the master in replication opens
+	 * the meta database to find the highest blob id. In that case
+	 * it needs to be able to roll back the open call so the log
+	 * is not propagated to the clients.
 	 */
-	if (!file && IS_REAL_TXN(dbp->cur_txn))
+	if ((!file && IS_REAL_TXN(dbp->cur_txn)) || force_txn)
 		use_txn = 1;
 
 	ENV_GET_THREAD_INFO(env, ip);
@@ -308,7 +317,7 @@ err:
 
 #else /*HAVE_64BIT_TYPES*/
 	__db_errx(dbp->env, DB_STR("0217",
-	    "library build did not include support for blobs"));
+	    "library build did not include support for external files"));
 	return (DB_OPNOTSUP);
 #endif
 }
@@ -342,7 +351,7 @@ __blob_generate_dir_ids(dbp, txn, id)
 	blob_seq = NULL;
 
 	if ((ret = __blob_open_meta_db(
-	    dbp, txn, &blob_meta_db, &blob_seq, 1, 1)) != 0)
+	    dbp, txn, &blob_meta_db, &blob_seq, 1, 1, 0)) != 0)
 		goto err;
 
 	if (IS_REAL_TXN(txn))
@@ -363,7 +372,7 @@ err:	if (blob_seq != NULL)
 	COMPQUIET(dbp, NULL);
 	COMPQUIET(txn, NULL);
 	__db_errx(dbp->env, DB_STR("0218",
-	    "library build did not include support for blobs"));
+	    "library build did not include support for external files"));
 	return (DB_OPNOTSUP);
 #endif
 }
@@ -389,7 +398,7 @@ __blob_generate_id(dbp, txn, blob_id)
 
 	if (dbp->blob_seq == NULL) {
 		if ((ret = __blob_open_meta_db(dbp, txn,
-		    &dbp->blob_meta_db, &dbp->blob_seq, 0, 1)) != 0)
+		    &dbp->blob_meta_db, &dbp->blob_seq, 0, 1, 0)) != 0)
 			goto err;
 	}
 
@@ -411,7 +420,7 @@ err:	return (ret);
 #else /*HAVE_64BIT_TYPES*/
 	COMPQUIET(blob_id, NULL);
 	__db_errx(dbp->env, DB_STR("0219",
-	    "library build did not include support for blobs"));
+	    "library build did not include support for external files"));
 	return (DB_OPNOTSUP);
 #endif
 }
@@ -440,7 +449,7 @@ __blob_highest_id(dbp, txn, id)
 	}
 	if (dbp->blob_seq == NULL) {
 		ret = __blob_open_meta_db(dbp, txn,
-		    &dbp->blob_meta_db, &dbp->blob_seq, 0, 0);
+		    &dbp->blob_meta_db, &dbp->blob_seq, 0, 0, 1);
 		/*
 		 * It is not an error if the blob meta database does not
 		 * exist.
@@ -457,7 +466,7 @@ err:
 #else /*HAVE_64BIT_TYPES*/
 	COMPQUIET(id, NULL);
 	__db_errx(dbp->env, DB_STR("0245",
-	    "library build did not include support for blobs"));
+	    "library build did not include support for external files"));
 	return (DB_OPNOTSUP);
 #endif
 }
@@ -502,7 +511,7 @@ __blob_calculate_dirs(blob_id, path, len, depth)
  * The caller must deallocate the path.
  *
  * PUBLIC: int __blob_id_to_path __P((ENV *,
- * PUBLIC:	const char *, db_seq_t, char **, int));
+ * PUBLIC:	 const char *, db_seq_t, char **, int));
  */
 int
 __blob_id_to_path(env, blob_sub_dir, blob_id, ppath, create)
@@ -520,7 +529,7 @@ __blob_id_to_path(env, blob_sub_dir, blob_id, ppath, create)
 	path = tmp_path = *ppath = NULL;
 
 	if (blob_id < 1) {
-		ret = EINVAL;
+		ret = USR_ERR(env, EINVAL);
 		goto err;
 	}
 
@@ -548,8 +557,8 @@ __blob_id_to_path(env, blob_sub_dir, blob_id, ppath, create)
 
 		if ((ret = __db_mkpath(env, tmp_path)) != 0) {
 			__db_errx(env, DB_STR("0221",
-			    "Error creating blob directory."));
-			ret = EINVAL;
+			    "Error creating external file directory."));
+			ret = USR_ERR(env, EINVAL);
 			goto err;
 		}
 		__os_free(env, tmp_path);
@@ -595,8 +604,8 @@ __blob_str_to_id(env, path, id)
 		*id += atoi(buf);
 		if (*id < 0) {
 			__db_errx(env, DB_STR("0246",
-			    "Blob id integer overflow."));
-			return (EINVAL);
+			    "External file id integer overflow."));
+			return (USR_ERR(env, EINVAL));
 		}
 		p++;
 	}
@@ -688,15 +697,16 @@ __blob_salvage(env, blob_id, offset, size, file_id, sdb_id, dbt)
 	blob_sub_dir = dir = path = NULL;
 	fhp = NULL;
 
-	if (blob_id < 1 || file_id < 0 ||
+	if (blob_id < 1 || file_id < 0 || 
 	    sdb_id < 0 || (file_id == 0 && sdb_id == 0)) {
-		ret = ENOENT;
+		ret = USR_ERR(env, ENOENT);
 		goto err;
 	}
 
 	if ((ret = __blob_make_sub_dir(env, &blob_sub_dir,
 	    file_id, sdb_id)) != 0 || blob_sub_dir == NULL) {
-		ret = ENOENT;
+	  	if (ret == 0)
+			ret = USR_ERR(env, ENOENT);
 		goto err;
 	}
 
@@ -707,8 +717,8 @@ __blob_salvage(env, blob_id, offset, size, file_id, sdb_id, dbt)
 		goto err;
 
 	if ((__os_exists(env, path, &isdir)) != 0 || isdir != 0) {
-		ret = ENOENT;
-		goto err;
+	  	ret = USR_ERR(env, ENOENT);
+	    	goto err;
 	}
 
 	if ((ret = __os_open(env, path, 0, DB_OSO_RDONLY, 0, &fhp)) != 0)
@@ -762,44 +772,43 @@ __blob_vrfy(env, blob_id, blob_size, file_id, sdb_id, pgno, flags)
 	blob_sub_dir = dir = path = NULL;
 	fhp = NULL;
 	isdir = 0;
-	ret = DB_VERIFY_BAD;
 
-	if ((ret = __blob_make_sub_dir(env, &blob_sub_dir,
-	    file_id, sdb_id)) != 0 || blob_sub_dir == NULL) {
+	if ((ret = __blob_make_sub_dir(
+	    env, &blob_sub_dir, file_id, sdb_id)) != 0 || blob_sub_dir == NULL) {
 		if (ret != ENOMEM)
 			ret = DB_VERIFY_BAD;
- 		goto err;
+		goto err;
 	}
 
 	ret = DB_VERIFY_BAD;
 
 	if (__blob_id_to_path(env, blob_sub_dir, blob_id, &dir, 0) != 0) {
 		EPRINT((env, DB_STR_A("0222",
-		    "Page %lu: Error getting path to blob file for %llu",
+		    "Page %lu: Error getting path to external file for %llu",
 		    "%lu %llu"), (u_long)pgno, (unsigned long long)blob_id));
 		goto err;
 	}
 	if (__db_appname(env, DB_APP_BLOB, dir, NULL, &path) != 0) {
 		EPRINT((env, DB_STR_A("0223",
-		    "Page %lu: Error getting path to blob file for %llu",
+		    "Page %lu: Error getting path to external file for %llu",
 		    "%lu %llu"), (u_long)pgno, (unsigned long long)blob_id));
 		goto err;
 	}
 	if ((__os_exists(env, path, &isdir)) != 0 || isdir != 0) {
 		EPRINT((env, DB_STR_A("0224",
-		    "Page %lu: blob file does not exist at %s",
+		    "Page %lu: external file does not exist at %s",
 		    "%lu %s"), (u_long)pgno, path));
 		goto err;
 	}
 	if (__os_open(env, path, 0, DB_OSO_RDONLY, 0, &fhp) != 0) {
 		EPRINT((env, DB_STR_A("0225",
-		    "Page %lu: Error opening blob file at %s",
+		    "Page %lu: Error opening external file at %s",
 		    "%lu %s"), (u_long)pgno, path));
 		goto err;
 	}
 	if (__os_ioinfo(env, path, fhp, &mbytes, &bytes, NULL) != 0) {
 		EPRINT((env, DB_STR_A("0226",
-		    "Page %lu: Error getting blob file size at %s",
+		    "Page %lu: Error getting external file size at %s",
 		    "%lu %s"), (u_long)pgno, path));
 		goto err;
 	}
@@ -807,7 +816,7 @@ __blob_vrfy(env, blob_id, blob_size, file_id, sdb_id, pgno, flags)
 	actual_size = ((off_t)mbytes * (off_t)MEGABYTE) + bytes;
 	if (blob_size != actual_size) {
 		EPRINT((env, DB_STR_A("0227",
-"Page %lu: blob file size does not match size in database record: %llu %llu",
+"Page %lu: external file size does not match size in database record: %llu %llu",
 		    "%lu %llu %llu"), (u_long)pgno,
 		    (unsigned long long)actual_size,
 		    (unsigned long long)blob_size));
@@ -930,7 +939,7 @@ err:	if (path != NULL)
 
 #else /*HAVE_64BIT_TYPES*/
 	__db_errx(dbp->env, DB_STR("0220",
-	    "library build did not include support for blobs"));
+	    "library build did not include support for external files"));
 	return (DB_OPNOTSUP);
 #endif
 
@@ -1080,14 +1089,7 @@ int __blob_copy_all(dbp, target, flags)
 	    target, PATH_SEPARATOR[0], LF_ISSET(DB_BACKUP_SINGLE_DIR) ?
 	    BLOB_DEFAULT_DIR : path, PATH_SEPARATOR[0], '\0');
 	path = new_target;
-#ifdef DB_WIN32
-	/*
-	 * Absolute paths on windows can result in it creating a "C" or "D"
-	 * directory in the working directory.
-	 */
-	if (__os_abspath(path))
-		path += 2;
-#endif
+
 	if ((ret = __db_mkpath(env, path)) != 0)
 		goto err;
 
@@ -1197,7 +1199,7 @@ __blob_copy_dir(dbp, dir, target)
 		}
 	}
 
-err:	
+err:
 	if (dirs != NULL)
 		__os_dirfree(env, dirs, count);
 	return (ret);

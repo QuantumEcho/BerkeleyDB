@@ -46,7 +46,7 @@ extern "C" {
 #endif
 
 /*
- * XXX
+ * !!!
  * Handle function prototypes and the keyword "const".  This steps on name
  * space that DB doesn't control, but all of the other solutions are worse.
  */

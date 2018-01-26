@@ -51,9 +51,9 @@
 
 /*
  * __bam_get_root --
- *	Try to appropriately lock and fetch the root page of a tree;
- * if successful enter it into the cursor's stack; on error, leave the stack
- * unchanged.
+ *  Try to appropriately lock and fetch the root page of a tree;
+ *  if successful enter it into the cursor's stack; on error, leave the stack
+ *  unchanged.
  *
  * PUBLIC: int __bam_get_root __P((DBC *, db_pgno_t, int, u_int32_t, int *));
  */
@@ -350,7 +350,7 @@ retry:	if ((ret = __bam_get_root(dbc, start_pgno, slevel, flags, &stack)) != 0)
 	 * is no user-specific comparsion function set.
 	 */
 	func = F_ISSET(dbc, DBC_OPD) ?
-	    (dbp->dup_compare == NULL ? __bam_defcmp : dbp->dup_compare) :
+	    (dbp->dup_compare == NULL ? __dbt_defcmp : dbp->dup_compare) :
 	    t->bt_compare;
 
 	pos_h = 0;

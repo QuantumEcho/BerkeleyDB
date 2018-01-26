@@ -44,6 +44,7 @@ RepConfigInfo::RepConfigInfo()
     got_listen_address = false;
     nrsites = 0;
     priority = 100;
+    this_host.creator = false;
     other_hosts = NULL;
 }
 

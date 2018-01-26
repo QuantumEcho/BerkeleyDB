@@ -49,8 +49,7 @@ __os_fdlock(env, fhp, offset, acquire, nowait)
 	if (ret == 0)
 		return (0);
 
-	t_ret = USR_ERR(env, __os_posix_err(ret));
-	if (t_ret != EACCES && t_ret != EAGAIN)
+	if ((t_ret = __os_posix_err(ret)) != EACCES && t_ret != EAGAIN)
 		__db_syserr(env, ret, DB_STR("0139", "fcntl"));
 	return (t_ret);
 #else

@@ -117,7 +117,7 @@ __bam_split(dbc, arg, subtree_rootp)
 	 * root page as the final resort.  The entire process then repeats,
 	 * as necessary, until we split a leaf page.
 	 *
-	 * XXX
+	 * Note:
 	 * A traditional method of speeding this up is to maintain a stack of
 	 * the pages traversed in the original search.  You can detect if the
 	 * stack is correct by storing the page's LSN when it was searched and
@@ -867,7 +867,7 @@ __bam_pinsert(dbc, parent, split, lchild, rchild, flags)
 	 * offset, where the new key goes ONE AFTER the index, because we split
 	 * to the right.
 	 *
-	 * XXX
+	 * Note:
 	 * Some btree algorithms replace the key for the old page as well as
 	 * the new page.  We don't, as there's no reason to believe that the
 	 * first key on the old page is any better than the key we have, and,
@@ -982,7 +982,7 @@ __bam_pinsert(dbc, parent, split, lchild, rchild, flags)
 			 * page and the first key on the right child page.
 			 */
 			if (F_ISSET(dbc, DBC_OPD)) {
-				if (dbp->dup_compare == __bam_defcmp)
+				if (dbp->dup_compare == __dbt_defcmp)
 					func = __bam_defpfx;
 				else
 					func = NULL;

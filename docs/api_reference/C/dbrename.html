@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 12.1.6.1</p>
+        <p>Library Version 12.1.6.2</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -65,6 +65,12 @@ DB-&gt;rename(DB *db, const char *file,
          should be used instead.
     </p>
       <p>
+         The <code class="methodname">DB-&gt;rename()</code> method can not be used
+         for sliced databases; the
+         <a class="xref" href="envdbrename.html" title="DB_ENV-&gt;dbrename()">DB_ENV-&gt;dbrename()</a>  
+         method should be used instead.
+    </p>
+      <p>
          The <code class="methodname">DB-&gt;rename()</code> method may not be called after calling the 
          <a class="xref" href="dbopen.html" title="DB-&gt;open()">DB-&gt;open()</a>  method on any 
          <a class="link" href="db.html" title="Chapter 2.  The DB Handle">DB</a>  handle.  If the 
@@ -90,7 +96,7 @@ DB-&gt;rename(DB *db, const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140588506337872"></a>Parameters</h3>
+              <h3 class="title"><a id="idm140711192930496"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -98,7 +104,7 @@ DB-&gt;rename(DB *db, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140588517497344"></a>file</h4>
+                <h4 class="title"><a id="idm140711192927824"></a>file</h4>
               </div>
             </div>
           </div>
@@ -117,7 +123,7 @@ DB-&gt;rename(DB *db, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140588511886464"></a>database</h4>
+                <h4 class="title"><a id="idm140711191370848"></a>database</h4>
               </div>
             </div>
           </div>
@@ -130,7 +136,7 @@ DB-&gt;rename(DB *db, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140588515687376"></a>newname</h4>
+                <h4 class="title"><a id="idm140711191787008"></a>newname</h4>
               </div>
             </div>
           </div>
@@ -143,7 +149,7 @@ DB-&gt;rename(DB *db, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140588507064768"></a>flags</h4>
+                <h4 class="title"><a id="idm140711189693456"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -157,7 +163,7 @@ DB-&gt;rename(DB *db, const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140588509207920"></a>Environment Variables</h3>
+              <h3 class="title"><a id="idm140711192027792"></a>Environment Variables</h3>
             </div>
           </div>
         </div>
@@ -177,7 +183,7 @@ DB-&gt;rename(DB *db, const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140588516203536"></a>Errors</h3>
+              <h3 class="title"><a id="idm140711193738176"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -193,20 +199,21 @@ DB-&gt;rename(DB *db, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140588511972864"></a>EINVAL</h4>
+                <h4 class="title"><a id="idm140711194305728"></a>EINVAL</h4>
               </div>
             </div>
           </div>
           <p>
-                If the method was called after <a class="xref" href="dbopen.html" title="DB-&gt;open()">DB-&gt;open()</a> 
-                was called; or if an invalid flag value or parameter was specified.
-            </p>
+                            If the method was called after <a class="xref" href="dbopen.html" title="DB-&gt;open()">DB-&gt;open()</a>
+                            was called; if this method was called on a sliced database;
+                            or if an invalid flag value or parameter was specified.
+                        </p>
         </div>
         <div class="sect3" lang="en" xml:lang="en">
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140588515776528"></a>ENOENT</h4>
+                <h4 class="title"><a id="idm140711182527856"></a>ENOENT</h4>
               </div>
             </div>
           </div>
@@ -218,7 +225,7 @@ DB-&gt;rename(DB *db, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140588514546656"></a>DB_META_CHKSUM_FAIL</h4>
+                <h4 class="title"><a id="idm140711192890752"></a>DB_META_CHKSUM_FAIL</h4>
               </div>
             </div>
           </div>
@@ -233,7 +240,7 @@ DB-&gt;rename(DB *db, const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140588515518112"></a>Class</h3>
+              <h3 class="title"><a id="idm140711184346240"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -245,7 +252,7 @@ DB-&gt;rename(DB *db, const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140588517168704"></a>See Also</h3>
+              <h3 class="title"><a id="idm140711182238848"></a>See Also</h3>
             </div>
           </div>
         </div>

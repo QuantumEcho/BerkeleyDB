@@ -116,12 +116,12 @@ import com.sleepycat.persist.evolve.Mutations;
  * <p>Simple types include:</p>
  * <ul>
  * <li>Java primitive types: {@code boolean, char, byte, short, int, long,
- * float, double}</p>
- * <li>The wrapper classes for Java primitive types</p>
- * <li>{@link java.math.BigDecimal}</p>
- * <li>{@link java.math.BigInteger}</p>
- * <li>{@link java.lang.String}</p>
- * <li>{@link java.util.Date}</p>
+ * float, double}</li>
+ * <li>The wrapper classes for Java primitive types</li>
+ * <li>{@link java.math.BigDecimal}</li>
+ * <li>{@link java.math.BigInteger}</li>
+ * <li>{@link java.lang.String}</li>
+ * <li>{@link java.util.Date}</li>
  * </ul>
  *
  * <p>When null values are required (for optional key fields, for example),
@@ -249,6 +249,8 @@ public @interface Entity {
      * number must be assigned using {@link #version} that is higher than the
      * previous version number for the class.  If this is not done, an {@link
      * IncompatibleClassException} will be thrown when the store is opened.</p>
+     *
+     * @return the version.
      */
     int version() default 0;
 }

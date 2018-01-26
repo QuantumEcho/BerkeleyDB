@@ -136,7 +136,7 @@ getcwd(pt, size)
 	root_dev = s.st_dev;
 	root_ino = s.st_ino;
 
-	__os_set_errno(0);		/* XXX readdir has no error return. */
+	__os_set_errno(0);		/* !!! readdir has no error return. */
 
 	for (first = 1;; first = 0) {
 		/* Stat the current level. */

@@ -302,6 +302,7 @@ proc test008 { method {reopen "008"} {debug 0} args} {
 
 			set encargs ""
 			split_encargs $args encargs
+			#puts "encargs $encargs"
 			# Run verify to check the internal structure and order.
 			if { [catch {eval {berkdb dbverify} \
 			    $vrflags $encargs $testfile-$opt.db} res] } {

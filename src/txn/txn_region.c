@@ -277,10 +277,10 @@ __txn_env_refresh(env)
 			}
 		}
 		if (aborted) {
+			if (ret == 0)
+				ret = USR_ERR(env, EINVAL);
 			__db_errx(env, DB_STR("4511",
 	"Error: closing the transaction region with active transactions"));
-			if (ret == 0)
-				ret = EINVAL;
 		}
 	}
 
@@ -415,16 +415,16 @@ __txn_id_set(env, cur_txnid, max_txnid)
 
 	ret = 0;
 	if (cur_txnid < TXN_MINIMUM) {
+		ret = USR_ERR(env, EINVAL);
 		__db_errx(env, DB_STR_A("4512",
 		    "Current ID value %lu below minimum", "%lu"),
 		    (u_long)cur_txnid);
-		ret = EINVAL;
 	}
 	if (max_txnid < TXN_MINIMUM) {
+		ret = USR_ERR(env, EINVAL);
 		__db_errx(env, DB_STR_A("4513",
 		    "Maximum ID value %lu below minimum", "%lu"),
 		    (u_long)max_txnid);
-		ret = EINVAL;
 	}
 	return (ret);
 }

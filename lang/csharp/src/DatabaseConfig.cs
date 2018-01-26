@@ -169,6 +169,11 @@ namespace BerkeleyDB {
         /// </summary>
         public String ErrorPrefix;
         /// <summary>
+        /// The prefix string that appears before informational messages issued
+        /// by Berkeley DB.
+        /// </summary>
+        public String MessagePrefix;
+        /// <summary>
         /// The mechanism for reporting error messages to the application.
         /// </summary>
         /// <remarks>
@@ -343,6 +348,7 @@ namespace BerkeleyDB {
             pagesizeIsSet = false;
             encryptionIsSet = false;
             ErrorPrefix = null;
+            MessagePrefix = null;
             Feedback = null;
             DoChecksum = false;
             NonDurableTxns = false;

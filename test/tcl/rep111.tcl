@@ -238,6 +238,11 @@ proc rep111_sub { method niter tnum envargs logset view largs } {
 	set req [stat_field $viewenv rep_stat "Client service requests"]
 	set miss [stat_field $viewenv rep_stat "Client service req misses"]
 	set rereq [stat_field $clientenv rep_stat "Client rerequests"]
+	set blrec [stat_field \
+	    $clientenv rep_stat "External file data messages recieved"]
+	set bluprereq [stat_field \
+	    $clientenv rep_stat "External file updates re-requested"]
+    	set bldup [stat_field $clientenv rep_stat "External files duplicated"]
 	puts "\tRep$tnum.c: Verify sync-up from view (req $req, miss $miss)."
 
 	#
@@ -265,16 +270,37 @@ proc rep111_sub { method niter tnum envargs logset view largs } {
 	error_check_good miss_rereq $miss $rereq
 	set expect_req [expr $nfiles + 3]
 	error_check_good req [expr $req >= $expect_req] 1
-	switch $view {
-		"full" { set max_miss 1 }
-		"none" { set max_miss [expr $nfiles + 1] }
-		"odd" { set max_miss [expr [expr $nfiles / 2] + 2] }
-	}
-	# Enabling blobs produces 1 extra miss per replicated file.
+	# Enabling blobs produces 2 extra misses per non-replicated file.
 	if { [lsearch $largs "-blob_threshold"] != -1 } {
-		set max_miss [expr [expr $max_miss * 2] - 1]
-	}
+		switch $view {
+			"full" { 
+			    	set max_miss 1
+			    	set bl_up_rereq 0
+			}
+			"none" {
+				set max_miss [expr [expr $nfiles * 3] + 1]
+			    	set bl_up_rereq $nfiles
+			}
+		    	"odd" {
+				set max_miss [expr [expr \
+			    	    [expr [expr $nfiles / 2] + 1] * 3] + 1]
+			    	set bl_up_rereq [expr [expr $nfiles / 2] + 1]
+			}
+		}
+	    	set bl_rec [expr [expr [expr $nfiles * $nentries] / 10] - 10]
+	} else {
+		switch $view {
+			"full" { set max_miss 1 }
+			"none" { set max_miss [expr $nfiles + 1] }
+			"odd" { set max_miss [expr [expr $nfiles / 2] + 2] }
+		}
+		set bl_up_rereq 0
+		set bl_rec 0
+	}	
 	error_check_good miss [expr $miss <= $max_miss] 1
+    	error_check_good blob_update_rereq [expr $bluprereq >= $bl_up_rereq] 1
+	error_check_good blob_records $blrec $bl_rec
+	error_check_good blob_duplicates $bldup 0
 	#
 	# Verify the right files are replicated.
 	#

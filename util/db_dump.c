@@ -22,7 +22,6 @@ int	 dump_sub __P((DB_ENV *, DB *, char *, int, int));
 int	 main __P((int, char *[]));
 int	 show_subs __P((DB *));
 int	 usage __P((void));
-int	 version_check __P((void));
 
 const char *progname;
 
@@ -41,34 +40,27 @@ main(argc, argv)
 	int exitval, keyflag, lflag, mflag, nflag, pflag, sflag, private;
 	u_int32_t vflag;
 	int ret, Rflag, rflag, resize;
-	char *blob_dir, *data_len, *dbname, *dopt, *filename, *home, *passwd;
-	char *vopt;
+	char *blob_dir, *data_len, *dbname, *dopt, *vopt, *filename, *home, *passwd;
 
-	if ((progname = __db_rpath(argv[0])) == NULL)
-		progname = argv[0];
-	else
-		++progname;
+	progname = __db_util_arg_progname(argv[0]);
 
-	if ((ret = version_check()) != 0)
+	if ((ret = __db_util_version_check(progname)) != 0)
 		return (ret);
 
 	dbenv = NULL;
 	dbp = dbvp = NULL;
-	exitval = lflag = mflag = nflag = pflag = rflag = Rflag = sflag = 0;
-	private = 0;
-	vflag = 0;
+	exitval = lflag = mflag = nflag = pflag = rflag = Rflag = sflag = vflag = 0;
 	first = last = PGNO_INVALID;
 	keyflag = 0;
 	cache = MEGABYTE;
-	blob_dir = data_len = dbname = dopt = filename = home = passwd = NULL;
-	vopt = NULL;
-	while ((ch =
-	    getopt(argc, argv, "b:d:D:f:F:h:klL:m:NpP:rRS:s:Vv:")) != EOF)
+	private = 0;
+	blob_dir = data_len = dbname = dopt = vopt = filename = home = passwd = NULL;
+	while ((ch = getopt(argc, argv, "b:d:D:f:F:h:klL:m:NpP:rRs:Vv:")) != EOF)
 		switch (ch) {
 		case 'b':
 			if (blob_dir!= NULL) {
 				fprintf(stderr, DB_STR("5144",
-			"Blob directory may not be specified twice"));
+			"External file directory may not be specified twice"));
 				goto err;
 			}
 			blob_dir = strdup(optarg);
@@ -111,19 +103,9 @@ main(argc, argv)
 			nflag = 1;
 			break;
 		case 'P':
-			if (passwd != NULL) {
-				fprintf(stderr, DB_STR("5130",
-					"Password may not be specified twice"));
-				goto err;
-			}
-			passwd = strdup(optarg);
-			memset(optarg, 0, strlen(optarg));
-			if (passwd == NULL) {
-				fprintf(stderr, DB_STR_A("5109",
-				    "%s: strdup: %s\n", "%s %s\n"),
-				    progname, strerror(errno));
-				goto err;
-			}
+			if (__db_util_arg_password(progname, 
+ 			    optarg, &passwd) != 0)
+  				goto err;
 			break;
 		case 'p':
 			pflag = 1;
@@ -139,7 +121,7 @@ main(argc, argv)
 		case 'r':
 			rflag = 1;
 			break;
-		case 'v': case 'S':
+		case 'v':
 			vopt = optarg;
 			switch(*vopt) {
 			case 'o':
@@ -213,18 +195,9 @@ main(argc, argv)
 	/* Handle possible interruptions. */
 	__db_util_siginit();
 
-	/*
-	 * Create an environment object and initialize it for error
-	 * reporting.
-	 */
-retry:	if ((ret = db_env_create(&dbenv, 0)) != 0) {
-		fprintf(stderr,
-		    "%s: db_env_create: %s\n", progname, db_strerror(ret));
+retry:
+	if (__db_util_env_create(&dbenv, progname, passwd, NULL) != 0)
 		goto err;
-	}
-
-	dbenv->set_errfile(dbenv, stderr);
-	dbenv->set_errpfx(dbenv, progname);
 
 	if (nflag) {
 		if ((ret = dbenv->set_flags(dbenv, DB_NOLOCKING, 1)) != 0) {
@@ -235,11 +208,6 @@ retry:	if ((ret = db_env_create(&dbenv, 0)) != 0) {
 			dbenv->err(dbenv, ret, "set_flags: DB_NOPANIC");
 			goto err;
 		}
-	}
-	if (passwd != NULL && (ret = dbenv->set_encrypt(dbenv,
-	    passwd, DB_ENCRYPT_AES)) != 0) {
-		dbenv->err(dbenv, ret, "set_passwd");
-		goto err;
 	}
 
 	/* Set the directory in which blob files are stored. */
@@ -295,12 +263,12 @@ retry:	if ((ret = db_env_create(&dbenv, 0)) != 0) {
 		goto done;
 	}
 
-	if (vopt != NULL && (db_create(&dbvp, dbenv, 0) != 0 ||
-	    dbvp->verify(dbvp, filename, dbname, stdout, vflag) != 0))
+	if (vopt != NULL &&
+	    (db_create(&dbvp, dbenv, 0) != 0 || dbvp->verify(dbvp, filename, dbname, stdout, vflag) != 0))
 		goto err;
 
-	if ((ret = dbp->open(dbp, NULL,
-	    filename, dbname, DB_UNKNOWN, DB_RDWRMASTER|DB_RDONLY, 0)) != 0) {
+	if ((ret = dbp->open(dbp, NULL, filename,
+	    dbname, DB_UNKNOWN, DB_RDWRMASTER | DB_RDONLY, 0)) != 0) {
 		dbp->err(dbp, ret, DB_STR_A("5115", "open: %s", "%s"),
 		    filename == NULL ? dbname : filename);
 		goto err;
@@ -381,8 +349,6 @@ db_init(dbenv, home, is_salvage, cache, is_privatep)
 	u_int32_t cache;
 	int *is_privatep;
 {
-	int ret;
-
 	/*
 	 * Try and use the underlying environment when opening a database.
 	 * We wish to use the buffer pool so our information is as up-to-date
@@ -400,15 +366,7 @@ db_init(dbenv, home, is_salvage, cache, is_privatep)
 	 * if we initialize transactions, logging, or locking;  do an
 	 * explicit DB_INIT_MPOOL to try to join any existing environment
 	 * before we create our own.
-	 */
-	*is_privatep = 0;
-	if ((ret = dbenv->open(dbenv, home,
-	    DB_USE_ENVIRON | (is_salvage ? DB_INIT_MPOOL : 0), 0)) == 0)
-		return (0);
-	if (ret == DB_VERSION_MISMATCH || ret == DB_REP_LOCKOUT)
-		goto err;
-
-	/*
+	 *
 	 * An environment is required because we may be trying to look at
 	 * databases in directories other than the current one.  We could
 	 * avoid using an environment iff the -h option wasn't specified,
@@ -418,15 +376,9 @@ db_init(dbenv, home, is_salvage, cache, is_privatep)
 	 * an mpool region exists).  Create one, but make it private so that
 	 * no files are actually created.
 	 */
-	*is_privatep = 1;
-	if ((ret = dbenv->set_cachesize(dbenv, 0, cache, 1)) == 0 &&
-	    (ret = dbenv->open(dbenv, home,
-	    DB_CREATE | DB_INIT_MPOOL | DB_PRIVATE | DB_USE_ENVIRON, 0)) == 0)
-		return (0);
-
-	/* An environment is required. */
-err:	dbenv->err(dbenv, ret, "DB_ENV->open");
-	return (1);
+	return __db_util_env_open(dbenv, home,
+	    (is_salvage ? DB_INIT_MPOOL : 0),
+	    1, DB_INIT_MPOOL, cache, is_privatep);
 }
 
 /*
@@ -563,27 +515,9 @@ usage()
 	(void)fprintf(stderr, "usage: %s [-bklNprRV]\n\t%s%s\n",
 	    progname,
 	    "[-b blob_dir] [-d ahr] [-f output] [-h home] ",
-	    "[-P password] [-s database] [-S ov] db_file");
+	    "[-P password] [-s database] [-v ov] db_file");
 	(void)fprintf(stderr, "usage: %s [-kNpV] %s\n",
 	    progname,
 	    "[-d ahr] [-D data_len] [-f output] [-h home] [-v ov] -m database");
 	return (EXIT_FAILURE);
-}
-
-int
-version_check()
-{
-	int v_major, v_minor, v_patch;
-
-	/* Make sure we're loaded with the right version of the DB library. */
-	(void)db_version(&v_major, &v_minor, &v_patch);
-	if (v_major != DB_VERSION_MAJOR || v_minor != DB_VERSION_MINOR) {
-		fprintf(stderr, DB_STR_A("5118",
-		    "%s: version %d.%d doesn't match library version %d.%d\n",
-		    "%s %d %d %d %d\n"), progname,
-		    DB_VERSION_MAJOR, DB_VERSION_MINOR,
-		    v_major, v_minor);
-		return (EXIT_FAILURE);
-	}
-	return (0);
 }

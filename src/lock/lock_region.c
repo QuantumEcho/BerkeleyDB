@@ -110,9 +110,9 @@ __lock_open(env)
 		if (region->detect != DB_LOCK_NORUN &&
 		    dbenv->lk_detect != DB_LOCK_DEFAULT &&
 		    region->detect != dbenv->lk_detect) {
+			ret = USR_ERR(env, EINVAL);
 			__db_errx(env, DB_STR("2041",
 			    "lock_open: incompatible deadlock detector mode"));
-			ret = EINVAL;
 			goto err;
 		}
 		if (region->detect == DB_LOCK_NORUN)
@@ -333,14 +333,15 @@ __lock_region_init(env, lt)
 
 		region->locker_mem_off = R_OFFSET(&lt->reginfo, lidp);
 		for (i = 0; i < region->stat.st_lockers; ++i) {
-			SH_TAILQ_INSERT_HEAD(&region->free_lockers, 
+			memset(lidp, 0, sizeof(*lidp));
+			SH_TAILQ_INSERT_HEAD(&region->free_lockers,
 			    lidp, links, __db_locker);
 			++lidp;
 		}
 	}
 
 	return (0);
-mem_err:		
+mem_err:
 	__db_errx(env, DB_STR("2042",
 	    "unable to allocate memory for the lock table"));
 	return (ret);
@@ -400,7 +401,7 @@ __lock_env_refresh(env)
 		SH_TAILQ_INIT(&lr->free_lockers);
 		if (lr->locker_mem_off != INVALID_ROFF)
 			__env_alloc_free(reginfo,
-                	    R_ADDR(reginfo, lr->locker_mem_off));
+			    R_ADDR(reginfo, lr->locker_mem_off));
 	}
 
 	ret = __lock_region_detach(env, lt);

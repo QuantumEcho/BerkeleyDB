@@ -16,8 +16,7 @@ static const char copyright[] =
 #endif
 
 int db_archive_main __P((int, char *[]));
-int db_archive_usage __P((void));
-int db_archive_version_check __P((void));
+void db_archive_usage __P((void));
 
 const char *progname;
 
@@ -45,23 +44,21 @@ db_archive_main(argc, argv)
 	DB_ENV	*dbenv;
 	u_int32_t flags;
 	int ch, exitval, ret, verbose;
-	char **file, *home, **list, *passwd;
+	char **file, *home, **list, *msgpfx, *passwd;
 
-	if ((progname = __db_rpath(argv[0])) == NULL)
-		progname = argv[0];
-	else
-		++progname;
+	progname = __db_util_arg_progname(argv[0]);
 
-	if ((ret = db_archive_version_check()) != 0)
+	if ((ret = __db_util_version_check(progname)) != 0)
 		return (ret);
 
 	dbenv = NULL;
 	flags = 0;
-	exitval = verbose = 0;
-	home = passwd = NULL;
+	verbose = 0;
+	exitval = EXIT_SUCCESS;
+	home = msgpfx = passwd = NULL;
 	file = list = NULL;
 	__db_getopt_reset = 1;
-	while ((ch = getopt(argc, argv, "adh:lP:sVv")) != EOF)
+	while ((ch = getopt(argc, argv, "adh:lm:P:sVv")) != EOF)
 		switch (ch) {
 		case 'a':
 			LF_SET(DB_ARCH_ABS);
@@ -75,28 +72,20 @@ db_archive_main(argc, argv)
 		case 'l':
 			LF_SET(DB_ARCH_LOG);
 			break;
+		case 'm':
+			msgpfx = optarg;
+			break;
 		case 'P':
-			if (passwd != NULL) {
-				fprintf(stderr, DB_STR("5135",
-					"Password may not be specified twice"));
-				free(passwd);
-				return (EXIT_FAILURE);
-			}
-			passwd = strdup(optarg);
-			memset(optarg, 0, strlen(optarg));
-			if (passwd == NULL) {
-				fprintf(stderr, DB_STR_A("5119",
-				    "%s: strdup: %s\n", "%s %s\n"),
-				    progname, strerror(errno));
-				return (EXIT_FAILURE);
-			}
+			if (__db_util_arg_password(progname,
+ 			    optarg, &passwd) != 0)
+				goto err;
 			break;
 		case 's':
 			LF_SET(DB_ARCH_DATA);
 			break;
 		case 'V':
 			printf("%s\n", db_version(NULL, NULL, NULL));
-			return (EXIT_SUCCESS);
+			goto done;
 		case 'v':
 			/*
 			 * !!!
@@ -108,46 +97,22 @@ db_archive_main(argc, argv)
 			break;
 		case '?':
 		default:
-			return (db_archive_usage());
+			goto usage_err;
 		}
 	argc -= optind;
 	argv += optind;
 
 	if (argc != 0)
-		return (db_archive_usage());
+		goto usage_err;
 
 	/* Handle possible interruptions. */
 	__db_util_siginit();
 
-	/*
-	 * Create an environment object and initialize it for error
-	 * reporting.
-	 */
-	if ((ret = db_env_create(&dbenv, 0)) != 0) {
-		fprintf(stderr,
-		    "%s: db_env_create: %s\n", progname, db_strerror(ret));
+	if (__db_util_env_create(&dbenv, progname, passwd, msgpfx) != 0)
 		goto err;
-	}
 
-	dbenv->set_errfile(dbenv, stderr);
-	dbenv->set_errpfx(dbenv, progname);
-
-	if (passwd != NULL && (ret = dbenv->set_encrypt(dbenv,
-	    passwd, DB_ENCRYPT_AES)) != 0) {
-		dbenv->err(dbenv, ret, "set_passwd");
+	if (__db_util_env_open(dbenv, home, 0, 1, DB_INIT_LOG, 0, NULL) != 0)
 		goto err;
-	}
-	/*
-	 * If attaching to a pre-existing environment fails, create a
-	 * private one and try again.
-	 */
-	if ((ret = dbenv->open(dbenv, home, DB_USE_ENVIRON, 0)) != 0 &&
-	    (ret == DB_VERSION_MISMATCH || ret == DB_REP_LOCKOUT ||
-	    (ret = dbenv->open(dbenv, home, DB_CREATE |
-	    DB_INIT_LOG | DB_PRIVATE | DB_USE_ENVIRON, 0)) != 0)) {
-		dbenv->err(dbenv, ret, "DB_ENV->open");
-		goto err;
-	}
 
 	/* Get the list of names. */
 	if ((ret = dbenv->log_archive(dbenv, &list, flags)) != 0) {
@@ -163,10 +128,11 @@ db_archive_main(argc, argv)
 	}
 
 	if (0) {
-err:		exitval = 1;
+usage_err:	db_archive_usage();
+err:		exitval = EXIT_FAILURE;
 	}
-	if (dbenv != NULL && (ret = dbenv->close(dbenv, 0)) != 0) {
-		exitval = 1;
+done:	if (dbenv != NULL && (ret = dbenv->close(dbenv, 0)) != 0) {
+		exitval = EXIT_FAILURE;
 		fprintf(stderr,
 		    "%s: dbenv->close: %s\n", progname, db_strerror(ret));
 	}
@@ -177,30 +143,12 @@ err:		exitval = 1;
 	/* Resend any caught signal. */
 	__db_util_sigresend();
 
-	return (exitval == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+	return (exitval);
 }
 
-int
+void
 db_archive_usage()
 {
-	(void)fprintf(stderr,
-	    "usage: %s [-adlsVv] [-h home] [-P password]\n", progname);
-	return (EXIT_FAILURE);
-}
-
-int
-db_archive_version_check()
-{
-	int v_major, v_minor, v_patch;
-
-	/* Make sure we're loaded with the right version of the DB library. */
-	(void)db_version(&v_major, &v_minor, &v_patch);
-	if (v_major != DB_VERSION_MAJOR || v_minor != DB_VERSION_MINOR) {
-		fprintf(stderr, DB_STR_A("5120",
-		    "%s: version %d.%d doesn't match library version %d.%d\n",
-		    "%s %d %d %d %d\n"), progname, DB_VERSION_MAJOR,
-		    DB_VERSION_MINOR, v_major, v_minor);
-		return (EXIT_FAILURE);
-	}
-	return (0);
+	(void)fprintf(stderr, "usage: %s %s\n", progname,
+	    "[-adlsVv] [-h home] [-m msg_pfx] [-P password]");
 }

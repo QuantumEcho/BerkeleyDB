@@ -16,6 +16,8 @@ public class EvolveInternal {
 
     /**
      * Internal access method that should not be used by applications.
+     *
+     * @return the EvolveEvent.
      */
     public static EvolveEvent newEvent() {
         return new EvolveEvent();
@@ -23,6 +25,11 @@ public class EvolveInternal {
 
     /**
      * Internal access method that should not be used by applications.
+     *
+     * @param event the EvolveEvent.
+     * @param entityClassName the class name.
+     * @param nRead the number read.
+     * @param nConverted the number converted.
      */
     public static void updateEvent(EvolveEvent event,
                                    String entityClassName,

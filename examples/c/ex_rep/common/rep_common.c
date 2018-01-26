@@ -46,7 +46,7 @@ common_rep_setup(dbenv, argc, argv, setup_info)
 {
 	repsite_t site;
 	extern char *optarg;
-	char ch, *portstr;
+	char ch, *last_colon, *portstr;
 	int ack_policy, got_self, is_repmgr, maxsites, priority, ret;
 
 	got_self = is_repmgr = maxsites = ret = 0;
@@ -100,11 +100,23 @@ common_rep_setup(dbenv, argc, argv, setup_info)
 				usage(is_repmgr, setup_info->progname);
 			setup_info->self.creator = 1; /* FALLTHROUGH */
 		case 'l':
-			setup_info->self.host = strtok(optarg, ":");
-			if ((portstr = strtok(NULL, ":")) == NULL) {
-				fprintf(stderr, "Bad host specification.\n");
+			setup_info->self.host = optarg;
+			/*
+			 * The final colon in host:port string is the
+			 * boundary between the host and the port portions
+			 * of the string.
+			 */
+			if ((last_colon = strrchr(optarg, ':')) == NULL ) {
+				fprintf(stderr,
+				    "Bad local host specification.\n");
 				goto err;
 			}
+			/*
+			 * Separate the host and port portions of the
+			 * string for further processing.
+			 */
+			portstr = last_colon + 1;
+			*last_colon = '\0';
 			setup_info->self.port = (unsigned short)atoi(portstr);
 			setup_info->self.peer = 0;
 			got_self = 1;
@@ -139,11 +151,22 @@ common_rep_setup(dbenv, argc, argv, setup_info)
 			site.peer = 1; /* FALLTHROUGH */
 		case 'r':
 			site.host = optarg;
-			site.host = strtok(site.host, ":");
-			if ((portstr = strtok(NULL, ":")) == NULL) {
-				fprintf(stderr, "Bad host specification.\n");
+			/*
+			 * The final colon in host:port string is the
+			 * boundary between the host and the port portions
+			 * of the string.
+			 */
+			if ((last_colon = strrchr(site.host, ':')) == NULL ) {
+				fprintf(stderr,
+				    "Bad remote host specification.\n");
 				goto err;
 			}
+			/*
+			 * Separate the host and port portions of the
+			 * string for further processing.
+			 */
+			portstr = last_colon + 1;
+			*last_colon = '\0';
 			site.port = (unsigned short)atoi(portstr);
 			if (setup_info->site_list == NULL ||
 			    setup_info->remotesites >= maxsites) {

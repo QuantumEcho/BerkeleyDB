@@ -427,6 +427,9 @@ define_print(char *name, u_int value)
 		break;
 	}
 	printf("#define\t%s%s%#010x\n", name, sep, value);
+	// DB_LOG_BLOB is an alias for DB_LOG_EXT_FILE
+	if (strcmp("DB_LOG_EXT_FILE", name) == 0)
+		printf("#define\t%s%s%#010x\n", "DB_LOG_BLOB", sep, value);
 }
 
 int

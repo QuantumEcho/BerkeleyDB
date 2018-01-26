@@ -638,15 +638,13 @@ __bamc_cmp(dbc, other_dbc, result)
 	DBC *dbc, *other_dbc;
 	int *result;
 {
-	ENV *env;
 	BTREE_CURSOR *bcp, *obcp;
 
-	env = dbc->env;
 	bcp = (BTREE_CURSOR *)dbc->internal;
 	obcp = (BTREE_CURSOR *)other_dbc->internal;
 
-	DB_ASSERT (env, bcp->pgno == obcp->pgno);
-	DB_ASSERT (env, bcp->indx == obcp->indx);
+	DB_ASSERT(dbc->env, bcp->pgno == obcp->pgno);
+	DB_ASSERT(dbc->env, bcp->indx == obcp->indx);
 
 	/* Check to see if both cursors have the same deleted flag. */
 	*result =
@@ -1530,8 +1528,8 @@ get_space:
 	 * next key.
 	 */
 	if (ret == DB_NOTFOUND && next_key && cp->indx >= NUM_ENT(cp->page)) {
-		/* 
-		 * We have run over the last record on the last page, 
+		/*
+		 * We have run over the last record on the last page,
 		 * back up the index.
 		 */
 		cp->indx -= adj;
@@ -1800,7 +1798,7 @@ __bam_getbothc(dbc, data)
 		 * the current position;  if it doesn't, return DB_NOTFOUND.
 		 */
 		if ((ret = __bam_cmp(dbc, data, cp->page, cp->indx,
-		    dbp->dup_compare == NULL ? __bam_defcmp : dbp->dup_compare,
+		    dbp->dup_compare == NULL ? __dbt_defcmp : dbp->dup_compare,
 		    &cmp, NULL)) != 0)
 			return (ret);
 
@@ -2020,7 +2018,7 @@ __bam_getboth_finddatum(dbc, data, flags)
 			if (!IS_DELETED(dbp, cp->page, cp->indx)) {
 				if ((ret = __bam_cmp(
 				    dbc, data, cp->page, cp->indx + O_INDX,
-				    __bam_defcmp, &cmp, NULL)) != 0)
+				    __dbt_defcmp, &cmp, NULL)) != 0)
 					return (ret);
 				if (cmp == 0)
 					return (0);
@@ -2062,15 +2060,15 @@ __bam_getboth_finddatum(dbc, data, flags)
 			return (ret);
 		if (cmp == 0) {
 			/*
-			 * XXX
+			 * !!!
 			 * No duplicate duplicates in sorted duplicate sets,
 			 * so there can be only one.
 			 */
 			if (!IS_CUR_DELETED(dbc))
 				return (0);
-			/* 
-			 * Advance base so that by the end of the loop, base is always
-			 * the smallest index greater than the data item.
+			/*
+			 * Advance base so that by the end of the loop, base is
+			 * always the smallest index greater than the data item.
 			 */
 			base = cp->indx + P_INDX;
 			break;

@@ -216,7 +216,7 @@ namespace BerkeleyDB {
     /// file. 
     /// </summary>
     public class MetaCheckSumFailException : DatabaseException {
-        /// <summary
+        /// <summary>
         /// Initialize a new instance of the MetaCheckSumFailException
         /// </summary>
         public MetaCheckSumFailException()

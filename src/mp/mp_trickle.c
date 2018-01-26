@@ -67,10 +67,14 @@ __memp_trickle(env, pct, nwrotep)
 		return (EINVAL);
 	}
 
+	/* First we purge all dead files and their buffers. */
+	if ((ret = __memp_purge_dead_files(env)) != 0)
+		return (ret);
+
 	/*
 	 * Loop through the caches counting total/dirty buffers.
 	 *
-	 * XXX
+	 * Note:
 	 * Using hash_page_dirty is our only choice at the moment, but it's not
 	 * as correct as we might like in the presence of pools having more
 	 * than one page size, as a free 512B buffer may not be equivalent to

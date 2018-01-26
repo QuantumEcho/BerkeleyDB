@@ -53,7 +53,7 @@ __memp_fput_pp(dbmfp, pgaddr, priority, flags)
 /*
  * __memp_fput --
  *	DB_MPOOLFILE->put. Release this reference to the page. If the reference
- * count drop to zero adjust the buffer's cache priority.
+ *  count drop to zero adjust the buffer's cache priority.
  *
  * PUBLIC: int __memp_fput __P((DB_MPOOLFILE *,
  * PUBLIC:      DB_THREAD_INFO *, void *, DB_CACHE_PRIORITY));
@@ -337,7 +337,9 @@ __memp_reset_lru(env, infop)
 
 /*
  * __memp_unpin_buffers --
- *	Unpin buffers pinned by a thread.
+ *	Unpin buffers pinned by (some other) thread.  This needs to be called
+ *	before __env_clear_latches() releases any shared mpool buffer latch
+ *	that a dead thread might have.
  *
  * PUBLIC: int __memp_unpin_buffers __P((ENV *, DB_THREAD_INFO *));
  */

@@ -1680,7 +1680,7 @@ __dbreg_register_verify(env, dbtp, lsnp, notused2, lvhp)
 				__db_errx(env, DB_STR_A("2543",
 				    "[%lu][%lu] Wrong dbreg operation sequence,"
 				    "file %s with id %d is first seen of "
-				    "status: %s", "%lu %lu %s %d"),
+				    "status: %s", "%lu %lu %s %d %s"),
 				    (u_long)lsnp->file, (u_long)lsnp->offset,
 				    dbfname, argp->fileid,
 				    __lv_dbreg_str(opcode));
@@ -2361,7 +2361,7 @@ __fop_remove_60_verify(env, dbtp, lsnp, notused2, lvhp)
 		return (ret);
 
 	ON_NOT_SUPPORTED(env, lvh, *lsnp, argp->type);
-	//LOG_VRFY_PROC(lvh, *lsnp, argp, INVAL_DBREGID);
+	/*LOG_VRFY_PROC(lvh, *lsnp, argp, INVAL_DBREGID);*/
 
 err:
 
@@ -2707,7 +2707,7 @@ __fop_file_remove_60_verify(env, dbtp, lsnp, notused2, lvhp)
 		return (ret);
 
 	ON_NOT_SUPPORTED(env, lvh, *lsnp, argp->type);
-	//LOG_VRFY_PROC(lvh, *lsnp, argp, INVAL_DBREGID);
+	/*LOG_VRFY_PROC(lvh, *lsnp, argp, INVAL_DBREGID);*/
 
 err:
 
@@ -4458,7 +4458,7 @@ __lv_on_new_txn (lvh, lsnp, txnp, type, dbregid, fid)
 		 */
 		} else if (vtip->nchild_active + vtip->nchild_commit +
 		    vtip->nchild_abort == 0) {
-			__db_errx(lvh->dbenv->env, DB_STR_A("2564",
+			__db_errx(env, DB_STR_A("2564",
 			    "[%lu][%lu] Transaction id %lx reused without "
 			    "being recycled with a __txn_recycle.",
 			    "%lu %lu %lx"),

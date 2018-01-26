@@ -13,6 +13,9 @@
 extern "C" {
 #endif
 
+#define	HMAC_OUTPUT_SIZE	20
+#define	HMAC_BLOCK_SIZE	64
+
 /*
  * Algorithm specific information.
  */

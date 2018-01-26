@@ -438,14 +438,6 @@ typedef struct {
 		return ret;
 	}
 	
-	internal int get_blob_dir(out string dir) {
-		int ret;
-		IntPtr dirp;
-		ret = get_blob_dir(out dirp);
-		dir = Marshal.PtrToStringAnsi(dirp);
-		return ret;
-	}
-	
 	internal int get_blob_sub_dir(out string dir) {
 		int ret;
 		IntPtr dirp;
@@ -461,6 +453,14 @@ typedef struct {
 		ret = get_dbname(out fp, out dp);		
 		filenamep = Marshal.PtrToStringAnsi(fp);
 		dbnamep = Marshal.PtrToStringAnsi(dp);
+		return ret;
+	}
+
+	internal int get_ext_file_dir(out string dir) {
+		int ret;
+		IntPtr dirp;
+		ret = get_ext_file_dir(out dirp);
+		dir = Marshal.PtrToStringAnsi(dirp);
 		return ret;
 	}
 	
@@ -520,7 +520,11 @@ typedef struct
 	int compact(DB_TXN *txn, DBT *start, DBT *stop, DB_COMPACT *cdata, u_int32_t flags, DBT *end) {
 		return self->compact(self, txn, start, stop, cdata, flags, end);
 	}
-	
+
+	int convert(const char *file, int lorder) {
+		return self->convert(self, file, lorder);
+	}
+
 	%csmethodmodifiers cursor "private"
 	DBC *cursor(DB_TXN *txn, u_int32_t flags, int *err) {
 		DBC *cursor = NULL;
@@ -614,22 +618,8 @@ typedef struct
 		return self->set_append_recno(self, callback);
 	}
 	
-	int get_blob_dir(const char **dir) {
-		return self->get_blob_dir(self, dir);
-	}
-	int set_blob_dir(const char *dir) {
-		return self->set_blob_dir(self, dir);
-	}
-	
 	int get_blob_sub_dir(const char **dir) {
 		return self->get_blob_sub_dir(self, dir);
-	}
-	
-	int get_blob_threshold(u_int32_t *bytes) {
-		return self->get_blob_threshold(self, bytes);
-	}
-	int set_blob_threshold(u_int32_t bytes, u_int32_t flags) {
-		return self->set_blob_threshold(self, bytes, flags);
 	}
 	
 	%typemap(cstype) int (*)(DB*, const DBT*, const DBT*, size_t *) "BDB_CompareDelegate"
@@ -686,6 +676,19 @@ typedef struct
 	%typemap(csin) void (*db_errcall_fcn)(const DB_ENV *dbenv, const char *errpfx, const char *errmsg) "db_errcall_fcn"
 	void set_errcall(void (*db_errcall_fcn)(const DB_ENV *dbenv, const char *errpfx, const char *errmsg)) {
 		self->set_errcall(self, db_errcall_fcn);
+	}
+
+	int get_ext_file_dir(const char **dir) {
+		return self->get_ext_file_dir(self, dir);
+	}
+	int set_ext_file_dir(const char *dir) {
+		return self->set_ext_file_dir(self, dir);
+	}
+	int get_ext_file_threshold(u_int32_t *bytes) {
+		return self->get_ext_file_threshold(self, bytes);
+	}
+	int set_ext_file_threshold(u_int32_t bytes, u_int32_t flags) {
+		return self->set_ext_file_threshold(self, bytes, flags);
 	}
 	
 	%typemap(cstype) int (*)(DB*, int, int) "BDB_DbFeedbackDelegate"
@@ -762,10 +765,10 @@ typedef struct
 		return self->set_pagesize(self, pgsz);
 	}
 		
-	%typemap(cstype) void (*)(const DB_ENV *, const char *) "BDB_MsgcallDelegate"
-	%typemap(imtype) void (*)(const DB_ENV *, const char *) "BDB_MsgcallDelegate"
-	%typemap(csin) void (*db_msgcall_fcn)(const DB_ENV *dbenv, const char *msg) "db_msgcall_fcn"
-	void set_msgcall(void (*db_msgcall_fcn)(const DB_ENV *dbenv, const char *msg)) {
+	%typemap(cstype) void (*)(const DB_ENV *, const char *, const char *) "BDB_MsgcallDelegate"
+	%typemap(imtype) void (*)(const DB_ENV *, const char *, const char *) "BDB_MsgcallDelegate"
+	%typemap(csin) void (*db_msgcall_fcn)(const DB_ENV *dbenv, const char *msgpfx, const char *msg) "db_msgcall_fcn"
+	void set_msgcall(void (*db_msgcall_fcn)(const DB_ENV *dbenv, const char *msgpfx, const char *msg)) {
 		self->set_msgcall(self, db_msgcall_fcn);
 	}
 
@@ -911,7 +914,7 @@ typedef struct
 	int upgrade(const char *file, u_int32_t flags) {
 		return self->upgrade(self, file, flags);
 	}
-	
+
 	%typemap(cstype) FILE * "System.IO.TextWriter"
 	%typemap(imtype) FILE * "System.IO.TextWriter"
 	%typemap(csin) FILE * "$csinput"
@@ -1419,10 +1422,10 @@ typedef struct
         
 		return ret;
 	}
-	internal int get_blob_dir(out string dir) {
+	internal int get_ext_file_dir(out string dir) {
 		int ret;
 		IntPtr dirp;
-		ret = get_blob_dir(out dirp);
+		ret = get_ext_file_dir(out dirp);
 		dir = Marshal.PtrToStringAnsi(dirp);
 		return ret;
 	}
@@ -1451,6 +1454,13 @@ typedef struct
 		int ret;
 		IntPtr dirp;
 		ret = get_metadata_dir(out dirp);
+		dir = Marshal.PtrToStringAnsi(dirp);
+		return ret;
+	}
+	internal int get_region_dir(out string dir) {
+		int ret;
+		IntPtr dirp;
+		ret = get_region_dir(out dirp);
 		dir = Marshal.PtrToStringAnsi(dirp);
 		return ret;
 	}
@@ -1959,20 +1969,6 @@ typedef struct
 		return self->set_backup_config(self, cfg, value);
 	}
 
-	int get_blob_dir(const char **dirp) {
-		return self->get_blob_dir(self, dirp);
-	}
-	int set_blob_dir(const char *dir) {
-		return self->set_blob_dir(self, dir);
-	}
-	
-	int get_blob_threshold(u_int32_t *bytes) {
-		return self->get_blob_threshold(self, bytes);
-	}
-	int set_blob_threshold(u_int32_t bytes, u_int32_t flags) {
-		return self->set_blob_threshold(self, bytes, flags);
-	}
-
 	int get_cachesize(u_int32_t *gbytes, u_int32_t *bytes, int *ncache) {
 		return self->get_cachesize(self, gbytes, bytes, ncache);
 	}
@@ -1985,6 +1981,10 @@ typedef struct
 	}
 	int set_cache_max(u_int32_t gbytes, u_int32_t bytes) {
 		return self->set_cache_max(self, gbytes, bytes);
+	}
+
+	int get_ext_file_dir(const char **dirp) {
+		return self->get_ext_file_dir(self, dirp);
 	}
 	
 	%typemap(cstype) char ** "List<string>"
@@ -2031,6 +2031,17 @@ typedef struct
 	%typemap(csin) void (*callback)(DB_ENV *dbenv, u_int32_t, void*) "callback"
 	int set_event_notify(void (*callback)(DB_ENV *env, u_int32_t event, void *event_info)) {
 		return self->set_event_notify(self, callback);
+	}
+
+	int set_ext_file_dir(const char *dir) {
+		return self->set_ext_file_dir(self, dir);
+	}
+	
+	int get_ext_file_threshold(u_int32_t *bytes) {
+		return self->get_ext_file_threshold(self, bytes);
+	}
+	int set_ext_file_threshold(u_int32_t bytes, u_int32_t flags) {
+		return self->set_ext_file_threshold(self, bytes, flags);
 	}
 	
 	%typemap(cstype) void (*)(DB_ENV*, int, int) "BDB_EnvFeedbackDelegate"
@@ -2208,10 +2219,10 @@ typedef struct
 		return self->set_mp_mmapsize(self, mp_mmapsize);
 	}
 		
-	%typemap(cstype) void (*)(const DB_ENV *, const char *) "BDB_MsgcallDelegate"
-	%typemap(imtype) void (*)(const DB_ENV *, const char *) "BDB_MsgcallDelegate"
-	%typemap(csin) void (*db_msgcall_fcn)(const DB_ENV *dbenv, const char *msg) "db_msgcall_fcn"
-	void set_msgcall(void (*db_msgcall_fcn)(const DB_ENV *dbenv, const char *msg)) {
+	%typemap(cstype) void (*)(const DB_ENV *, const char *, const char *) "BDB_MsgcallDelegate"
+	%typemap(imtype) void (*)(const DB_ENV *, const char *, const char *) "BDB_MsgcallDelegate"
+	%typemap(csin) void (*db_msgcall_fcn)(const DB_ENV *dbenv, const char *, const char *msg) "db_msgcall_fcn"
+	void set_msgcall(void (*db_msgcall_fcn)(const DB_ENV *dbenv, const char *, const char *msg)) {
 		self->set_msgcall(self, db_msgcall_fcn);
 	}
 	
@@ -2241,7 +2252,14 @@ typedef struct
 		}
 		return ret;
 	}
-	
+
+	int get_region_dir(const char **dir){
+		return self->get_region_dir(self, dir);
+	}
+	int set_region_dir(const char *dir){
+		return self->set_region_dir(self, dir);
+	}
+
 	int get_thread_count(u_int32_t *count) {
 		return self->get_thread_count(self, count);
 	}

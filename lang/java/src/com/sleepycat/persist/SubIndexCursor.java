@@ -42,7 +42,7 @@ class SubIndexCursor<V> extends BasicCursor<V> {
     public V nextNoDup(LockMode lockMode)
         throws DatabaseException {
 
-        return returnValue(cursor.getNext(key, pkey, data, lockMode));
+        return next(lockMode);
     }
 
     @Override
@@ -55,6 +55,7 @@ class SubIndexCursor<V> extends BasicCursor<V> {
     public V prevNoDup(LockMode lockMode)
         throws DatabaseException {
 
-        return returnValue(cursor.getPrev(key, pkey, data, lockMode));
+        return prev(lockMode);
     }
+
 }

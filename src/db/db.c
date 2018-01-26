@@ -346,7 +346,7 @@ __db_master_update(mdbp, sdbp, ip, txn, subdb, type, action, newname, flags)
 			 * No db_err, it is reasonable to remove a
 			 * nonexistent db.
 			 */
-			ret = ENOENT;
+			ret = USR_ERR(env, ENOENT);
 			goto err;
 		default:
 			goto err;
@@ -363,7 +363,7 @@ __db_master_update(mdbp, sdbp, ip, txn, subdb, type, action, newname, flags)
 		sdbp->meta_pgno = PGNO(p);
 
 		/*
-		 * XXX
+		 * !!!
 		 * We're handling actual data, not on-page meta-data, so it
 		 * hasn't been converted to/from opposite endian architectures.
 		 * Do it explicitly, now.
@@ -757,6 +757,15 @@ __db_close(dbp, txn, flags)
 
 	/* Refresh the structure and close any underlying resources. */
 	ret = __db_refresh(dbp, txn, flags, &deferred_close, 0);
+
+#ifdef HAVE_SLICES
+	/* If sliced, remove this db from the containing db's slice array. */
+	if (dbp->db_container != NULL && dbp->db_container->db_slices != NULL) {
+		DB_ASSERT(env,
+		    dbp->db_container->db_slices[env->slice_index] == dbp);
+		dbp->db_container->db_slices[env->slice_index] = NULL;
+	}
+#endif
 
 	/*
 	 * If we've deferred the close because the logging of the close failed,
@@ -1264,7 +1273,7 @@ __db_disassociate(sdbp)
 	    TAILQ_FIRST(&sdbp->join_queue) != NULL) {
 		__db_errx(sdbp->env, DB_STR("0674",
 "Closing a primary DB while a secondary DB has active cursors is unsafe"));
-		ret = EINVAL;
+		ret = USR_ERR(sdbp->env, EINVAL);
 	}
 	sdbp->s_refcnt = 0;
 
@@ -1394,6 +1403,39 @@ loop:		MUTEX_LOCK(env, ldbp->mutex);
 	}
 	MUTEX_UNLOCK(env, env->mtx_dblist);
 	return (ret);
+}
+
+/*
+ * __db_copy_config -
+ *	Copy many of the customizable fields of a DB, as part of 'cloning' it.
+ *	If the clone is a partitioned db, then 'nparts' divides up certain
+ *	type-specific configuration values; that is only used for DB_HASH.
+ *	Sliced databases are not 'partitioned' in that manner.
+ *
+ * PUBLIC: void __db_copy_config __P((const DB *, DB *, u_int32_t));
+ */
+void
+__db_copy_config(source, dest, nparts)
+	const DB *source;
+	DB *dest;
+	u_int32_t nparts;
+{
+	dest->pgsize = source->pgsize;
+	dest->priority = source->priority;
+	dest->db_append_recno = source->db_append_recno;
+	dest->db_feedback = source->db_feedback;
+	dest->dup_compare = source->dup_compare;
+	dest->api_internal = source->api_internal;
+	dest->blob_threshold = source->blob_threshold;
+	dest->blob_file_id = source->blob_file_id;
+	dest->blob_sdb_id = source->blob_sdb_id;
+
+	if (source->type == DB_BTREE)
+		__bam_copy_config(source, dest, nparts);
+#ifdef HAVE_HASH
+	if (source->type == DB_HASH)
+		__ham_copy_config(source, dest, nparts);
+#endif
 }
 
 /*

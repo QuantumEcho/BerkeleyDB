@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 12.1.6.1</p>
+        <p>Library Version 12.1.6.2</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -65,6 +65,12 @@ Db::rename(const char *file,
          should be used instead.
     </p>
       <p>
+         The <code class="methodname">Db::rename()</code> method can not be used
+         for sliced databases; the
+         <a class="xref" href="envdbrename.html" title="DbEnv::dbrename()">DbEnv::dbrename()</a>  
+         method should be used instead.
+    </p>
+      <p>
          The <code class="methodname">Db::rename()</code> method may not be called after calling the 
          <a class="xref" href="dbopen.html" title="Db::open()">Db::open()</a>  method on any 
          <a class="link" href="db.html" title="Chapter 2.  The Db Handle">Db</a>  handle.  If the 
@@ -92,7 +98,7 @@ Db::rename(const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140232246702032"></a>Parameters</h3>
+              <h3 class="title"><a id="idm139670064504080"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -100,7 +106,7 @@ Db::rename(const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140232247923408"></a>file</h4>
+                <h4 class="title"><a id="idm139670064504368"></a>file</h4>
               </div>
             </div>
           </div>
@@ -119,7 +125,7 @@ Db::rename(const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140232249568368"></a>database</h4>
+                <h4 class="title"><a id="idm139670064500672"></a>database</h4>
               </div>
             </div>
           </div>
@@ -132,7 +138,7 @@ Db::rename(const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140232252565696"></a>newname</h4>
+                <h4 class="title"><a id="idm139670064502544"></a>newname</h4>
               </div>
             </div>
           </div>
@@ -145,7 +151,7 @@ Db::rename(const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140232248929600"></a>flags</h4>
+                <h4 class="title"><a id="idm139670064491648"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -159,7 +165,7 @@ Db::rename(const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140232258571296"></a>Environment Variables</h3>
+              <h3 class="title"><a id="idm139670064488672"></a>Environment Variables</h3>
             </div>
           </div>
         </div>
@@ -179,7 +185,7 @@ Db::rename(const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140232245567856"></a>Errors</h3>
+              <h3 class="title"><a id="idm139670064486592"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -197,20 +203,21 @@ Db::rename(const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140232244655264"></a>EINVAL</h4>
+                <h4 class="title"><a id="idm139670064473856"></a>EINVAL</h4>
               </div>
             </div>
           </div>
           <p>
-                If the method was called after <a class="xref" href="dbopen.html" title="Db::open()">Db::open()</a> 
-                was called; or if an invalid flag value or parameter was specified.
-            </p>
+                            If the method was called after <a class="xref" href="dbopen.html" title="Db::open()">Db::open()</a>
+                            was called; if this method was called on a sliced database;
+                            or if an invalid flag value or parameter was specified.
+                        </p>
         </div>
         <div class="sect3" lang="en" xml:lang="en">
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140232246413232"></a>ENOENT</h4>
+                <h4 class="title"><a id="idm139670064521024"></a>ENOENT</h4>
               </div>
             </div>
           </div>
@@ -222,7 +229,7 @@ Db::rename(const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140232243691024"></a>DB_META_CHKSUM_FAIL</h4>
+                <h4 class="title"><a id="idm139670064527280"></a>DB_META_CHKSUM_FAIL</h4>
               </div>
             </div>
           </div>
@@ -237,7 +244,7 @@ Db::rename(const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140232243824960"></a>Class</h3>
+              <h3 class="title"><a id="idm139670064480160"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -249,7 +256,7 @@ Db::rename(const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140232258577376"></a>See Also</h3>
+              <h3 class="title"><a id="idm139670064485184"></a>See Also</h3>
             </div>
           </div>
         </div>

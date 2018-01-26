@@ -69,7 +69,7 @@ public class MultipleDataEntry extends MultipleEntry {
     {@link com.sleepycat.db.Cursor Cursor} get method with this object as the data parameter.
     <p>
     When used with the Queue and Recno access methods,
-    <code>data.getData()<code> will return <code>null</code> for deleted
+    <code>data.getData()</code> will return <code>null</code> for deleted
     records.
     <p>
     @param data
@@ -116,6 +116,7 @@ public class MultipleDataEntry extends MultipleEntry {
     @return
     indicates whether there was space.  A return of <code>false</code>
     indicates that the specified entry could not fit in the buffer.
+    @throws DatabaseException if a failure occurs.
     */
     public boolean append(final byte[] data, int offset, int len) 
         throws DatabaseException {
@@ -132,6 +133,7 @@ public class MultipleDataEntry extends MultipleEntry {
     @return
     indicates whether there was space.  A return of <code>false</code>
     indicates that the specified entry could not fit in the buffer.
+    @throws DatabaseException if a failure occurs.
     */
     public boolean append(final DatabaseEntry data)
         throws DatabaseException {
@@ -147,6 +149,7 @@ public class MultipleDataEntry extends MultipleEntry {
     @return
     indicates whether there was space.  A return of <code>false</code>
     indicates that the specified entry could not fit in the buffer.
+    @throws DatabaseException if a failure occurs.
     */
     public boolean append(final byte[] data)
         throws DatabaseException {

@@ -8,13 +8,15 @@
 # TEST	Database stream test.
 # TEST	1. Append data to empty / non-empty blobs.
 # TEST	2. Update the existing data in the blobs.
-# TEST	3. Re-create blob of the same key by deleting the record and
+# TEST	3. Check that the blob meta database has the same page size
+# TEST	as the database that owns it.
+# TEST	4. Re-create blob of the same key by deleting the record and
 # TEST	and writing new data to blob by database stream.
-# TEST	4. Verify the error is returned when opening a database stream
+# TEST	5. Verify the error is returned when opening a database stream
 # TEST	on a record that is not a blob.
-# TEST	5. Verify database stream can not write in blobs when it is
+# TEST	6. Verify database stream can not write in blobs when it is
 # TEST	configured to read-only.
-# TEST	6. Verify database stream can not write in read-only databases.
+# TEST	7. Verify database stream can not write in read-only databases.
 # TEST
 # TEST	In each test case, verify database stream read/size/write/close
 # TEST	operations work as expected with transaction commit/abort.
@@ -75,6 +77,13 @@ proc test149 { method {tnum "149"} args } {
 			return
 		}
 	}
+	set pagesize [get_native_pagesize]
+	set pgindex [lsearch -exact $args "-pagesize"]
+	if { $pgindex != -1 } {
+		incr pgindex
+		set pagesize [lindex $args $pgindex]
+	}
+	lappend args "-pagesize" $pagesize
 
 	puts "Test$tnum: ($omethod $args) Database stream basic operations."
 
@@ -264,9 +273,21 @@ proc test149 { method {tnum "149"} args } {
 		}
 	}
 
-	puts "\tTest$tnum.h: Re-create blob of the same key."
+	puts "\tTest$tnum.h: Check metadata page size matches the db page size."
+	set subdir "__db1"
+	if { $is_envmethod && 
+	     [lsearch -exact $args "-encrypt"] != -1 && ![is_repenv $env] } {
+		set subdir "__db2"
+	}
+	set metadbfile $blrootdir/$subdir/__db_blob_meta.db
+ 	set metadb [eval {berkdb_open_noerr -rdonly -btree} $metadbfile]
+	error_check_good meta_open [is_valid_db $metadb] TRUE
+	error_check_good meta_pgsize [$metadb get_pagesize] $pagesize
+	error_check_good meta_close [$metadb close] 0
 
-	puts "\tTest$tnum.h1: delete the blob."
+	puts "\tTest$tnum.i: Re-create blob of the same key."
+
+	puts "\tTest$tnum.i1: delete the blob."
 	if { $txnenv == 1 } {
 		set t [$env txn]
 		error_check_good txn [is_valid_txn $t $env] TRUE
@@ -281,10 +302,10 @@ proc test149 { method {tnum "149"} args } {
 	error_check_good db_delete [eval {$db del} $txn {$key}] 0
 
 	if { $txnenv == 1 } {
-		puts "\tTest$tnum.h1.1: abort the txn."
+		puts "\tTest$tnum.i1.1: abort the txn."
 		error_check_good txn_abort [$t abort] 0
 
-		puts "\tTest$tnum.h1.2: verify the blob is not deleted."
+		puts "\tTest$tnum.i1.2: verify the blob is not deleted."
 		set ret [eval {$db get $key}]
 		error_check_bad db_get [llength $ret] 0
 
@@ -294,7 +315,7 @@ proc test149 { method {tnum "149"} args } {
 		set txn "-txn $t"
 		error_check_good db_delete [eval {$db del} $txn {$key}] 0
 
-		puts "\tTest$tnum.h1.3: commit the txn."
+		puts "\tTest$tnum.i1.3: commit the txn."
 		error_check_good txn_commit [$t commit] 0
 
 		set t [$env txn]
@@ -302,14 +323,14 @@ proc test149 { method {tnum "149"} args } {
 		set txn "-txn $t"
 	}
 
-	puts "\tTest$tnum.h2: verify the blob is deleted."
+	puts "\tTest$tnum.i2: verify the blob is deleted."
 	set ret [eval {$db get} $txn {$key}]
 	if { $txnenv == 1 } {
 		error_check_good txn_commit [$t commit] 0
 	}
 	error_check_good db_get [llength $ret] 0
 
-	puts "\tTest$tnum.h3: create an empty blob for the same key."
+	puts "\tTest$tnum.i3: create an empty blob for the same key."
 	if { $txnenv == 1 } {
 		set t [$env txn]
 		error_check_good txn [is_valid_txn $t $env] TRUE
@@ -325,7 +346,7 @@ proc test149 { method {tnum "149"} args } {
 	error_check_good cmp_data \
 	    [string length [lindex [lindex $res 0] 1]] 0
 
-	puts "\tTest$tnum.h4: verify the empty blob."
+	puts "\tTest$tnum.i4: verify the empty blob."
 	if { $txnenv == 1 } {
 		set t [$env txn]
 		error_check_good txn [is_valid_txn $t $env] TRUE
@@ -344,10 +365,10 @@ proc test149 { method {tnum "149"} args } {
 	error_check_good dbstream_open [is_valid_dbstream $dbs $dbc] TRUE
 	error_check_good dbstream_size [$dbs size] 0
 
-	puts "\tTest$tnum.h5: add data into the blob by database stream."
+	puts "\tTest$tnum.i5: add data into the blob by database stream."
 	error_check_good dbstream_write [$dbs write -offset 0 $alphabet] 0
 
-	puts "\tTest$tnum.h6: verify the updated blob."
+	puts "\tTest$tnum.i6: verify the updated blob."
 	# Verify the update by database stream.
 	error_check_good dbstream_size [$dbs size] 26
 	error_check_good dbstream_read [string compare \
@@ -366,7 +387,7 @@ proc test149 { method {tnum "149"} args } {
 		error_check_good txn_commit [$t commit] 0
 	}
 
-	puts "\tTest$tnum.i: verify error is returned when opening\
+	puts "\tTest$tnum.j: verify error is returned when opening\
 	    a database stream on a record that is not a blob."
 	# Insert a non-blob record.
 	if { $txnenv == 1 } {
@@ -391,12 +412,12 @@ proc test149 { method {tnum "149"} args } {
 	# Open the database stream.
 	set ret [catch {eval {$dbc dbstream}} res]
 	error_check_bad dbstream_open $ret 0
-	if { [is_substr $res "cursor does not point to a blob"] != 1
+	if { [is_substr $res "cursor does not point to an external file"] != 1
 	     && [is_substr $res "invalid argument"] != 1 } {
 		error_check_good dbstream_open 0 1
 	}
 
-	puts "\tTest$tnum.j1: verify database stream can not write\
+	puts "\tTest$tnum.k1: verify database stream can not write\
 	    in blobs when it is configured to read-only."
 	# Set cursor on last blob record.
 	set key [expr $startkey - 1]
@@ -413,7 +434,7 @@ proc test149 { method {tnum "149"} args } {
 
 	set ret [catch {eval {$dbs write -offset 0 abc}} res]
 	error_check_bad dbstream_write $ret 0
-	if { [is_substr $res "blob is read only"] != 1
+	if { [is_substr $res "external file is read only"] != 1
 	     && [is_substr $res "invalid argument"] != 1 } {
 		error_check_good dbstream_write 0 1
 	}
@@ -421,7 +442,7 @@ proc test149 { method {tnum "149"} args } {
 	# Close the database stream.
 	error_check_good dbstream_close [$dbs close] 0
 
-	puts "\tTest$tnum.j2: verify database stream can not write\
+	puts "\tTest$tnum.k2: verify database stream can not write\
 	    with offset < 0."
 	set dbs [$dbc dbstream]
 	error_check_good dbstream_open [is_valid_dbstream $dbs $dbc] TRUE
@@ -432,11 +453,12 @@ proc test149 { method {tnum "149"} args } {
 		error_check_good dbstream_write 0 1
 	}
 
-	puts "\tTest$tnum.j3: verify database stream can not write\
+	puts "\tTest$tnum.k3: verify database stream can not write\
 	    with offset + size of data > the maximum blob size."
-	if { $tcl_platform(pointerSize) == 4 } {
+	set os64 [string match *64* $tcl_platform(machine)]
+	if { $tcl_platform(pointerSize) == 4 && !$os64 } {
 		set max_len [expr 0xffffffff / 2]
-	} elseif { $tcl_platform(pointerSize) == 8 } {
+	} elseif { $tcl_platform(pointerSize) == 8 || $os64 } {
 		set max_len [expr 0xffffffffffffffff / 2]
 	} else {
 		error "FAIL: unexpected pointerSize $tcl_platform(pointerSize)"
@@ -454,8 +476,8 @@ proc test149 { method {tnum "149"} args } {
 		    [$dbc put -keyfirst -blob $key $data] 0
 	} else {
 		error_check_bad dbstream_write $ret 0
-		if { [is_substr $res "exceed the maximum blob size"] != 1
-		     && [is_substr $res "invalid argument"] != 1 } {
+		if { [is_substr $res "exceed the maximum external file size"]
+		     != 1 && [is_substr $res "invalid argument"] != 1 } {
 			error_check_good dbstream_write 0 1
 		}
 	}
@@ -467,7 +489,7 @@ proc test149 { method {tnum "149"} args } {
 		error_check_good txn_commit [$t commit] 0
 	}
 
-	puts "\tTest$tnum.k: verify database stream\
+	puts "\tTest$tnum.l: verify database stream\
 	    can not write in read-only databases."
 	# Re-open the database as read only.
 	error_check_good db_close [$db close] 0
@@ -499,7 +521,7 @@ proc test149 { method {tnum "149"} args } {
 
 	set ret [catch {eval {$dbs write -offset 0 abc}} res]
 	error_check_bad dbstream_write $ret 0
-	if { [is_substr $res "blob is read only"] != 1
+	if { [is_substr $res "external file is read only"] != 1
 	     && [is_substr $res "invalid argument"] != 1 } {
 		error_check_good dbstream_write 0 1
 	}

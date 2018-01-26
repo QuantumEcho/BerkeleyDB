@@ -36,8 +36,7 @@ int db_printlog_env_init_print_61 __P((ENV *, DB_DISTAB *));
 int db_printlog_lsn_arg __P((char *, DB_LSN *));
 int db_printlog_main __P((int, char *[]));
 int db_printlog_open_rep_db __P((DB_ENV *, DB **, DBC **));
-int db_printlog_usage __P((void));
-int db_printlog_version_check __P((void));
+void db_printlog_usage __P((void));
 
 const char *progname;
 
@@ -75,12 +74,9 @@ db_printlog_main(argc, argv)
 	int ch, cmp, exitval, i, nflag, rflag, ret, repflag;
 	char *data_len, *home, *passwd;
 
-	if ((progname = __db_rpath(argv[0])) == NULL)
-		progname = argv[0];
-	else
-		++progname;
+	progname = __db_util_arg_progname(argv[0]);
 
-	if ((ret = db_printlog_version_check()) != 0)
+	if ((ret = __db_util_version_check(progname)) != 0)
 		return (ret);
 
 	dbp = NULL;
@@ -90,7 +86,8 @@ db_printlog_main(argc, argv)
 	logc = NULL;
 	ZERO_LSN(start);
 	ZERO_LSN(stop);
-	exitval = nflag = rflag = repflag = 0;
+	nflag = rflag = repflag = 0;
+	exitval = EXIT_SUCCESS;
 	data_len = home = passwd = NULL;
 
 	memset(&dtab, 0, sizeof(dtab));
@@ -102,7 +99,7 @@ db_printlog_main(argc, argv)
 		case 'b':
 			/* Don't use getsubopt(3), not all systems have it. */
 			if (db_printlog_lsn_arg(optarg, &start))
-				return (db_printlog_usage());
+				goto usage_err;
 			break;
 		case 'D':
 			data_len = optarg;
@@ -110,7 +107,7 @@ db_printlog_main(argc, argv)
 		case 'e':
 			/* Don't use getsubopt(3), not all systems have it. */
 			if (db_printlog_lsn_arg(optarg, &stop))
-				return (db_printlog_usage());
+				goto usage_err;
 			break;
 		case 'h':
 			home = optarg;
@@ -119,20 +116,9 @@ db_printlog_main(argc, argv)
 			nflag = 1;
 			break;
 		case 'P':
-			if (passwd != NULL) {
-				fprintf(stderr, DB_STR("5138",
-					"Password may not be specified twice"));
-				free(passwd);
-				return (EXIT_FAILURE);
-			}
-			passwd = strdup(optarg);
-			memset(optarg, 0, strlen(optarg));
-			if (passwd == NULL) {
-				fprintf(stderr, DB_STR_A("5010",
-				    "%s: strdup: %s\n", "%s %s\n"),
-				    progname, strerror(errno));
-				return (EXIT_FAILURE);
-			}
+			if (__db_util_arg_password(progname, 
+ 			    optarg, &passwd) != 0)
+  				goto err;
 			break;
 		case 'r':
 			rflag = 1;
@@ -142,33 +128,22 @@ db_printlog_main(argc, argv)
 			break;
 		case 'V':
 			printf("%s\n", db_version(NULL, NULL, NULL));
-			return (EXIT_SUCCESS);
+			goto done;
 		case '?':
 		default:
-			return (db_printlog_usage());
+			goto usage_err;
 		}
 	argc -= optind;
 	argv += optind;
 
-	if (argc > 0)
-		return (db_printlog_usage());
+	if (argc != 0)
+		goto usage_err;
 
 	/* Handle possible interruptions. */
 	__db_util_siginit();
 
-	/*
-	 * Create an environment object and initialize it for error
-	 * reporting.
-	 */
-	if ((ret = db_env_create(&dbenv, 0)) != 0) {
-		fprintf(stderr,
-		    "%s: db_env_create: %s\n", progname, db_strerror(ret));
+	if (__db_util_env_create(&dbenv, progname, passwd, NULL) != 0)
 		goto err;
-	}
-
-	dbenv->set_errfile(dbenv, stderr);
-	dbenv->set_errpfx(dbenv, progname);
-	dbenv->set_msgfile(dbenv, stdout);
 
 	if (nflag) {
 		if ((ret = dbenv->set_flags(dbenv, DB_NOLOCKING, 1)) != 0) {
@@ -179,12 +154,6 @@ db_printlog_main(argc, argv)
 			dbenv->err(dbenv, ret, "set_flags: DB_NOPANIC");
 			goto err;
 		}
-	}
-
-	if (passwd != NULL && (ret = dbenv->set_encrypt(dbenv,
-	    passwd, DB_ENCRYPT_AES)) != 0) {
-		dbenv->err(dbenv, ret, "set_passwd");
-		goto err;
 	}
 
 	/*
@@ -205,22 +174,12 @@ db_printlog_main(argc, argv)
 	 * with logging, because we don't want to log the opens.
 	 */
 	if (repflag) {
-		if ((ret = dbenv->open(dbenv, home,
-		    DB_INIT_MPOOL | DB_USE_ENVIRON, 0)) != 0 &&
-		    (ret == DB_VERSION_MISMATCH || ret == DB_REP_LOCKOUT ||
-		    (ret = dbenv->open(dbenv, home,
-		    DB_CREATE | DB_INIT_MPOOL | DB_PRIVATE | DB_USE_ENVIRON, 0))
-		    != 0)) {
-			dbenv->err(dbenv, ret, "DB_ENV->open");
+		if (__db_util_env_open(dbenv, home, DB_INIT_MPOOL,
+		    1, DB_INIT_MPOOL, 0, NULL) != 0)
 			goto err;
-		}
-	} else if ((ret = dbenv->open(dbenv, home, DB_USE_ENVIRON, 0)) != 0 &&
-	    (ret == DB_VERSION_MISMATCH || ret == DB_REP_LOCKOUT ||
-	    (ret = dbenv->open(dbenv, home,
-	    DB_CREATE | DB_INIT_LOG | DB_PRIVATE | DB_USE_ENVIRON, 0)) != 0)) {
-		dbenv->err(dbenv, ret, "DB_ENV->open");
+	} else if (__db_util_env_open(dbenv, home, 0,
+	    1, DB_INIT_LOG, 0, NULL) != 0)
 		goto err;
-	}
 
 	/*
 	 * Set data_len after environment opens.  The value passed
@@ -318,10 +277,7 @@ db_printlog_main(argc, argv)
 		ret = __db_dispatch(env,
 		    &dtab, &data, &key, DB_TXN_PRINT, (void*)&dblog);
 
-		/*
-		 * XXX
-		 * Just in case the underlying routines don't flush.
-		 */
+		/* Just in case the underlying routines don't flush. */
 		(void)fflush(stdout);
 
 		if (ret != 0) {
@@ -332,9 +288,10 @@ db_printlog_main(argc, argv)
 	}
 
 	if (0) {
-err:		exitval = 1;
+usage_err:	db_printlog_usage();
+err:		exitval = EXIT_FAILURE;
 	}
-
+done:
 	if (dtab.int_dispatch != NULL)
 		__os_free(env, dtab.int_dispatch);
 	if (dtab.ext_dispatch != NULL)
@@ -349,16 +306,16 @@ err:		exitval = 1;
 	if (env != NULL && dblog.dbentry != NULL)
 		__os_free(env, dblog.dbentry);
 	if (logc != NULL && (ret = logc->close(logc, 0)) != 0)
-		exitval = 1;
+		exitval = EXIT_FAILURE;
 
 	if (dbc != NULL && (ret = dbc->close(dbc)) != 0)
-		exitval = 1;
+		exitval = EXIT_FAILURE;
 
 	if (dbp != NULL && (ret = dbp->close(dbp, 0)) != 0)
-		exitval = 1;
+		exitval = EXIT_FAILURE;
 
 	if (dbenv != NULL && (ret = dbenv->close(dbenv, 0)) != 0) {
-		exitval = 1;
+		exitval = EXIT_FAILURE;
 		fprintf(stderr,
 		    "%s: dbenv->close: %s\n", progname, db_strerror(ret));
 	}
@@ -369,7 +326,7 @@ err:		exitval = 1;
 	/* Resend any caught signal. */
 	__db_util_sigresend();
 
-	return (exitval == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+	return (exitval);
 }
 
 /*
@@ -666,31 +623,12 @@ db_printlog_env_init_print_61(env, dtabp)
 	return (ret);
 }
 
-int
+void
 db_printlog_usage()
 {
 	fprintf(stderr, "usage: %s %s%s\n", progname,
 	    "[-NrV] [-b file/offset] [-D data_len] ",
 	    "[-e file/offset] [-h home] [-P password]");
-	return (EXIT_FAILURE);
-}
-
-int
-db_printlog_version_check()
-{
-	int v_major, v_minor, v_patch;
-
-	/* Make sure we're loaded with the right version of the DB library. */
-	(void)db_version(&v_major, &v_minor, &v_patch);
-	if (v_major != DB_VERSION_MAJOR || v_minor != DB_VERSION_MINOR) {
-		fprintf(stderr, DB_STR_A("5015",
-		    "%s: version %d.%d doesn't match library version %d.%d\n",
-		    "%s %d %d %d %d\n"), progname,
-		    DB_VERSION_MAJOR, DB_VERSION_MINOR,
-		    v_major, v_minor);
-		return (EXIT_FAILURE);
-	}
-	return (0);
 }
 
 /* Print an unknown, application-specific log record as best we can. */

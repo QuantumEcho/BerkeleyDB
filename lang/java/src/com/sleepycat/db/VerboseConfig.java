@@ -100,6 +100,11 @@ public final class VerboseConfig {
     public static final VerboseConfig REPLICATION_TEST =
         new VerboseConfig("REPLICATION_TEST", DbConstants.DB_VERB_REP_TEST);
     /**
+    Display detailed information about slice databases.
+    */
+    public static final VerboseConfig SLICE =
+        new VerboseConfig("SLICE", DbConstants.DB_VERB_SLICE);
+    /**
     Display the waits-for table when doing deadlock detection.
     */
     public static final VerboseConfig WAITSFOR =

@@ -88,7 +88,6 @@ __os_fileid(env, fname, unique_okay, fidp)
 	 /*
 	  * Use the file name.
 	  *
-	  * XXX
 	  * Cast the first argument, the BREW ARM compiler is unhappy if
 	  * we don't.
 	  */

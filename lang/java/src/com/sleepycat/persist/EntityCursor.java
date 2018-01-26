@@ -13,6 +13,7 @@ import com.sleepycat.db.CursorConfig;
 import com.sleepycat.db.DatabaseConfig;
 import com.sleepycat.db.DatabaseException;
 import com.sleepycat.db.LockMode;
+import com.sleepycat.db.DatabaseException;
 import com.sleepycat.db.Transaction;
 import com.sleepycat.persist.model.Relationship;
 import com.sleepycat.persist.model.SecondaryKey;
@@ -575,6 +576,7 @@ public interface EntityCursor<V> extends ForwardCursor<V> {
     V current(LockMode lockMode)
         throws DatabaseException;
 
+
     /**
      * Returns the number of values (duplicates) for the key at the cursor
      * position, or returns zero if all values for the key have been deleted.
@@ -641,6 +643,7 @@ public interface EntityCursor<V> extends ForwardCursor<V> {
     boolean update(V entity)
         throws DatabaseException;
 
+
     /**
      * Deletes the entity at the cursor position.
      *
@@ -656,6 +659,7 @@ public interface EntityCursor<V> extends ForwardCursor<V> {
      */
     boolean delete()
         throws DatabaseException;
+
 
     /**
      * Duplicates the cursor at the cursor position.  The returned cursor will

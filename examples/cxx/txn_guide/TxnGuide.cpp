@@ -123,7 +123,7 @@ main(int argc, char *argv[])
 
     try {
         // Create and open the environment
-        envp = new DbEnv(0);
+        envp = new DbEnv((u_int32_t)0);
 
         // Indicate that we want db to internally perform deadlock
         // detection.  Also indicate that the transaction with

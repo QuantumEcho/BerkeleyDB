@@ -268,6 +268,7 @@ __lv_seccbk_fname(secdb, key, data, result)
 	size_t buflen, slen;
 
 	ret = tret = 0;
+	freg = NULL;
 	COMPQUIET(key, NULL);
 	if ((ret = __lv_unpack_filereg(data, &freg)) != 0)
 		goto out;

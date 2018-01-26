@@ -78,6 +78,7 @@ public final class RecoveryOperation {
      *
     @param flag
     the internal flag value to be wrapped in a RecoveryException object
+    @return a RecoveryOperation
     */
     public static RecoveryOperation fromFlag(int flag) {
         switch (flag) {

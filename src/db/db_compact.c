@@ -458,8 +458,8 @@ __db_exchange_page(dbc, pgp, opg, newpgno, flags, pgs_donep)
 	 */
 	if (PGNO(newpage) > PGNO(*pgp)) {
 		/* It is unfortunate but you can't just free a new overflow. */
-		/* XXX Is the above comment still true? */
-		/* XXX Should __db_new(OVERFLOW) zero OV_LEN()? */
+		/* !!! Is the above comment still true? */
+		/* !!! Should __db_new(OVERFLOW) zero OV_LEN()? */
 		if (TYPE(newpage) == P_OVERFLOW)
 			OV_LEN(newpage) = 0;
 		if ((ret = __LPUT(dbc, lock)) != 0)

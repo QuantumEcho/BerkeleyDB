@@ -99,9 +99,6 @@ __os_attach(env, infop, rp)
 		 * recovery will get us straightened out.
 		 */
 		if (F_ISSET(infop, REGION_CREATE)) {
-			int oldid;
-
-			oldid = 0;
 			/*
 			 * The application must give us a base System V IPC key
 			 * value.  Adjust that value based on the region's ID,
@@ -109,10 +106,9 @@ __os_attach(env, infop, rp)
 			 * the ipcs output.
 			 */
 			if (dbenv->shm_key == INVALID_REGION_SEGID) {
-				ret = USR_ERR(env, EINVAL);
 				__db_errx(env, DB_STR("0115",
 			    "no base system shared memory ID specified"));
-				return (ret);
+				return (EINVAL);
 			}
 
 			/*
@@ -134,13 +130,11 @@ __os_attach(env, infop, rp)
 			 */
 			if ((id = shmget(segid, 0, 0)) != -1) {
 				(void)shmctl(id, IPC_RMID, NULL);
-				oldid = id;
 				if ((id = shmget(segid, 0, 0)) != -1) {
-					ret = USR_ERR(env, EAGAIN);
 					__db_errx(env, DB_STR_A("0116",
 		"shmget: key: %ld: shared system memory region already exists",
 					    "%ld"), (long)segid);
-					return (ret);
+					return (EAGAIN);
 				}
 			}
 
@@ -150,20 +144,12 @@ __os_attach(env, infop, rp)
 			 */
 			mode = IPC_CREAT | __shm_mode(env);
 			if ((id = shmget(segid, rp->max, mode)) == -1) {
-				ret = USR_ERR(env, __os_get_syserr());
+				ret = __os_get_syserr();
 				__db_syserr(env, ret, DB_STR_A("0117",
 	"shmget: key: %ld: unable to create shared system memory region",
 				    "%ld"), (long)segid);
 				return (__os_posix_err(ret));
 			}
-			/*
-			 * When the first shmem region is recreated, print old &
-			 * new ids.
-			 */
-			if (oldid != 0 && segid == dbenv->shm_key)
-				__db_errx(env,
-	"__os_attach() env region: removed id %d and created %d from key %d",
-				    oldid, id, segid);
 			rp->size = rp->max;
 			rp->segid = id;
 		} else
@@ -175,7 +161,7 @@ __os_attach(env, infop, rp)
 			__db_syserr(env, ret, DB_STR_A("0118",
 	"shmat: id %d: unable to attach to shared system memory region",
 			    "%d"), id);
-			return (USR_ERR(env, __os_posix_err(ret)));
+			return (__os_posix_err(ret));
 		}
 
 		/* Optionally lock the memory down. */
@@ -361,7 +347,8 @@ __os_detach(env, infop, destroy)
 			ret = t_ret;
 	}
 
-	if (destroy && (t_ret = __os_unlink(env, infop->name, 1)) != 0 && ret == 0)
+	if (destroy &&
+	    (t_ret = __os_unlink(env, infop->name, 1)) != 0 && ret == 0)
 		ret = t_ret;
 
 	return (ret);
@@ -456,10 +443,10 @@ __os_unmapfile(env, addr, len)
 	COMPQUIET(env, NULL);
 #endif
 	RETRY_CHK((munmap(addr, len)), ret);
-	ret = __os_posix_err(ret);
+	ret = USR_ERR(env, __os_posix_err(ret));
 #else
+	ret = USR_ERR(env, EINVAL);
 	COMPQUIET(env, NULL);
-	ret = EINVAL;
 #endif
 	return (ret);
 }
@@ -540,7 +527,7 @@ __os_map(env, path, fhp, len, is_region, is_rdonly, addrp)
 	prot = PROT_READ | (is_rdonly ? 0 : PROT_WRITE);
 
 	/*
-	 * XXX
+	 * !!!
 	 * Work around a bug in the VMS V7.1 mmap() implementation.  To map
 	 * a file into memory on VMS it needs to be opened in a certain way,
 	 * originally.  To get the file opened in that certain way, the VMS

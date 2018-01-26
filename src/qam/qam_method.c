@@ -321,9 +321,9 @@ __qam_rr(dbp, ip, txn, name, subdb, newname, op)
 	}
 
 	/*
-	 * For rename/remove, there is no need to open the database via
-	 * __db_open. It is good enough to just open its memory pool which
-	 * is necessary for in-mem databases.
+	 * For rename/remove, there is no need to open the database
+	 * via __db_open.  It is good enough to just open its memory pool
+	 * which is necessary for in-mem databases.
 	 */
 	if (F2_ISSET(dbp, DB2_AM_MPOOL_OPENED))
 		tmpdbp = dbp;

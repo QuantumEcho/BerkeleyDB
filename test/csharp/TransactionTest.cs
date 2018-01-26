@@ -114,7 +114,7 @@ namespace CsharpAPITest
 			}
 		}
 
-		[Test]
+		[Test, ExpectedException(typeof(AccessViolationException))]
 		public void TestDiscard()
 		{
 			DatabaseEnvironment env;
@@ -153,7 +153,6 @@ namespace CsharpAPITest
 			preparedTxns[0].Txn.Discard();
 			try {
 				preparedTxns[0].Txn.Commit();
-				throw new TestException();
 			} catch (AccessViolationException) {
 			} finally {
 				env.Close();

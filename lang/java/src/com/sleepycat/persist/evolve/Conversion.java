@@ -385,6 +385,8 @@ public interface Conversion extends Serializable {
     /**
      * Initializes the conversion, allowing it to obtain raw type information
      * from the entity model.
+     *
+     * @param model the EntityModel.
      */
     void initialize(EntityModel model);
 

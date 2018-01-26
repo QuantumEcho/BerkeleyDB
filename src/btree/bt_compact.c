@@ -1244,7 +1244,7 @@ __bam_merge_records(dbc, ndbc, factor, c_data, pgs_donep)
 	    ((B_TYPE(bk->type) == B_BLOB) ? BBLOB_DSIZE : BOVERFLOW_SIZE);
 	if (indx != 0 && BINTERNAL_SIZE(len) >= pfree) {
 		if (F_ISSET(dbc, DBC_OPD)) {
-			if (dbp->dup_compare == __bam_defcmp)
+			if (dbp->dup_compare == __dbt_defcmp)
 				func = __bam_defpfx;
 			else
 				func = NULL;
@@ -1359,10 +1359,10 @@ no_check: is_dup = first_dup = next_dup = 0;
 				goto err;
 			break;
 		default:
+			ret = USR_ERR(env, EINVAL);
 			__db_errx(env, DB_STR_A("1022",
 			    "Unknown record format, page %lu, indx 0",
 			    "%lu"), (u_long)PGNO(pg));
-			ret = EINVAL;
 			goto err;
 		}
 		pind++;
@@ -1947,7 +1947,7 @@ __bam_compact_dups(dbc, ppg, factor, have_lock, c_data, pgs_donep)
 	DB_ASSERT(NULL, dbc != NULL);
 	dbp = dbc->dbp;
 	dbmp = dbp->mpf;
-	/* XXX Don't reserve any free bytes (Force 100% fillfactor) in OPD trees
+	/* !!! Don't reserve any free bytes (Force 100% fillfactor) in OPD trees
 	 * to ensure forward progress.
 	 */
 	factor = 0;

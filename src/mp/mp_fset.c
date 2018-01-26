@@ -76,13 +76,13 @@ __memp_dirty(dbmfp, addrp, ip, txn, priority, flags)
 
 	if (mvcc && txn != NULL && flags == DB_MPOOL_DIRTY &&
 	    (!BH_OWNED_BY(env, bhp, ancestor) || SH_CHAIN_HASNEXT(bhp, vc))) {
-		atomic_inc(env, &bhp->ref);
+		(void)atomic_inc(env, &bhp->ref);
 		*(void **)addrp = NULL;
 		if ((ret = __memp_fput(dbmfp, ip, pgaddr, priority)) != 0) {
 			__db_errx(env, DB_STR_A("3009",
 			    "%s: error releasing a read-only page", "%s"),
 			    __memp_fn(dbmfp));
-			atomic_dec(env, &bhp->ref);
+			(void)atomic_dec(env, &bhp->ref);
 			return (ret);
 		}
 		if ((ret = __memp_fget(dbmfp,
@@ -91,10 +91,10 @@ __memp_dirty(dbmfp, addrp, ip, txn, priority, flags)
 				__db_errx(env, DB_STR_A("3010",
 				    "%s: error getting a page for writing",
 				    "%s"), __memp_fn(dbmfp));
-			atomic_dec(env, &bhp->ref);
+			(void)atomic_dec(env, &bhp->ref);
 			return (ret);
 		}
-		atomic_dec(env, &bhp->ref);
+		(void)atomic_dec(env, &bhp->ref);
 
 		/*
 		 * If the MVCC handle count hasn't changed, we should get a
@@ -126,7 +126,7 @@ __memp_dirty(dbmfp, addrp, ip, txn, priority, flags)
 #ifdef DIAGNOSTIC
 		MUTEX_LOCK(env, hp->mtx_hash);
 #endif
-		atomic_inc(env, &hp->hash_page_dirty);
+		(void)atomic_inc(env, &hp->hash_page_dirty);
 		F_SET(bhp, BH_DIRTY);
 #ifdef DIAGNOSTIC
 		MUTEX_UNLOCK(env, hp->mtx_hash);

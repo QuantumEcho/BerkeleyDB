@@ -227,6 +227,7 @@ public class TransactionConfig implements Cloneable {
     Updates operations performed in the transaction will cause a
     {@link DeadlockException} to be thrown if data is modified
     between reading and writing it.
+    @param snapshot if this transaction will execute with snapshot isolation
     */
     public void setSnapshot(final boolean snapshot) {
         this.snapshot = snapshot;

@@ -136,7 +136,9 @@ proc test042_body { method nentries alldb args } {
 
 	env_cleanup $testdir
 
-	set env [eval {berkdb_env -create} $eflag $pageargs -home $testdir]
+	set env_cmd "berkdb_env -create\
+	    -cachesize {0 1048576 1} $pageargs $eflag -home $testdir"
+	set env [eval $env_cmd]
 	error_check_good dbenv [is_valid_env $env] TRUE
 
 	# Env is created, now set up database
@@ -153,8 +155,7 @@ proc test042_body { method nentries alldb args } {
 	set ret [berkdb envremove -home $testdir]
 	error_check_good env_remove $ret 0
 
-	set env [eval {berkdb_env \
-	    -create -cachesize {0 1048576 1}} $pageargs $eflag -home $testdir]
+	set env [eval $env_cmd]
 	error_check_good dbenv [is_valid_widget $env env] TRUE
 
 	if { $do_exit == 1 } {

@@ -436,7 +436,6 @@ __memp_region_size(env, reg_sizep, htab_bucketsp)
 	 * chains a lot, they must be kept short.  We use 2.5 as this maintains
 	 * compatibility with previous releases.
 	 *
-	 * XXX
 	 * Cache sizes larger than 10TB would cause 32-bit wrapping in the
 	 * calculation of the number of hash buckets.  This probably isn't
 	 * something we need to worry about right now, but is checked when the
@@ -670,16 +669,13 @@ __memp_region_bhfree(infop)
 				SH_TAILQ_REMOVE(&hp->hash_bucket,
 				    bhp, hq, __bh);
 			else {
-				if (F_ISSET(bhp, BH_DIRTY)) {
-					atomic_dec(env, &hp->hash_page_dirty);
-					F_CLR(bhp, BH_DIRTY | BH_DIRTY_CREATE);
-				}
-				atomic_inc(env, &bhp->ref);
+				__memp_bh_clear_dirty(env, hp, bhp);
+				(void)atomic_inc(env, &bhp->ref);
 				if ((t_ret = __memp_bhfree(dbmp, infop,
 				    R_ADDR(dbmp->reginfo, bhp->mf_offset),
 				    hp, bhp, BH_FREE_FREEMEM |
 				    BH_FREE_UNLOCKED)) != 0) {
-				    	if (ret == 0)
+					if (ret == 0)
 						ret = t_ret;
 					break;
 				}

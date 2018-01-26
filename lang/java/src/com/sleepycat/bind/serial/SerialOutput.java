@@ -66,6 +66,8 @@ public class SerialOutput extends ObjectOutputStream {
      *
      * @param classCatalog is the catalog to which the class descriptions for
      * the serialized objects will be written.
+     *
+     * @throws IOException if an I/O error occurs while writing stream header.
      */
     public SerialOutput(OutputStream out, ClassCatalog classCatalog)
         throws IOException {

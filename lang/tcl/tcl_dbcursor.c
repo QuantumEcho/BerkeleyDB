@@ -322,7 +322,7 @@ tcl_DbcPut(interp, objc, objv, dbc)
 			flag = DB_BEFORE;
 			break;
 		case DBCPUT_BLOB:
-			data.flags |= DB_DBT_BLOB;
+			data.flags |= DB_DBT_EXT_FILE;
 			break;
 		case DBCPUT_CURRENT:
 			FLAG_CHECK(flag);

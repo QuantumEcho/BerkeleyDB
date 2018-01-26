@@ -125,9 +125,9 @@ public class EnvRegionSizeTest {
         EnvironmentConfig envc = new EnvironmentConfig();
         envc.setAllowCreate(true);
         envc.setInitializeCache(true);
-        envc.setRegionMemoryMax(5 * 1024 * 1024);
-        assertEquals(envc.getRegionMemoryMax(), 5 * 1024 * 1024);
+        envc.setRegionMemoryMax(10 * 1024 * 1024);
+        assertEquals(envc.getRegionMemoryMax(), 10 * 1024 * 1024);
         Environment dbEnv = new Environment(TestUtils.BASETEST_DBFILE, envc);
-        assertEquals(envc.getRegionMemoryMax(), 5 * 1024 * 1024);
+        assertEquals(envc.getRegionMemoryMax(), 10 * 1024 * 1024);
     }
 }

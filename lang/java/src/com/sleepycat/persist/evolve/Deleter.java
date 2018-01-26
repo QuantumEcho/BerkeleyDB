@@ -73,6 +73,9 @@ public class Deleter extends Mutation {
 
     /**
      * Creates a mutation for deleting an entity class.
+     *
+     * @param className the class to which this mutation applies.
+     * @param classVersion the class version to which this mutation applies.
      */
     public Deleter(String className, int classVersion) {
         super(className, classVersion, null);
@@ -81,6 +84,11 @@ public class Deleter extends Mutation {
     /**
      * Creates a mutation for deleting the given field from all instances of
      * the given class version.
+     *
+     * @param declaringClass the class to which this mutation applies.
+     * @param declaringClassVersion the class version to which this mutation
+     * applies.
+     * @param fieldName field name to which this mutation applies.
      */
     public Deleter(String declaringClass, int declaringClassVersion,
                    String fieldName) {

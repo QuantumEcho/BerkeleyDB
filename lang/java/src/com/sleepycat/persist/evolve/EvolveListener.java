@@ -18,6 +18,8 @@ public interface EvolveListener {
     /**
      * The listener method called during eager entity evolution.
      *
+     * @param event the EvolveEvent.
+     *
      * @return true to continue evolution or false to stop.
      */
     boolean evolveProgress(EvolveEvent event);

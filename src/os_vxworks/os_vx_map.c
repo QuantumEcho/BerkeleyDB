@@ -388,7 +388,7 @@ __os_segdata_find_byname(env, name, infop, rp)
 			return (0);
 		}
 	}
-	return (ENOENT);
+	return (USR_ERR(env, ENOENT));
 }
 
 /*

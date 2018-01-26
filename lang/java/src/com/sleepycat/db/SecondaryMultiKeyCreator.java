@@ -47,6 +47,7 @@ relationships) you may use the {@link SecondaryKeyCreator} interface instead.
 The table below summarizes how to create all four variations of relationships.
 <div>
 <table border="yes">
+    <caption>Summary of four variations of relationships</caption>
     <tr><th>Relationship</th>
         <th>Interface</th>
         <th>Duplicates</th>

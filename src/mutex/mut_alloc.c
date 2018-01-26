@@ -101,9 +101,7 @@ nomem:			__db_errx(env, DB_STR("2034",
 	    "unable to allocate memory for mutex; resize mutex region"));
 			if (locksys)
 				MUTEX_SYSTEM_UNLOCK(env);
-			if (ret == 0)
-				ret = USR_ERR(env, ENOMEM);
-			return (ret);
+			return (ret == 0 ? ENOMEM : ret);
 		}
 		cnt = mtxregion->stat.st_mutex_cnt / 2;
 		if (cnt < 8)

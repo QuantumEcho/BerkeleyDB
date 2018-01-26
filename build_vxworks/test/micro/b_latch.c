@@ -33,6 +33,19 @@ static int   time_latches __P((DB_ENV *, db_mutex_t, int));
 #endif
 
 /*
+ * In DB-6.3, two new mutex macro were created and these source files updated to
+ * use them.  However, test micro source files need to be compilable by earlier
+ * releases of Berkeley DB.  These definitions allow this file to be compiled
+ * by releases that do not define MUTEX_LOCK_RET() and MUTEX_UNLOCK_RET().
+ */
+#ifndef MUTEX_LOCK_RET
+#define  MUTEX_LOCK_RET(env, mutex)	__mutex_lock(env, mutex)
+#endif
+#ifndef MUTEX_UNLOCK_RET
+#define  MUTEX_UNLOCK_RET(env, mutex)	__mutex_unlock(env, mutex)
+#endif
+
+/*
  * In the mulithreaded latch test each thread locks and updates this variable.
  * It detects contention when the value of this counter changes during the
  * mutex lock call.

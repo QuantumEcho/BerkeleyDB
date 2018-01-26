@@ -47,6 +47,8 @@ public class ReplicationHostAddress {
 
     /** 
     Create a ReplicationHostAddress with user defined host and port information.
+    @param host the host name
+    @param port the port
     **/
     public ReplicationHostAddress(String host, int port)
     {

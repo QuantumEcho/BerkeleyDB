@@ -226,9 +226,10 @@ dup_cmp:if (op == DB_CURRENT && dbp->dup_compare != NULL) {
 		    dbp->dup_compare, &cmp, NULL)) != 0)
 			return (ret);
 		if (cmp != 0) {
+			ret = USR_ERR(env, EINVAL);
 			__db_errx(env, DB_STR("1004",
 			    "Existing data sorts differently from put data"));
-			return (EINVAL);
+			return (ret);
 		}
 	}
 

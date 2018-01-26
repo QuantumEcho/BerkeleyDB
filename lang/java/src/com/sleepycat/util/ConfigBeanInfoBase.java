@@ -151,6 +151,8 @@ public class ConfigBeanInfoBase extends SimpleBeanInfo {
     /**
      * Gets the bean's <code>BeanDescriptor</code>s.
      *
+     * @param cls the Class.
+     *
      * @return BeanDescriptor describing the editable
      * properties of this bean. May return null if the
      * information should be obtained by automatic analysis.
@@ -161,6 +163,8 @@ public class ConfigBeanInfoBase extends SimpleBeanInfo {
 
     /**
      * Gets the bean's <code>PropertyDescriptor</code>s.
+     *
+     * @param cls the Class.
      *
      * @return An array of PropertyDescriptors describing the editable
      * properties supported by this bean. May return null if the

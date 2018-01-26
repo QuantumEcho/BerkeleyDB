@@ -67,6 +67,8 @@ public interface ReplicationTransport {
     The message is a client request that has already been made and to which no 
     response was received.
     <p>
+    @return 0 on success and non-zero on failure
+    <p>
     @throws DatabaseException if a failure occurs.
     */
     int send(Environment environment, DatabaseEntry control, DatabaseEntry rec,

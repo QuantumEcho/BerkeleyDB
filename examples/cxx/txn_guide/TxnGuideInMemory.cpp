@@ -95,7 +95,7 @@ main(void)
 
     try {
         // Create the environment
-        envp = new DbEnv(0);
+        envp = new DbEnv((u_int32_t)0);
 
         // Specify in-memory logging
         envp->log_set_config(DB_LOG_IN_MEMORY, 1);

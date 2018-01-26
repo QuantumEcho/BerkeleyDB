@@ -31,6 +31,8 @@ public abstract class Mutation implements Serializable {
 
     /**
      * Returns the class to which this mutation applies.
+     *
+     * @return  the class to which this mutation applies.
      */
     public String getClassName() {
         return className;
@@ -38,6 +40,8 @@ public abstract class Mutation implements Serializable {
 
     /**
      * Returns the class version to which this mutation applies.
+     *
+     * @return  the class version to which this mutation applies.
      */
     public int getClassVersion() {
         return classVersion;
@@ -46,6 +50,8 @@ public abstract class Mutation implements Serializable {
     /**
      * Returns the field name to which this mutation applies, or null if this
      * mutation applies to the class itself.
+     *
+     * @return  the field name to which this mutation applies, or null.
      */
     public String getFieldName() {
         return fieldName;

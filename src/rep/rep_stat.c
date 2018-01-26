@@ -323,6 +323,14 @@ __rep_print_stats(env, flags)
 	    "Not waiting for any missed pages" :
 	    "Page number of first page we have after missed pages";
 	__db_msg(env, "%lu\t%s", (u_long)sp->st_waiting_pg, p);
+	__db_dl(env, "Number of duplicate external file data messages received",
+	    (u_long)sp->st_ext_duplicated);
+	__db_dl(env, "Number of external file data messages written to disk",
+	    (u_long)sp->st_ext_records);
+	__db_dl(env, "Number of external file data messages re-requested",
+	    (u_long)sp->st_ext_rereq);
+	__db_dl(env, "Number of external file update messages re-requested",
+	    (u_long)sp->st_ext_update_rereq);
 	__db_dl(env,
      "Number of duplicate master conditions originally detected at this site",
 	    (u_long)sp->st_dupmasters);
@@ -480,6 +488,7 @@ __rep_print_all(env, flags)
 		{ REP_C_DELAYCLIENT,		"REP_C_DELAYCLIENT" },
 		{ REP_C_ELECT_LOGLENGTH,	"REP_C_ELECT_LOGLENGTH" },
 		{ REP_C_ELECTIONS,		"REP_C_ELECTIONS" },
+		{ REP_C_FORWARD_WRITES,		"REP_C_FORWARD_WRITES" },
 		{ REP_C_INMEM,			"REP_C_INMEM" },
 		{ REP_C_LEASE,			"REP_C_LEASE" },
 		{ REP_C_NOWAIT,			"REP_C_NOWAIT" },

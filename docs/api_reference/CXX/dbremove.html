@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 12.1.6.1</p>
+        <p>Library Version 12.1.6.2</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -64,6 +64,12 @@ Db::remove(const char *file, const char *database, u_int32_t flags);</pre>
          should be used instead.
     </p>
       <p>
+         The <code class="methodname">Db::remove()</code> method can not be
+         called for sliced databases; the 
+         <a class="xref" href="envdbremove.html" title="DbEnv::dbremove()">DbEnv::dbremove()</a> 
+         method should be used instead.
+    </p>
+      <p>
         The <code class="methodname">Db::remove()</code> method may not be called after calling the 
         <a class="xref" href="dbopen.html" title="Db::open()">Db::open()</a>  method on any 
         <a class="link" href="db.html" title="Chapter 2.  The Db Handle">Db</a>  handle.  If the 
@@ -91,7 +97,7 @@ Db::remove(const char *file, const char *database, u_int32_t flags);</pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140232256430048"></a>Parameters</h3>
+              <h3 class="title"><a id="idm139670064544416"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -99,7 +105,7 @@ Db::remove(const char *file, const char *database, u_int32_t flags);</pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140232251248752"></a>file</h4>
+                <h4 class="title"><a id="idm139670064545344"></a>file</h4>
               </div>
             </div>
           </div>
@@ -112,7 +118,7 @@ Db::remove(const char *file, const char *database, u_int32_t flags);</pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140232255896784"></a>database</h4>
+                <h4 class="title"><a id="idm139670064643840"></a>database</h4>
               </div>
             </div>
           </div>
@@ -125,7 +131,7 @@ Db::remove(const char *file, const char *database, u_int32_t flags);</pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140232256765680"></a>flags</h4>
+                <h4 class="title"><a id="idm139670064546720"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -139,7 +145,7 @@ Db::remove(const char *file, const char *database, u_int32_t flags);</pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140232248134928"></a>Environment Variables</h3>
+              <h3 class="title"><a id="idm139670064531952"></a>Environment Variables</h3>
             </div>
           </div>
         </div>
@@ -159,7 +165,7 @@ Db::remove(const char *file, const char *database, u_int32_t flags);</pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140232256947472"></a>Errors</h3>
+              <h3 class="title"><a id="idm139670064528976"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -177,20 +183,21 @@ Db::remove(const char *file, const char *database, u_int32_t flags);</pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140232253502560"></a>EINVAL</h4>
+                <h4 class="title"><a id="idm139670064515344"></a>EINVAL</h4>
               </div>
             </div>
           </div>
           <p>
-                If the method was called after <a class="xref" href="dbopen.html" title="Db::open()">Db::open()</a> 
-                was called; or if an invalid flag value or parameter was specified.
-            </p>
+                            If the method was called after <a class="xref" href="dbopen.html" title="Db::open()">Db::open()</a>
+                            was called; if this method was called on a sliced database;
+                            or if an invalid flag value or parameter was specified.
+                        </p>
         </div>
         <div class="sect3" lang="en" xml:lang="en">
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140232249836832"></a>ENOENT</h4>
+                <h4 class="title"><a id="idm139670064521648"></a>ENOENT</h4>
               </div>
             </div>
           </div>
@@ -202,7 +209,7 @@ Db::remove(const char *file, const char *database, u_int32_t flags);</pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm140232256967424"></a>DB_META_CHKSUM_FAIL</h4>
+                <h4 class="title"><a id="idm139670064610080"></a>DB_META_CHKSUM_FAIL</h4>
               </div>
             </div>
           </div>
@@ -217,7 +224,7 @@ Db::remove(const char *file, const char *database, u_int32_t flags);</pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140232245982896"></a>Class</h3>
+              <h3 class="title"><a id="idm139670064522688"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -229,7 +236,7 @@ Db::remove(const char *file, const char *database, u_int32_t flags);</pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm140232253688608"></a>See Also</h3>
+              <h3 class="title"><a id="idm139670064525232"></a>See Also</h3>
             </div>
           </div>
         </div>

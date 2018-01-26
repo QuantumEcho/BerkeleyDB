@@ -46,7 +46,7 @@ typedef struct __part_internal {
 #define	PART_MAXIMUM	1000000
 #define	PART_LEN	(sizeof("__dbp..") + PART_DIGITS)
 #define	PART_PREFIX	"__dbp."
-#define IS_PARTITION_DB_FILE(name)	(strncmp(name, PART_PREFIX,	\
+#define	IS_PARTITION_DB_FILE(name)	(strncmp(name, PART_PREFIX,	\
 					    sizeof(PART_PREFIX) - 1) == 0)
 
 #define	DB_IS_PARTITIONED(dbp)						\

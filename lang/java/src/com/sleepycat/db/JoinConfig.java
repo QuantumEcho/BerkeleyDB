@@ -79,7 +79,6 @@ public class JoinConfig implements Cloneable {
     Returns whether automatic sorting of the input cursors is disabled.
     <p>
     @return whether automatic sorting of the input cursors is disabled.
-    <p>
     @see #setNoSort
     */
     public boolean getNoSort() {

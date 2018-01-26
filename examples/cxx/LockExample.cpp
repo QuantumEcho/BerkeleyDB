@@ -100,7 +100,7 @@ main(int argc, char *argv[])
 }
 
 LockExample::LockExample(const char *home, u_int32_t maxlocks, int do_unlink)
-:	DbEnv(0)
+:	DbEnv((u_int32_t)0)
 ,	ecode(0)
 {
 	int ret;

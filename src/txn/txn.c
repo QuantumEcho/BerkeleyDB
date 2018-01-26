@@ -85,7 +85,7 @@ static void __txn_set_txn_lsnp __P((DB_TXN *, DB_LSN **, DB_LSN **));
 
 /*
  * __txn_begin_pp --
- *	ENV->txn_begin pre/post processing.
+ *	DB_ENV->txn_begin pre/post processing.
  *
  * PUBLIC: int __txn_begin_pp __P((DB_ENV *, DB_TXN *, DB_TXN **, u_int32_t));
  */
@@ -151,6 +151,38 @@ err:	ENV_LEAVE(env, ip);
 }
 
 /*
+ * __txn_allocate --
+ *	Allocate and initalize an empty DB_TXN from the heap.
+ *
+ *
+ * PUBLIC: int __txn_allocate __P((ENV *, DB_TXN **));
+ */
+ int
+ __txn_allocate(env, txnpp)
+	ENV *env;
+	DB_TXN **txnpp;
+{
+	DB_TXN *txn;
+	int ret;
+
+	if ((ret = __os_calloc(env, 1, sizeof(DB_TXN), &txn)) != 0) {
+		__db_errx(env, TxnAlloc);
+		return (ret);
+	}
+
+	txn->mgrp = env->tx_handle;
+	TAILQ_INIT(&txn->kids);
+	TAILQ_INIT(&txn->events);
+	STAILQ_INIT(&txn->logs);
+	TAILQ_INIT(&txn->my_cursors);
+	TAILQ_INIT(&txn->femfs);
+	txn->flags = TXN_MALLOC;
+
+	*txnpp = txn;
+	return (0);
+}
+
+/*
  * __txn_begin --
  *	ENV->txn_begin.
  *
@@ -172,31 +204,21 @@ __txn_begin(env, ip, parent, txnpp, flags)
 	u_int32_t flags;
 {
 	DB_ENV *dbenv;
-	DB_LOCKREGION *region;
 	DB_TXN *txn;
 	TXN_DETAIL *ptd, *td;
 	int ret;
 
+	*txnpp = NULL;
+	dbenv = env->dbenv;
 	if (F_ISSET(env, ENV_FORCE_TXN_BULK))
 		flags |= DB_TXN_BULK;
 
-	*txnpp = NULL;
-	if ((ret = __os_calloc(env, 1, sizeof(DB_TXN), &txn)) != 0) {
-		__db_errx(env, TxnAlloc);
+	if ((ret = __txn_allocate(env, &txn)) != 0)
 		return (ret);
-	}
-
-	dbenv = env->dbenv;
-	txn->mgrp = env->tx_handle;
 	txn->parent = parent;
+	txn->begin_flags = flags;
 	if (parent != NULL && F_ISSET(parent, TXN_FAMILY))
 		parent = NULL;
-	TAILQ_INIT(&txn->kids);
-	TAILQ_INIT(&txn->events);
-	STAILQ_INIT(&txn->logs);
-	TAILQ_INIT(&txn->my_cursors);
-	TAILQ_INIT(&txn->femfs);
-	txn->flags = TXN_MALLOC;
 	txn->thread_info =
 	     ip != NULL ? ip : (parent != NULL ? parent->thread_info : NULL);
 
@@ -251,43 +273,23 @@ __txn_begin(env, ip, parent, txnpp, flags)
 
 	if ((ret = __txn_begin_int(txn)) != 0)
 		goto err;
-	td = txn->td;
 
 	if (parent != NULL) {
+		td = txn->td;
 		ptd = parent->td;
 		TAILQ_INSERT_HEAD(&parent->kids, txn, klinks);
 		SH_TAILQ_INSERT_HEAD(&ptd->kids, td, klinks, __txn_detail);
 	}
 
-	if (LOCKING_ON(env)) {
-		region = env->lk_handle->reginfo.primary;
-		if (parent != NULL) {
-			ret = __lock_inherit_timeout(env,
-			    parent->locker, txn->locker);
-			/* No parent locker set yet. */
-			if (ret == EINVAL) {
-				parent = NULL;
-				ret = 0;
-			}
-			if (ret != 0)
-				goto err;
-		}
-
-		/*
-		 * Parent is NULL if we have no parent
-		 * or it has no timeouts set.
-		 */
-		if (parent == NULL && region->tx_timeout != 0)
-			if ((ret = __lock_set_timeout(env, txn->locker,
-			    region->tx_timeout, DB_SET_TXN_TIMEOUT)) != 0)
-				goto err;
-	}
+	if (LOCKING_ON(env) && (ret = __txn_init_timeout(txn, parent)) != 0)
+		goto err;
 
 	*txnpp = txn;
 	PERFMON2(env, txn, begin, txn->txnid, flags);
 	return (0);
 
 err:
+	/* XXX This seems to leak the memory for 'txn->td'. XXX */
 	__os_free(env, txn);
 	return (ret);
 }
@@ -372,9 +374,9 @@ __txn_begin_int(txn)
 	TXN_SYSTEM_LOCK(env);
 	DB_TEST_CRASH(env->test_abort, DB_TEST_EXC_MUTEX);
 	if (!F_ISSET(txn, TXN_COMPENSATE) && F_ISSET(region, TXN_IN_RECOVERY)) {
+		ret = USR_ERR(env, EINVAL);
 		__db_errx(env, DB_STR("4524",
 		    "operation not permitted during recovery"));
-		ret = EINVAL;
 		goto err;
 	}
 
@@ -402,6 +404,7 @@ __txn_begin_int(txn)
 	if (region->stat.st_nactive > region->stat.st_maxnactive)
 		STAT_SET(env, txn, maxnactive,
 		    region->stat.st_maxnactive, region->stat.st_nactive, id);
+	td->slice_details = INVALID_ROFF;
 #endif
 
 	td->txnid = id;
@@ -450,7 +453,7 @@ __txn_begin_int(txn)
 
 	/* Allocate a locker for this txn. */
 	if (LOCKING_ON(env) && (ret =
-		__lock_getlocker(env->lk_handle, id, 1, &txn->locker)) != 0)
+	    __lock_getlocker(env->lk_handle, id, 1, &txn->locker)) != 0)
 			goto err;
 
 	txn->abort = __txn_abort_pp;
@@ -550,8 +553,6 @@ __txn_continue(env, txn, td, ip, add_to_list)
 	txn->name = NULL;
 	txn->td = td;
 	td->xa_ref++;
-
-	/* This never seems to be used: txn->expire */
 	txn->txn_list = NULL;
 
 	TAILQ_INIT(&txn->kids);
@@ -631,12 +632,15 @@ __txn_commit_pp(txn, flags)
 	ENV *env;
 	int rep_check, ret, t_ret;
 
+	ret = 0;
 	env = txn->mgrp->env;
 	rep_check = IS_ENV_REPLICATED(env) &&
 	    txn->parent == NULL && IS_REAL_TXN(txn);
 
 	ENV_ENTER(env, ip);
-	ret = __txn_commit(txn, flags);
+
+	if ((t_ret = __txn_commit(txn, flags)) != 0 && ret == 0)
+		ret = t_ret;
 	if (rep_check && (t_ret = __op_rep_exit(env)) != 0 && ret == 0)
 		ret = t_ret;
 	ENV_LEAVE(env, ip);
@@ -664,13 +668,44 @@ __txn_commit(txn, flags)
 	DB_LSN token_lsn;
 	u_int32_t id;
 	int ret, t_ret;
+#ifdef HAVE_SLICES
+	DB_THREAD_INFO *ip;
+	DB_TXN *sl_txn;
+	db_slice_t i;
+#endif
 
 	env = txn->mgrp->env;
 	td = txn->td;
+	ret = 0;
 	PERFMON2(env, txn, commit, txn->txnid, flags);
 
 	DB_ASSERT(env, txn->xa_thr_status == TXN_XA_THREAD_NOTA ||
 	    td->xa_ref == 1);
+
+#ifdef HAVE_SLICES
+	if (txn->txn_slices != NULL) {
+
+		/*
+		 * Commit any slices' transactions before commiting in the
+		 * container. Remember errors, prioritizing panics above others.
+		 */
+		for (i = 0; i != env->dbenv->slice_cnt; i++) {
+			if ((sl_txn = txn->txn_slices[i]) == NULL)
+				continue;
+			DB_ASSERT(env, sl_txn->txn_container == txn);
+			txn->txn_slices[i] = NULL;
+			sl_txn->txn_container = NULL;
+			ENV_ENTER(env->slice_envs[i]->env, ip);
+			if ((t_ret = __txn_commit(sl_txn, flags)) != 0 &&
+			    ret == 0 && ret != DB_RUNRECOVERY)
+				ret = t_ret;
+			ENV_LEAVE(env->slice_envs[i]->env, ip);
+		}
+		__os_free(env, txn->txn_slices);
+		txn->txn_slices = NULL;
+	}
+#endif
+
 	/*
 	 * A common mistake in Berkeley DB programs is to mis-handle deadlock
 	 * return.  If the transaction deadlocked, they want abort, not commit.
@@ -892,7 +927,7 @@ err:	/*
 /*
  * __txn_close_cursors
  *	Close a transaction's registered cursors, all its cursors are
- *	guaranteed to be closed, even when an error occurs. 
+ *	guaranteed to be closed, even when an error occurs.
  */
 static int
 __txn_close_cursors(txn)
@@ -926,7 +961,7 @@ __txn_close_cursors(txn)
 
 		/* We have to close all cursors anyway, so continue on error. */
 		if (t_ret != 0) {
-#ifndef DIAGNOSTIC
+#if !defined(DIAGNOSTIC)
 			/*
 			 * In order to prevent overly alarming messages from
 			 * appearing in the application's error stream, we
@@ -1092,6 +1127,30 @@ __txn_abort(txn)
 	 */
 	__txn_reset_fe_watermarks(txn);
 
+#ifdef HAVE_SLICES
+	if (txn->txn_slices != NULL) {
+		DB_TXN *sl_txn;
+		db_slice_t i;
+		int t_ret;
+
+		for (i = 0; i != env->dbenv->slice_cnt; i++) {
+			sl_txn = txn->txn_slices[i];
+			if (sl_txn == NULL)
+				continue;
+			txn->txn_slices[i] = NULL;
+			sl_txn->txn_container = NULL;
+			if ((t_ret = __txn_abort_pp(sl_txn)) != 0) {
+				__db_err(env, ret,
+				    "slice txn #%d failed abort!", i);
+				if (ret == 0)
+					ret = t_ret;
+			}
+		}
+		__os_free(env, txn->txn_slices);
+		txn->txn_slices = NULL;
+	} else
+		DB_ASSERT(env, txn->txn_container == NULL);
+#endif
 	/*
 	 * Try to abort any unresolved children.
 	 *
@@ -1270,6 +1329,12 @@ __txn_prepare(txn, gid)
 	int ret;
 
 	env = txn->mgrp->env;
+	if (SLICES_ON(env)) {
+		ret = USR_ERR(env, EINVAL);
+		__db_errx(env, DB_STR("4577",
+		"Sliced environments do not support distributed transactions"));
+		return (ret);
+	}
 	td = txn->td;
 	PERFMON2(env, txn, prepare, txn->txnid, gid);
 	DB_ASSERT(env, txn->xa_thr_status == TXN_XA_THREAD_NOTA ||
@@ -1634,6 +1699,13 @@ __txn_end(txn, is_commit)
 	region = mgr->reginfo.primary;
 	do_closefiles = 0;
 
+#ifdef HAVE_SLICES
+	if (txn->txn_container != NULL) {
+		DB_ASSERT(env, txn->txn_container->txn_slices[0] == txn);
+		txn->txn_container->txn_slices[0] = NULL;
+		txn->txn_container = NULL;
+	}
+#endif
 	/* Process commit events. */
 	if ((ret = __txn_doevents(env,
 	    txn, is_commit ? TXN_COMMIT : TXN_ABORT, 0)) != 0)
@@ -1699,9 +1771,18 @@ __txn_end(txn, is_commit)
 		    R_ADDR(&mgr->reginfo, td->name));
 		td->name = INVALID_ROFF;
 	}
-	if (td->nlog_slots != TXN_NSLOTS)
+	if (td->nlog_slots != TXN_NSLOTS) {
 		__env_alloc_free(&mgr->reginfo,
 		    R_ADDR(&mgr->reginfo, td->log_dbs));
+		td->log_dbs = INVALID_ROFF;
+	}
+#ifdef HAVE_STATISTICS
+	if (td->slice_details != INVALID_ROFF) {
+		__env_alloc_free(&mgr->reginfo,
+		    R_ADDR(&mgr->reginfo, td->slice_details));
+		td->slice_details = INVALID_ROFF;
+	}
+#endif
 
 	if (txn->parent != NULL) {
 		ptd = txn->parent->td;
@@ -1723,10 +1804,9 @@ __txn_end(txn, is_commit)
 			    nsnapshot, region->stat.st_nsnapshot, txn->txnid);
 			if (region->stat.st_nsnapshot >
 			    region->stat.st_maxnsnapshot)
-				    STAT_SET(env, txn, maxnsnapshot,
-					region->stat.st_maxnsnapshot,
-					region->stat.st_nsnapshot,
-					txn->txnid);
+				STAT_SET(env, txn, maxnsnapshot,
+				    region->stat.st_maxnsnapshot,
+				    region->stat.st_nsnapshot, txn->txnid);
 #endif
 			td = NULL;
 		}
@@ -1956,7 +2036,7 @@ __txn_activekids(env, rectype, txn)
 	if (TAILQ_FIRST(&txn->kids) != NULL) {
 		__db_errx(env, DB_STR("4538",
 		    "Child transaction is active"));
-		return (EPERM);
+		return (USR_ERR(env, EPERM));
 	}
 	return (0);
 }
@@ -2201,3 +2281,137 @@ __txn_applied(env, ip, commit_info, timeout)
 		return (0);
 	return (USR_ERR(env, DB_NOTFOUND));
 }
+
+/*
+ * __txn_init_timeout --
+ *	See whether this new transaction should have a lock timeout period,
+ *	either inherited from its parent or __lock_set_env_timeout().
+ *
+ * PUBLIC: int __txn_init_timeout __P((DB_TXN *, DB_TXN *));
+ */
+int
+__txn_init_timeout(txn, parent)
+	DB_TXN *txn, *parent;
+{
+	DB_LOCKREGION *lock_region;
+	ENV *env;
+	int ret;
+
+	env = txn->mgrp->env;
+	lock_region = env->lk_handle->reginfo.primary;
+	ret = 0;
+	if (parent != NULL) {
+		ret = __lock_inherit_timeout(env, parent->locker, txn->locker);
+		/*
+		 * An error code except EINVAL is a real error here, so return
+		 * it. EINVAL means that no parent locker has been set yet; fall
+		 * through to check whether the lock region has a timeout.
+		 */
+		if (ret == 0 || ret != EINVAL)
+		    return (ret);
+	}
+
+	if (lock_region->tx_timeout != 0)
+		ret = __lock_set_timeout(env,
+		    txn->locker, lock_region->tx_timeout, DB_SET_TXN_TIMEOUT);
+
+	return (ret);
+}
+
+#ifdef HAVE_SLICES
+
+/*
+ * __txn_slice_begin --
+ *	Begin a transaction for a slice of a container if it does not already
+ *	have one, copying the relevent flags and other attributes from the
+ *	container's transaction.
+ *
+ *	It is okay if the container txn already has a txn in this slice.
+ *
+ *	The container's environment should have been enterered by the caller.
+ *	This enters and leaves the slice's environment if and only if it needs
+ *	to begin a transaction.
+ *
+ * PUBLIC: int __txn_slice_begin __P((DB_TXN *, DB_TXN **, db_slice_t));
+ */
+int
+__txn_slice_begin(txn, sl_txnpp, slice_index)
+	DB_TXN *txn;
+	DB_TXN **sl_txnpp;
+	db_slice_t slice_index;
+{
+	ENV *env;
+	TXN_DETAIL *td;
+	DB_TXNMGR *mgr;
+	int ret;
+#ifdef HAVE_STATISTICS
+	DB_TXN_ACTIVE_SLICE *slice_details;
+	size_t len;
+#endif
+
+	ret = 0;
+	*sl_txnpp = NULL;
+	mgr = txn->mgrp;
+	env = mgr->env;
+	td = txn->td;
+
+	CHECK_THREAD(env);
+	if (txn->txn_slices == NULL) {
+		if ((ret = __os_calloc(env, env->dbenv->slice_cnt,
+		    sizeof(DB_TXN *), &txn->txn_slices)) != 0)
+			return (ret);
+
+#ifdef HAVE_STATISTICS
+		len = (size_t)
+		    env->dbenv->slice_cnt * sizeof(DB_TXN_ACTIVE_SLICE);
+		TXN_SYSTEM_LOCK(env);
+		if ((ret = __env_alloc(&mgr->reginfo,
+		    len, &slice_details)) != 0) {
+			return (ret);
+		}
+		memset(slice_details, 0, len);
+		td->slice_details = R_OFFSET(&mgr->reginfo, slice_details);
+
+		TXN_SYSTEM_UNLOCK(env);
+#endif
+	}
+#ifdef HAVE_STATISTICS
+	else
+		slice_details = R_ADDR(&mgr->reginfo, td->slice_details);
+#endif
+
+	if ((*sl_txnpp = txn->txn_slices[slice_index]) == NULL) {
+		if ((ret = __txn_begin_pp(env->slice_envs[slice_index],
+		    NULL, sl_txnpp, txn->begin_flags)) != 0)
+			return (ret);
+		(*sl_txnpp)->txn_container = txn;
+		txn->txn_slices[slice_index] = *sl_txnpp;
+#ifdef HAVE_STATISTICS
+		slice_details[slice_index].txnid = (*sl_txnpp)->txnid;
+#endif
+	}
+
+	return (0);
+}
+
+/*
+ * __txn_multislice --
+ *	Return the error that this container's txn already has accessed a slice.
+ *
+ * PUBLIC: int __txn_multislice __P((DB_TXN *));
+ */
+ int
+ __txn_multislice(txn)
+	 DB_TXN *txn;
+{
+	ENV *env;
+	int ret;
+
+	env = txn->mgrp->env;
+	ret = USR_ERR(env, EINVAL);
+	__db_errx(env,
+	    DB_STR("4576", "A transaction tried to access a second slice"));
+	return (ret);
+}
+
+#endif

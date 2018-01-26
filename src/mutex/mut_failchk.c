@@ -188,7 +188,7 @@ __mutex_failchk_single(env, mutex, ip)
 
 		/* Unlock and free the mutex. */
 		if (LF_ISSET(DB_MUTEX_LOCKED))
-			(void)__mutex_unlock(env, mutex, ip, MUTEX_CTR);
+			__mutex_unlock(env, mutex, ip, MUTEX_CTR);
 
 		return (__mutex_free_int(env, 0, &mutex));
 	/*

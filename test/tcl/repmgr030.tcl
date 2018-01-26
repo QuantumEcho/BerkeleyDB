@@ -42,6 +42,7 @@ proc repmgr030_sub { method niter tnum largs } {
 	global testdir
 	global rep_verbose
 	global verbose_type
+	global ipversion
 	set nsites 5
 
 	set verbargs ""
@@ -50,6 +51,7 @@ proc repmgr030_sub { method niter tnum largs } {
 	}
 
 	env_cleanup $testdir
+	set hoststr [get_hoststr $ipversion]
 	set ports [available_ports $nsites]
 	set omethod [convert_method $method]
 
@@ -89,7 +91,7 @@ proc repmgr030_sub { method niter tnum largs } {
 	set masterenv [eval $ma_envcmd]
 	$masterenv rep_request $req_min $req_max
 	$masterenv repmgr -ack all -pri 100 \
-	    -local [list 127.0.0.1 [lindex $ports 0]] \
+	    -local [list $hoststr [lindex $ports 0]] \
 	    -timeout [list ack $ack_timeout] \
 	    -timeout [list heartbeat_send $hbsend] \
 	    -timeout [list heartbeat_monitor $hbmon] -start master
@@ -102,10 +104,10 @@ proc repmgr030_sub { method niter tnum largs } {
 	set clientenv [eval $cl_envcmd]
 	$clientenv rep_request $req_min $req_max
 	$clientenv repmgr -ack all -pri 80 \
-	    -local [list 127.0.0.1 [lindex $ports 1]] \
-	    -remote [list 127.0.0.1 [lindex $ports 0]] \
-	    -remote [list 127.0.0.1 [lindex $ports 2]] \
-	    -remote [list 127.0.0.1 [lindex $ports 3]] \
+	    -local [list $hoststr [lindex $ports 1]] \
+	    -remote [list $hoststr [lindex $ports 0]] \
+	    -remote [list $hoststr [lindex $ports 2]] \
+	    -remote [list $hoststr [lindex $ports 3]] \
 	    -timeout [list ack $ack_timeout] \
 	    -timeout [list heartbeat_send $hbsend] \
 	    -timeout [list heartbeat_monitor $hbmon] -start client
@@ -116,10 +118,10 @@ proc repmgr030_sub { method niter tnum largs } {
 	set clientenv2 [eval $cl2_envcmd]
 	$clientenv2 rep_request $req_min $req_max
 	$clientenv2 repmgr -ack all -pri 60 \
-	    -local [list 127.0.0.1 [lindex $ports 2]] \
-	    -remote [list 127.0.0.1 [lindex $ports 0]] \
-	    -remote [list 127.0.0.1 [lindex $ports 1]] \
-	    -remote [list 127.0.0.1 [lindex $ports 3]] \
+	    -local [list $hoststr [lindex $ports 2]] \
+	    -remote [list $hoststr [lindex $ports 0]] \
+	    -remote [list $hoststr [lindex $ports 1]] \
+	    -remote [list $hoststr [lindex $ports 3]] \
 	    -timeout [list ack $ack_timeout] \
 	    -timeout [list heartbeat_send $hbsend] \
 	    -timeout [list heartbeat_monitor $hbmon] -start client
@@ -132,11 +134,11 @@ proc repmgr030_sub { method niter tnum largs } {
 	set clientenv3 [eval $cl3_envcmd]
 	$clientenv3 rep_request $req_min $req_max
 	$clientenv3 repmgr -ack all -pri 50 \
-	    -local [list 127.0.0.1 [lindex $ports 3]] \
-	    -remote [list 127.0.0.1 [lindex $ports 0]] \
-	    -remote [list 127.0.0.1 [lindex $ports 1] peer] \
-	    -remote [list 127.0.0.1 [lindex $ports 4] peer] \
-	    -remote [list 127.0.0.1 [lindex $ports 2] peer] \
+	    -local [list $hoststr [lindex $ports 3]] \
+	    -remote [list $hoststr [lindex $ports 0]] \
+	    -remote [list $hoststr [lindex $ports 1] peer] \
+	    -remote [list $hoststr [lindex $ports 4] peer] \
+	    -remote [list $hoststr [lindex $ports 2] peer] \
 	    -timeout [list ack $ack_timeout] \
 	    -timeout [list heartbeat_send $hbsend] \
 	    -timeout [list heartbeat_monitor $hbmon] -start client
@@ -151,8 +153,8 @@ proc repmgr030_sub { method niter tnum largs } {
 	set viewenv [eval $view_envcmd]
 	$viewenv rep_request $req_min $req_max
 	$viewenv repmgr -ack all -pri 80 \
-	    -local [list 127.0.0.1 [lindex $ports 4]] \
-	    -remote [list 127.0.0.1 [lindex $ports 0]] \
+	    -local [list $hoststr [lindex $ports 4]] \
+	    -remote [list $hoststr [lindex $ports 0]] \
 	    -timeout [list ack $ack_timeout] \
 	    -timeout [list heartbeat_send $hbsend] \
 	    -timeout [list heartbeat_monitor $hbmon] -start client
@@ -200,7 +202,7 @@ proc repmgr030_sub { method niter tnum largs } {
 	# master with its lower priority.  This also reduces the size of
 	# the replication group so that the remaining sites can generate
 	# enough votes for a successful election.
-	$clientenv repmgr -remove [list 127.0.0.1 [lindex $ports 0]]
+	$clientenv repmgr -remove [list $hoststr [lindex $ports 0]]
 	await_event $clientenv site_removed
 	# Give site remove gmdb operation some time to propagate.
 	tclsleep 2

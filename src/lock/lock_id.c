@@ -167,9 +167,9 @@ __lock_id_free_pp(dbenv, id)
 		if (sh_locker != NULL)
 			ret = __lock_freelocker_int(lt, region, sh_locker, 1);
 		else {
+			ret = USR_ERR(env, EINVAL);
 			__db_errx(env, DB_STR_A("2045",
 			    "Unknown locker id: %lx", "%lx"), (u_long)id);
-			ret = EINVAL;
 		}
 	}
 	UNLOCK_LOCKERS(env, region);
@@ -342,9 +342,10 @@ __lock_getlocker_int(lt, locker, create, ip, retp)
 			if ((sh_locker = SH_TAILQ_FIRST(
 			    &region->free_lockers, __db_locker)) == NULL) {
 				if (region->stat.st_maxlockers != 0 &&
-				    region->stat.st_maxlockers <= 
+				    region->stat.st_maxlockers <=
 				    region->stat.st_lockers)
-					return (__lock_nomem(env, "locker entries"));
+					return (__lock_nomem(env,
+					    "locker entries"));
 				nlockers = region->stat.st_lockers >> 2;
 				/* Just in case. */
 				if (nlockers == 0)
@@ -550,7 +551,7 @@ __lock_freelocker_int(lt, region, sh_locker, reallyfree)
 	if (!SH_LIST_EMPTY(&sh_locker->heldby)) {
 		ret = USR_ERR(env, EINVAL);
 		__db_errx(env,
-		    DB_STR("2060", "Freeing locker %x with locks"),
+		    DB_STR_A("2060", "Freeing locker %x with locks", "%x"),
 		    sh_locker->id);
 		DB_MSGBUF_INIT(&mb);
 		(void)__lock_dump_locker(env, &mb, lt, sh_locker);

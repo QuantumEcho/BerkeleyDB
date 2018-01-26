@@ -1176,7 +1176,7 @@ __ham_del_pair(dbc, flags, ppg)
 	 * If we are locking, we will not maintain this, because it is
 	 * a hot spot.
 	 *
-	 * XXX
+	 * Note:
 	 * Perhaps we can retain incremental numbers and apply them later.
 	 */
 	if (!STD_LOCKING(dbc)) {

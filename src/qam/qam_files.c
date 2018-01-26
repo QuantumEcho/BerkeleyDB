@@ -39,10 +39,11 @@ __qam_fprobe(dbc, pgno, addrp, mode, priority, flags)
 	DB *dbp;
 	DB_MPOOLFILE *mpf;
 	ENV *env;
-	MPFARRAY *array;
+	MPFARRAY *array, *array1;
 	QUEUE *qp;
 	u_int8_t fid[DB_FILE_ID_LEN];
 	u_int32_t i, extid, maxext, numext, lflags, offset, oldext, openflags;
+	size_t qmpf_sz;
 	char buf[DB_MAXPATHLEN];
 	int ftype, less, ret, t_ret;
 
@@ -50,6 +51,7 @@ __qam_fprobe(dbc, pgno, addrp, mode, priority, flags)
 	env = dbp->env;
 	qp = (QUEUE *)dbp->q_internal;
 	ret = 0;
+	qmpf_sz = sizeof(struct __qmpf);
 
 	if (qp->page_ext == 0) {
 		mpf = dbp->mpf;
@@ -80,6 +82,7 @@ __qam_fprobe(dbc, pgno, addrp, mode, priority, flags)
 	extid = QAM_PAGE_EXTENT(dbp, pgno);
 
 	/* Array1 will always be in use if array2 is in use. */
+retry:
 	array = &qp->array1;
 	if (array->n_extent == 0) {
 		/* Start with 4 extents */
@@ -90,7 +93,6 @@ __qam_fprobe(dbc, pgno, addrp, mode, priority, flags)
 		goto alloc;
 	}
 
-retry:
 	if (extid < array->low_extent) {
 		less = 1;
 		offset = array->low_extent - extid;
@@ -99,8 +101,10 @@ retry:
 		offset = extid - array->low_extent;
 	}
 	if (qp->array2.n_extent != 0 &&
+	    (less || offset >= array->n_extent) &&
 	    (extid >= qp->array2.low_extent ?
-	    offset > extid - qp->array2.low_extent :
+	    (extid - qp->array2.low_extent < qp->array2.n_extent ||
+	     offset > extid - qp->array2.low_extent) :
 	    offset > qp->array2.low_extent - extid)) {
 		array = &qp->array2;
 		if (extid < array->low_extent) {
@@ -127,10 +131,8 @@ retry:
 			 * to allocate.
 			 */
 			memmove(&array->mpfarray[offset],
-			    array->mpfarray, numext
-			    * sizeof(array->mpfarray[0]));
-			memset(array->mpfarray, 0, offset
-			    * sizeof(array->mpfarray[0]));
+			    array->mpfarray, numext * qmpf_sz);
+			memset(array->mpfarray, 0, offset * qmpf_sz);
 			offset = 0;
 		} else if (less == 0 && offset == array->n_extent &&
 		    (mode == QAM_PROBE_GET || mode == QAM_PROBE_PUT) &&
@@ -144,7 +146,7 @@ retry:
 			if (mpf != NULL && (ret = __memp_fclose(mpf, 0)) != 0)
 				goto err;
 			memmove(&array->mpfarray[0], &array->mpfarray[1],
-			    (array->n_extent - 1) * sizeof(array->mpfarray[0]));
+			    (array->n_extent - 1) * qmpf_sz);
 			array->low_extent++;
 			array->hi_extent++;
 			offset--;
@@ -153,19 +155,68 @@ retry:
 		} else {
 			/*
 			 * See if we have wrapped around the queue.
-			 * If it has then allocate the second array.
+			 * If it has then allocate the second array or do merge.
 			 * Otherwise just expand the one we are using.
 			 */
 			maxext = (u_int32_t) UINT32_MAX
 			    / (qp->page_ext * qp->rec_page);
 			if (offset >= maxext/2) {
 				array = &qp->array2;
-				DB_ASSERT(env, array->n_extent == 0);
+				array1 = &qp->array1;
+				if (array->n_extent == 0)
+					goto nomerge;
+
+				/*
+				 * When we are wrapping around while both of the
+				 * two arrays are in the second half, we need to
+				 * merge the two arrays, so that we can have an
+				 * array to store the new entries and keeping
+				 * the size of this array under half of the
+				 * maximum.
+				 */
+				if (array1->low_extent > array->low_extent) {
+					offset = array1->low_extent -
+					    array->low_extent;
+					numext = offset + array1->n_extent;
+				} else {
+					offset = array->low_extent -
+					    array1->low_extent;
+					numext = offset + array->n_extent;
+				}
+				if ((ret = __os_realloc(env, numext * qmpf_sz,
+				    &array1->mpfarray)) != 0)
+					goto err;
+				/* Merge two arrays into one array. */
+				if (array1->low_extent > array->low_extent) {
+					memmove(&array1->mpfarray[offset],
+					    &array1->mpfarray[0],
+					    array1->n_extent * qmpf_sz);
+					memset(&array1->mpfarray[0], 0,
+					    offset * qmpf_sz);
+					memcpy(&array1->mpfarray[0],
+					    &array->mpfarray[0],
+					    array->n_extent * qmpf_sz);
+					array1->low_extent = array->low_extent;
+				} else {
+					memset(&array1->mpfarray[
+					    array1->n_extent], 0,
+					    (numext - array1->n_extent) *
+					    qmpf_sz);
+					memcpy(&array1->mpfarray[offset],
+					    &array->mpfarray[0],
+					    array->n_extent * qmpf_sz);
+					array1->hi_extent = array->hi_extent;
+				}
+				array1->n_extent = numext;
+nomerge:
 				oldext = 0;
-				array->n_extent = 4;
+				if (array->n_extent == 0)
+					array->n_extent = 4;
+				array->hi_extent = 0;
 				array->low_extent = extid;
 				offset = 0;
 				numext = 0;
+				less = 0;
 			} else if (array->mpfarray[0].pinref == 0) {
 				/*
 				 * Check to see if there are extents marked
@@ -190,10 +241,9 @@ retry:
 					goto increase;
 				memmove(&array->mpfarray[0],
 				     &array->mpfarray[i],
-				    (array->n_extent - i) *
-				    sizeof(array->mpfarray[0]));
+				    (array->n_extent - i) * qmpf_sz);
 				memset(&array->mpfarray[array->n_extent - i],
-				     '\0', i * sizeof(array->mpfarray[0]));
+				     '\0', i * qmpf_sz);
 				array->low_extent += i;
 				array->hi_extent += i;
 				goto retry;
@@ -205,8 +255,7 @@ retry:
 increase:			array->n_extent += offset;
 				array->n_extent <<= 2;
 			}
-alloc:			if ((ret = __os_realloc(env,
-			    array->n_extent * sizeof(struct __qmpf),
+alloc:			if ((ret = __os_realloc(env, array->n_extent * qmpf_sz,
 			    &array->mpfarray)) != 0)
 				goto err;
 
@@ -216,20 +265,17 @@ alloc:			if ((ret = __os_realloc(env,
 				 * in the first slot.
 				 */
 				memmove(&array->mpfarray[offset],
-				    array->mpfarray,
-				    numext * sizeof(array->mpfarray[0]));
-				memset(array->mpfarray, 0,
-				    offset * sizeof(array->mpfarray[0]));
+				    array->mpfarray, numext * qmpf_sz);
+				memset(array->mpfarray, 0, offset * qmpf_sz);
 				memset(&array->mpfarray[numext + offset], 0,
 				    (array->n_extent - (numext + offset))
-				    * sizeof(array->mpfarray[0]));
+				    * qmpf_sz);
 				offset = 0;
 			}
 			else
 				/* Clear the new part of the array. */
 				memset(&array->mpfarray[oldext], 0,
-				    (array->n_extent - oldext) *
-				    sizeof(array->mpfarray[0]));
+				    (array->n_extent - oldext) * qmpf_sz);
 		}
 	}
 
@@ -752,7 +798,7 @@ __qam_nameop(dbp, txn, newname, op)
 
 	/* We should always have a path separator here. */
 	if ((endpath = __db_rpath(fullname)) == NULL) {
-		ret = EINVAL;
+		ret = USR_ERR(env, EINVAL);
 		goto err;
 	}
 	sepsave = *endpath;
@@ -779,7 +825,7 @@ __qam_nameop(dbp, txn, newname, op)
 	endpath++;
 	endname = strrchr(endpath, '.');
 	if (endname == NULL) {
-		ret = EINVAL;
+		ret = USR_ERR(env, EINVAL);
 		goto err;
 	}
 	++endname;
@@ -911,10 +957,9 @@ __qam_backup_extents(dbp, ip, target, flags)
 	u_int32_t flags;
 {
 	DB_FH *filep;
-	QUEUE *qp;
 	QUEUE_FILELIST *fp, *filelist;
 	int ret, t_ret;
-	char buf[DB_MAXPATHLEN];
+	const char *file_name;
 	void *handle;
 
 	if ((ret = __qam_gen_filelist(dbp, ip, &filelist)) != 0)
@@ -923,16 +968,21 @@ __qam_backup_extents(dbp, ip, target, flags)
 	if (filelist == NULL)
 		return (0);
 
-	qp = dbp->q_internal;
-
 	for (fp = filelist; fp->mpf != NULL; fp++) {
-		QAM_EXNAME(qp, fp->id, buf, sizeof(buf));
+		file_name = fp->mpf->fhp->name;
+		if (strstr(file_name, dbp->env->db_home) == file_name) {
+			/*
+			 * Skip the leading environment home directory and the
+			 * path separator.
+			 */
+			file_name = file_name + strlen(dbp->env->db_home) + 1;
+		}
 		if ((ret = __memp_backup_open(dbp->dbenv->env,
-		    fp->mpf, buf, target, flags, &filep, &handle)) == 0)
+		    fp->mpf, file_name, target, flags, &filep, &handle)) == 0)
 			ret = __memp_backup_mpf(dbp->dbenv->env, fp->mpf, ip,
 			    0, fp->mpf->mfp->last_pgno, filep, handle, flags);
 		if ((t_ret = __memp_backup_close(dbp->dbenv->env,
-		    fp->mpf, buf, filep, handle)) != 0 && ret == 0)
+		    fp->mpf, file_name, filep, handle)) != 0 && ret == 0)
 			ret = t_ret;
 		if (ret != 0)
 			break;

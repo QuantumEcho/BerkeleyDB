@@ -88,7 +88,7 @@ public class RepmgrConfigTest extends EventHandlerAdapter
         boolean validPolicy;
     }
 
-    static String address     = "localhost";
+    static String address     = "::1";
     static int    port        = 4242;
     static int    priority    = 100;
     static String homedirName = "";

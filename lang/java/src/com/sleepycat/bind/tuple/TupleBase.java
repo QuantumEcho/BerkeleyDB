@@ -151,6 +151,8 @@ public class TupleBase<E> {
      * Utility method for use by bindings to create a tuple output object
      * with a specific starting size.
      *
+     * @param buffer is the byte array to use as the buffer.
+     *
      * @return a new tuple output object.
      *
      * @deprecated replaced by {@link #getTupleOutput}

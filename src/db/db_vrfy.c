@@ -113,9 +113,15 @@ __db_verify_internal(dbp, fname, dname, handle, callback, flags)
 
 	ENV_ENTER(env, ip);
 
-	if ((ret = __db_verify_arg(dbp, dname, handle, flags)) == 0)
+	if ((ret = __db_verify_arg(dbp, dname, handle, flags)) == 0) {
 		ret = __db_verify(dbp, ip,
 		     fname, dname, handle, callback, NULL, NULL, flags);
+#ifdef HAVE_SLICES
+		if (ret == 0 && FLD_ISSET(dbp->open_flags, DB_SLICED))
+			ret = __db_slice_verify(dbp,
+			    fname, dname, handle, callback, flags);
+#endif
+	}
 
 	/* Db.verify is a DB handle destructor. */
 	if ((t_ret = __db_close(dbp, NULL, 0)) != 0 && ret == 0)
@@ -558,7 +564,7 @@ __db_vrfy_pagezero(dbp, vdp, fhp, name, flags)
 		    "Page %lu: metadata page corrupted", "%lu"),
 		    (u_long)PGNO_BASE_MD));
 		isbad = 1;
-		if (ret != DB_CHKSUM_FAIL) {
+		if (ret != DB_META_CHKSUM_FAIL) {
 			EPRINT((env, DB_STR_A("0523",
 			    "Page %lu: could not check metadata page", "%lu"),
 			    (u_long)PGNO_BASE_MD));
@@ -659,8 +665,7 @@ __db_vrfy_pagezero(dbp, vdp, fhp, name, flags)
 	 * 26: Meta-flags.
 	 */
 	if (meta->metaflags != 0) {
-		if (FLD_ISSET(meta->metaflags,
-		    ~(DBMETA_CHKSUM|DBMETA_PART_RANGE|DBMETA_PART_CALLBACK))) {
+		if (FLD_ISSET(meta->metaflags, ~DBMETA_ALLFLAGS)) {
 			isbad = 1;
 			EPRINT((env, DB_STR_A("0529",
 			    "Page %lu: bad meta-data flags value %#lx",
@@ -673,6 +678,8 @@ __db_vrfy_pagezero(dbp, vdp, fhp, name, flags)
 			F_SET(pip, VRFY_HAS_PART_RANGE);
 		if (FLD_ISSET(meta->metaflags, DBMETA_PART_CALLBACK))
 			F_SET(pip, VRFY_HAS_PART_CALLBACK);
+		if (FLD_ISSET(meta->metaflags, DBMETA_SLICED))
+			F_SET(pip, VRFY_HAS_SLICES);
 
 		if (FLD_ISSET(meta->metaflags,
 		    DBMETA_PART_RANGE | DBMETA_PART_CALLBACK) &&
@@ -687,10 +694,10 @@ __db_vrfy_pagezero(dbp, vdp, fhp, name, flags)
 	 * for now, just store it.
 	 */
 	if (swapped)
-	    M_32_SWAP(meta->free);
+		M_32_SWAP(meta->free);
 	freelist = meta->free;
 	if (swapped)
-	    M_32_SWAP(meta->last_pgno);
+		M_32_SWAP(meta->last_pgno);
 	vdp->meta_last_pgno = meta->last_pgno;
 
 	/*
@@ -1519,8 +1526,7 @@ __db_vrfy_meta(dbp, vdp, meta, pgno, flags)
 
 	/* Flags */
 	if (meta->metaflags != 0) {
-		if (FLD_ISSET(meta->metaflags,
-		    ~(DBMETA_CHKSUM|DBMETA_PART_RANGE|DBMETA_PART_CALLBACK))) {
+		if (FLD_ISSET(meta->metaflags, ~DBMETA_ALLFLAGS)) {
 			isbad = 1;
 			EPRINT((env, DB_STR_A("0549",
 			    "Page %lu: bad meta-data flags value %#lx",
@@ -1533,6 +1539,8 @@ __db_vrfy_meta(dbp, vdp, meta, pgno, flags)
 			F_SET(pip, VRFY_HAS_PART_RANGE);
 		if (FLD_ISSET(meta->metaflags, DBMETA_PART_CALLBACK))
 			F_SET(pip, VRFY_HAS_PART_CALLBACK);
+		if (FLD_ISSET(meta->metaflags, DBMETA_SLICED))
+			F_SET(pip, VRFY_HAS_SLICES);
 	}
 
 	/*
@@ -1836,7 +1844,7 @@ __db_vrfy_orderchkonly(dbp, vdp, name, subdb, flags)
 	if ((ret = __db_get(mdbp,
 	    vdp->thread_info, NULL, &key, &data, 0)) != 0) {
 		if (ret == DB_NOTFOUND)
-			ret = ENOENT;
+			ret = USR_ERR(env, ENOENT);
 		goto err;
 	}
 
@@ -1969,7 +1977,7 @@ err:	if (pgsc != NULL && (t_ret = __dbc_close(pgsc)) != 0 && ret == 0)
 	    (t_ret = __memp_fput(mpf,
 		vdp->thread_info, currpg, dbp->priority)) != 0)
 		ret = t_ret;
-	if (mdbp != NULL && (t_ret = __db_close(mdbp, NULL, 0)) != 0)
+	if ((t_ret = __db_close(mdbp, NULL, 0)) != 0)
 		ret = t_ret;
 	return (ret);
 }
@@ -2130,10 +2138,8 @@ __db_salvage_leaf(dbp, vdp, pgno, h, handle, callback, flags)
 	int (*callback) __P((void *, const void *));
 	u_int32_t flags;
 {
-	ENV *env;
 
-	env = dbp->env;
-	DB_ASSERT(env, LF_ISSET(DB_SALVAGE));
+	DB_ASSERT(dbp->env, LF_ISSET(DB_SALVAGE));
 
 	/* If we got this page in the subdb pass, we can safely skip it. */
 	if (__db_salvage_isdone(vdp, pgno))

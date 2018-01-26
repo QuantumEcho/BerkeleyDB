@@ -518,7 +518,7 @@ retry2:		cp = jc->j_workcurs[i];
 					 * beginning (setting workcurs NULL
 					 * will achieve this next go-round).
 					 *
-					 * XXX: This is likely to break
+					 * !!!: This is likely to break
 					 * horribly if any two cursors are
 					 * both sorted, but have different
 					 * specified sort functions.  For,
@@ -797,7 +797,7 @@ __db_join_getnext(dbc, key, data, exhausted, opmods)
 
 	dbp = dbc->dbp;
 	if (dbp->dup_compare == NULL)
-		func = __bam_defcmp;
+		func = __dbt_defcmp;
 	else
 		(void)dbp->get_dup_compare(dbp, &func);
 
@@ -837,7 +837,7 @@ __db_join_getnext(dbc, key, data, exhausted, opmods)
 		ret = __dbc_get(dbc, key, data, opmods | DB_GET_BOTHC);
 		break;
 	default:
-		ret = EINVAL;
+		ret = USR_ERR(dbc->env, EINVAL);
 		break;
 	}
 

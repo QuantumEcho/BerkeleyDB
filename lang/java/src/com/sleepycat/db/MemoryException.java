@@ -36,7 +36,8 @@ public class MemoryException extends DatabaseException {
 
     /**
     Returns the {@link com.sleepycat.db.DatabaseEntry DatabaseEntry} object with insufficient memory
-    to complete the operation to complete the operation.
+    to complete the operation.
+    @return the DatabaseEntry object with insufficient memory to complete the operation
     */
     public DatabaseEntry getDatabaseEntry() {
         return dbt;

@@ -19,12 +19,16 @@ public interface RawField {
 
     /**
      * Returns the name of the field.
+     *
+     * @return the name of the field.
      */
     String getName();
 
     /**
      * Returns the type of the field, without expanding parameterized types,
      * or null if the type is an interface type or the Object class.
+     *
+     * @return the type of the field.
      */
     RawType getType();
 }

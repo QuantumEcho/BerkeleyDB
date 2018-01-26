@@ -32,8 +32,10 @@ topdir=`echo "$srcdir/.." | sed 's,/dist/\.\.,,'`
 # Substitution variables. BDB additions need to be documented.
 AC_SUBST(ADDITIONAL_INCS)
 AC_SUBST(ADDITIONAL_LANG)
+AC_SUBST(ADDITIONAL_INSTALL)
 AC_SUBST(ADDITIONAL_OBJS)
 AC_SUBST(ADDITIONAL_PROGS)
+AC_SUBST(ADDITIONAL_UNINSTALL)
 AC_SUBST(BUILD_TARGET)
 AC_SUBST(CFLAGS)
 AC_SUBST(CONFIGURATION_ARGS)
@@ -428,8 +430,14 @@ if test "$db_cv_cxx" = "yes"; then
 	fi
 fi
 
+# Optional Thrift Server and Client Driver.
+if test "$db_cv_server" = "yes"; then
+	ADDITIONAL_INSTALL=install_server
+	ADDITIONAL_UNINSTALL=uninstall_server
+fi
+
 # Optional Java API / JDBC.
-if test "$db_cv_java" = "yes" -o "$db_cv_jdbc" = "yes"; then
+if test "$db_cv_java" = "yes" -o "$db_cv_jdbc" = "yes" -o "$db_cv_server" = "yes"; then
 	# BDB Java API requires shared libraries.
 	if test "$db_cv_java" = "yes" -a "$enable_shared" = "no"; then
 		AC_MSG_ERROR([Java requires shared libraries])
@@ -496,6 +504,12 @@ else
 	OSDIR=os
 	PATH_SEPARATOR="/"
 	AC_DEFINE(HAVE_SYSTEM_INCLUDE_FILES)
+fi
+
+# Slices can be enabled.
+if test "$db_cv_slices" = "yes"; then
+	AC_DEFINE(HAVE_SLICES)
+	AH_TEMPLATE(HAVE_SLICES, [Define to 1 if building sliced environment support.])
 fi
 
 # Optional SQL API.

@@ -167,7 +167,7 @@ struct __fh_t {
 #define	VOID_STAR_CAST	(void *)
 #else
 #define	CHAR_STAR_CAST
-#define VOID_STAR_CAST
+#define	VOID_STAR_CAST
 #endif
 
 #if defined(__cplusplus)

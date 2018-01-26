@@ -33,7 +33,7 @@ import com.sleepycat.db.*;
 
 public class RepmgrStartupTest extends EventHandlerAdapter
 {
-    static String address = "localhost";
+    static String address = "::1";
     static int    port = 4242;
     static int    priority = 100;
     static String homedirName = "TESTDIR";

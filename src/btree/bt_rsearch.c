@@ -136,7 +136,7 @@ __bam_rsearch(dbc, recnop, flags, stop, exactp)
 				/*
 				 * Keep the page locked for serializability.
 				 *
-				 * XXX
+				 * !!!
 				 * This leaves the root page locked, which will
 				 * eliminate any concurrency.  A possible fix
 				 * would be to lock the last leaf page instead.

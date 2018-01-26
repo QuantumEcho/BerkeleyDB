@@ -47,7 +47,7 @@ static APPNAME
 __fop_convert_appname(appname)
 	APPNAME53 appname;
 {
-	switch(appname)
+	switch (appname)
 	{
 		case DB_APP53_NONE:
 			return (DB_APP_NONE);
@@ -137,14 +137,6 @@ __fop_create_recover_int(env, real_name, op, mode)
 do_unlink:		(void)__os_unlink(env, real_name, 0);
 	} else if (DB_REDO(op)) {
 		path = real_name;
-#ifdef DB_WIN32
-		/*
-		 * Absolute paths on windows can result in it creating a
-		 * "C" or "D" directory in the working directory.
-		 */
-		if (__os_abspath(real_name))
-			path += 2;
-#endif
 
 #ifdef	HAVE_REPLICATION
 		/*
@@ -194,8 +186,6 @@ __fop_create_recover(env, dbtp, lsnp, op, info)
 	char *real_name;
 	const char *dirname;
 
-	COMPQUIET(info, NULL);
-
 	real_name = NULL;
 	REC_PRINT(__fop_create_print);
 	REC_NOOP_INTRO(__fop_create_read);
@@ -216,9 +206,10 @@ __fop_create_recover(env, dbtp, lsnp, op, info)
 
 	*lsnp = argp->prev_lsn;
 
-out: if (real_name != NULL)
+out:	if (real_name != NULL)
 		__os_free(env, real_name);
 
+	COMPQUIET(info, NULL);
 	REC_NOOP_CLOSE;
 }
 
@@ -242,8 +233,6 @@ __fop_create_60_recover(env, dbtp, lsnp, op, info)
 	int ret;
 	char *real_name;
 	const char *dirname;
-
-	COMPQUIET(info, NULL);
 
 	real_name = NULL;
 	REC_PRINT(__fop_create_60_print);
@@ -270,6 +259,7 @@ __fop_create_60_recover(env, dbtp, lsnp, op, info)
 out: if (real_name != NULL)
 		__os_free(env, real_name);
 
+	COMPQUIET(info, NULL);
 	REC_NOOP_CLOSE;
 }
 
@@ -295,8 +285,6 @@ __fop_create_42_recover(env, dbtp, lsnp, op, info)
 	APPNAME appname;
 	int ret;
 	char *real_name;
-
-	COMPQUIET(info, NULL);
 
 	real_name = NULL;
 	REC_PRINT(__fop_create_print);
@@ -338,6 +326,7 @@ do_unlink:		(void)__os_unlink(env, real_name, 0);
 out: if (real_name != NULL)
 		__os_free(env, real_name);
 
+	COMPQUIET(info, NULL);
 	REC_NOOP_CLOSE;
 }
 
@@ -360,8 +349,6 @@ __fop_remove_recover(env, dbtp, lsnp, op, info)
 	int ret;
 	char *real_name;
 
-	COMPQUIET(info, NULL);
-
 	real_name = NULL;
 	REC_PRINT(__fop_remove_print);
 	REC_NOOP_INTRO(__fop_remove_read);
@@ -378,6 +365,7 @@ __fop_remove_recover(env, dbtp, lsnp, op, info)
 	*lsnp = argp->prev_lsn;
 out:	if (real_name != NULL)
 		__os_free(env, real_name);
+	COMPQUIET(info, NULL);
 	REC_NOOP_CLOSE;
 }
 
@@ -401,8 +389,6 @@ __fop_remove_60_recover(env, dbtp, lsnp, op, info)
 	int ret;
 	char *real_name;
 
-	COMPQUIET(info, NULL);
-
 	real_name = NULL;
 	REC_PRINT(__fop_remove_60_print);
 	REC_NOOP_INTRO(__fop_remove_60_read);
@@ -421,6 +407,7 @@ __fop_remove_60_recover(env, dbtp, lsnp, op, info)
 	*lsnp = argp->prev_lsn;
 out:	if (real_name != NULL)
 		__os_free(env, real_name);
+	COMPQUIET(info, NULL);
 	REC_NOOP_CLOSE;
 }
 
@@ -442,14 +429,13 @@ __fop_write_recover(env, dbtp, lsnp, op, info)
 	__fop_write_args *argp;
 	int ret;
 
-	COMPQUIET(info, NULL);
-
 #ifndef HAVE_64BIT_TYPES
 	COMPQUIET(dbtp, NULL);
 	COMPQUIET(lsnp, NULL);
 	COMPQUIET(op, 0);
+	COMPQUIET(info, NULL);
 	__db_errx(env, DB_STR("0243",
-	    "Blobs require 64 integer compiler support."));
+	    "External files require 64 integer compiler support."));
 	return (DB_OPNOTSUP);
 #endif
 
@@ -470,6 +456,7 @@ __fop_write_recover(env, dbtp, lsnp, op, info)
 
 	if (ret == 0)
 		*lsnp = argp->prev_lsn;
+	COMPQUIET(info, NULL);
 	REC_NOOP_CLOSE;
 }
 
@@ -492,8 +479,6 @@ __fop_write_60_recover(env, dbtp, lsnp, op, info)
 	APPNAME appname;
 	int ret;
 
-	COMPQUIET(info, NULL);
-
 	REC_PRINT(__fop_write_60_print);
 	REC_NOOP_INTRO(__fop_write_60_read);
 
@@ -512,6 +497,7 @@ __fop_write_60_recover(env, dbtp, lsnp, op, info)
 
 	if (ret == 0)
 		*lsnp = argp->prev_lsn;
+	COMPQUIET(info, NULL);
 	REC_NOOP_CLOSE;
 }
 
@@ -534,8 +520,6 @@ __fop_write_42_recover(env, dbtp, lsnp, op, info)
 	APPNAME appname;
 	int ret;
 
-	COMPQUIET(info, NULL);
-
 	REC_PRINT(__fop_write_print);
 	REC_NOOP_INTRO(__fop_write_read);
 
@@ -552,6 +536,7 @@ __fop_write_42_recover(env, dbtp, lsnp, op, info)
 
 	if (ret == 0)
 		*lsnp = argp->prev_lsn;
+	COMPQUIET(info, NULL);
 	REC_NOOP_CLOSE;
 }
 
@@ -626,15 +611,12 @@ __fop_write_file_recover_int(
 			    dirname->size == 0 ? NULL : dirname->data,
 			    appname == DB_APP_DATA ? DB_APP_RECOVER : appname,
 			    NULL, offset, new_data->data, new_data->size, 0);
-#ifdef	HAVE_REPLICATION
 			/*
-			 * Blob files of databases that are not replicated are
-			 * also not replicated.  So assume any ENOENT errors
-			 * are because the file was not replicated.
+			 * It is possible the file was deleted later in
+			 * the logs, so ignore any ENOENT errors.
 			 */
-			if (ret == ENOENT && IS_VIEW_SITE(env))
+			if (ret == ENOENT)
 				ret = 0;
-#endif
 		} else {
 			/* DB_ASSERT(env, !IS_REP_CLIENT(env)); */
 		}
@@ -671,14 +653,14 @@ __fop_write_file_recover(env, dbtp, lsnp, op, info)
 {
 	__fop_write_file_args *argp;
 	int ret;
-	COMPQUIET(info, NULL);
 
 #ifndef HAVE_64BIT_TYPES
 	COMPQUIET(dbtp, NULL);
 	COMPQUIET(lsnp, NULL);
 	COMPQUIET(op, 0);
+	COMPQUIET(info, NULL);
 	__db_errx(env, DB_STR("0244",
-	    "Blobs require 64 integer compiler support."));
+	    "External files require 64 integer compiler support."));
 	return (DB_OPNOTSUP);
 #endif
 
@@ -690,6 +672,7 @@ __fop_write_file_recover(env, dbtp, lsnp, op, info)
 	    &argp->new_data, &argp->old_data, (off_t)argp->offset, argp->txnp);
 	if (ret == 0)
 		*lsnp = argp->prev_lsn;
+	COMPQUIET(info, NULL);
 	REC_NOOP_CLOSE;
 }
 
@@ -710,7 +693,6 @@ __fop_write_file_60_recover(env, dbtp, lsnp, op, info)
 	__fop_write_file_60_args *argp;
 	off_t offset;
 	int ret;
-	COMPQUIET(info, NULL);
 
 	REC_PRINT(__fop_write_file_60_print);
 	REC_NOOP_INTRO(__fop_write_file_60_read);
@@ -726,6 +708,7 @@ __fop_write_file_60_recover(env, dbtp, lsnp, op, info)
 
 end:	if (ret == 0)
 		*lsnp = argp->prev_lsn;
+	COMPQUIET(info, NULL);
 	REC_NOOP_CLOSE;
 }
 
@@ -782,8 +765,6 @@ __fop_rename_recover_int(env, dbtp, lsnp, op, info, undo)
 	int ret;
 	char *real_new, *real_old, *src;
 	const char *dirname;
-
-	COMPQUIET(info, NULL);
 
 	fhp = NULL;
 	meta = (DBMETA *)&mbuf[0];
@@ -871,6 +852,7 @@ out:	if (real_new != NULL)
 	if (fhp != NULL)
 		(void)__os_closehandle(env, fhp);
 
+	COMPQUIET(info, NULL);
 	REC_NOOP_CLOSE;
 }
 
@@ -924,8 +906,6 @@ __fop_rename_60_recover_int(env, dbtp, lsnp, op, info, undo)
 	char *real_new, *real_old, *src;
 	const char *dirname;
 
-	COMPQUIET(info, NULL);
-
 	fhp = NULL;
 	meta = (DBMETA *)&mbuf[0];
 	ret = 0;
@@ -939,7 +919,6 @@ __fop_rename_60_recover_int(env, dbtp, lsnp, op, info, undo)
 		dirname = NULL;
 	else
 		dirname = (const char *)argp->dirname.data;
-
 
 	appname = __fop_convert_appname((APPNAME53)argp->appname);
 	if (appname == DB_APP_DATA)
@@ -1012,6 +991,7 @@ out:	if (real_new != NULL)
 	if (fhp != NULL)
 		(void)__os_closehandle(env, fhp);
 
+	COMPQUIET(info, NULL);
 	REC_NOOP_CLOSE;
 }
 /*
@@ -1066,8 +1046,6 @@ __fop_rename_42_recover_int(env, dbtp, lsnp, op, info, undo)
 	APPNAME appname;
 	int ret;
 	char *real_new, *real_old, *src;
-
-	COMPQUIET(info, NULL);
 
 	fhp = NULL;
 	meta = (DBMETA *)&mbuf[0];
@@ -1146,6 +1124,7 @@ out:	if (real_new != NULL)
 	if (fhp != NULL)
 		(void)__os_closehandle(env, fhp);
 
+	COMPQUIET(info, NULL);
 	REC_NOOP_CLOSE;
 }
 
@@ -1367,4 +1346,3 @@ out:	if (real_name != NULL)
 		(void)__os_closehandle(env, fhp);
 	REC_NOOP_CLOSE;
 }
-

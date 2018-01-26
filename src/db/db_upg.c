@@ -35,15 +35,18 @@ __db_upgrade_pp(dbp, fname, flags)
 
 	env = dbp->env;
 
-	/*
-	 * !!!
-	 * The actual argument checking is simple, do it inline.
-	 */
 	if ((ret = __db_fchk(env, "DB->upgrade", flags, DB_DUPSORT)) != 0)
 		return (ret);
 
 	ENV_ENTER(env, ip);
 	ret = __db_upgrade(dbp, fname, flags);
+
+#ifdef HAVE_SLICES
+	if (ret == 0)
+		ret = __db_slice_process(dbp, fname, flags,
+		    __db_upgrade_pp, "db_upgrade");
+#endif
+
 	ENV_LEAVE(env, ip);
 	return (ret);
 #else
@@ -191,8 +194,8 @@ __db_upgrade(dbp, fname, flags)
 			 */
 			memcpy(&dbp->pgsize, mbuf + 20, sizeof(u_int32_t));
 
-			if ((ret = __db_page_pass(
-			    dbp, real_name, flags, func_31_list, fhp)) != 0)
+			if ((ret = __db_page_pass(dbp, real_name, flags,
+			    func_31_list, fhp, DB_UPGRADE)) != 0)
 				goto err;
 			/* FALLTHROUGH */
 		case 8:
@@ -215,17 +218,17 @@ __db_upgrade(dbp, fname, flags)
 				F_SET(dbp, DB_AM_CHKSUM);
 			if (meta->encrypt_alg != 0) {
 				if (!CRYPTO_ON(dbp->env)) {
+					ret = USR_ERR(env, EINVAL);
 					__db_errx(env, DB_STR("0777",
 "Attempt to upgrade an encrypted database without providing a password."));
-					ret = EINVAL;
 					goto err;
 				}
 				F_SET(dbp, DB_AM_ENCRYPT);
 			}
 			memcpy(&dbp->pgsize,
 			    &meta->pagesize, sizeof(u_int32_t));
-			if ((ret = __db_page_pass(dbp,
-			    real_name, flags, func_60_list, fhp)) != 0)
+			if ((ret = __db_page_pass(dbp, real_name, flags,
+ 			    func_60_list, fhp, DB_UPGRADE)) != 0)
 				goto err;
 			/* FALLTHROUGH */
 		case 10:
@@ -280,8 +283,8 @@ __db_upgrade(dbp, fname, flags)
 			 */
 			memcpy(&dbp->pgsize, mbuf + 20, sizeof(u_int32_t));
 
-			if ((ret = __db_page_pass(
-			    dbp, real_name, flags, func_31_list, fhp)) != 0)
+			if ((ret = __db_page_pass(dbp, real_name, flags,
+			    func_31_list, fhp, DB_UPGRADE)) != 0)
 				goto err;
 			/* FALLTHROUGH */
 		case 7:
@@ -320,9 +323,9 @@ __db_upgrade(dbp, fname, flags)
 			memcpy(&tmpflags, &meta->encrypt_alg, sizeof(u_int8_t));
 			if (tmpflags != 0) {
 				if (!CRYPTO_ON(dbp->env)) {
+					ret = USR_ERR(env, EINVAL);
 					__db_errx(env, DB_STR("0667",
 "Attempt to upgrade an encrypted database without providing a password."));
-					ret = EINVAL;
 					goto err;
 				}
 				F_SET(dbp, DB_AM_ENCRYPT);
@@ -338,6 +341,8 @@ __db_upgrade(dbp, fname, flags)
 			 * page pass only updates DB_HASH_UNSORTED pages
 			 * in-place, and the mpool file is only used to read
 			 * OFFPAGE items.
+			 * XXX DB_HASH_UNSORTED no longer exists. since ~db-4.4.
+			 * Is this code, and the lesser versions above, needed?
 			 */
 			use_mp_open = 1;
 			if ((ret = __os_closehandle(env, fhp)) != 0)
@@ -349,8 +354,8 @@ __db_upgrade(dbp, fname, flags)
 			fhp = dbp->mpf->fhp;
 
 			/* Do the actual conversion pass. */
-			if ((ret = __db_page_pass(
-			    dbp, real_name, flags, func_46_list, fhp)) != 0)
+			if ((ret = __db_page_pass(dbp, real_name, flags,
+			    func_46_list, fhp, DB_UPGRADE)) != 0)
 				goto err;
 
 			/* FALLTHROUGH */
@@ -371,15 +376,15 @@ __db_upgrade(dbp, fname, flags)
 				F_SET(dbp, DB_AM_CHKSUM);
 			if (meta->encrypt_alg != 0) {
 				if (!CRYPTO_ON(dbp->env)) {
+					ret = USR_ERR(env, EINVAL);
 					__db_errx(env, DB_STR("0778",
 "Attempt to upgrade an encrypted database without providing a password."));
-					ret = EINVAL;
 					goto err;
 				}
 				F_SET(dbp, DB_AM_ENCRYPT);
 			}
-			if ((ret = __db_page_pass(dbp,
-			    real_name, flags, func_60_list, fhp)) != 0)
+			if ((ret = __db_page_pass(dbp, real_name, flags,
+ 			    func_60_list, fhp, DB_UPGRADE)) != 0)
 				goto err;
 			/* FALLTHROUGH */
 		case 10:
@@ -411,15 +416,15 @@ __db_upgrade(dbp, fname, flags)
 				F_SET(dbp, DB_AM_CHKSUM);
 			if (meta->encrypt_alg != 0) {
 				if (!CRYPTO_ON(dbp->env)) {
+					ret = USR_ERR(env, EINVAL);
 					__db_errx(env, DB_STR("0779",
 "Attempt to upgrade an encrypted database without providing a password."));
-					ret = EINVAL;
 					goto err;
 				}
 				F_SET(dbp, DB_AM_ENCRYPT);
 			}
-			if ((ret = __db_page_pass(dbp,
-			    real_name, flags, func_60_list, fhp)) != 0)
+			if ((ret = __db_page_pass(dbp, real_name, flags,
+ 			    func_60_list, fhp, DB_UPGRADE)) != 0)
 				goto err;
 			/* FALLTHROUGH */
 		case 2:
@@ -480,7 +485,7 @@ __db_upgrade(dbp, fname, flags)
 			    "%s: unrecognized file type", "%s"), real_name);
 			break;
 		}
-		ret = EINVAL;
+		ret = USR_ERR(env, EINVAL);
 		goto err;
 	}
 
@@ -503,20 +508,56 @@ err:	if (use_mp_open == 0 && fhp != NULL &&
 }
 
 /*
+ * __db_set_lastpgno --
+ *	Update the meta->last_pgno field.
+ *
+ * Code assumes that we do not have checksums/crypto on the page.
+ */
+static int
+__db_set_lastpgno(dbp, real_name, fhp)
+	DB *dbp;
+	char *real_name;
+	DB_FH *fhp;
+{
+	DBMETA meta;
+	ENV *env;
+	int ret;
+	size_t n;
+
+	env = dbp->env;
+	if ((ret = __os_seek(env, fhp, 0, 0, 0)) != 0)
+		return (ret);
+	if ((ret = __os_read(env, fhp, &meta, sizeof(meta), &n)) != 0)
+		return (ret);
+	dbp->pgsize = meta.pagesize;
+	if ((ret = __db_lastpgno(dbp, real_name, fhp, &meta.last_pgno)) != 0)
+		return (ret);
+	if ((ret = __os_seek(env, fhp, 0, 0, 0)) != 0)
+		return (ret);
+	if ((ret = __os_write(env, fhp, &meta, sizeof(meta), &n)) != 0)
+		return (ret);
+
+	return (0);
+}
+#endif /* HAVE_UPGRADE_SUPPORT */
+
+/*
  * __db_page_pass --
  *	Walk the pages of the database, doing whatever needs it.
  *
  * PUBLIC: int __db_page_pass __P((DB *, char *, u_int32_t, int (* const [])
- * PUBLIC:     (DB *, char *, u_int32_t, DB_FH *, PAGE *, int *), DB_FH *));
+ * PUBLIC:     (DB *, char *, u_int32_t, DB_FH *, PAGE *, int *), DB_FH *,
+ * PUBLIC:     int));
  */
 int
-__db_page_pass(dbp, real_name, flags, fl, fhp)
+__db_page_pass(dbp, real_name, flags, fl, fhp, feedback_code)
 	DB *dbp;
 	char *real_name;
 	u_int32_t flags;
 	int (* const fl[P_PAGETYPE_MAX])
 	    __P((DB *, char *, u_int32_t, DB_FH *, PAGE *, int *));
 	DB_FH *fhp;
+	int feedback_code;
 {
 	ENV *env;
 	PAGE *page;
@@ -538,7 +579,7 @@ __db_page_pass(dbp, real_name, flags, fl, fhp)
 	for (i = 0; i < pgno_last; ++i) {
 		if (dbp->db_feedback != NULL)
 			dbp->db_feedback(
-			    dbp, DB_UPGRADE, (int)((i * 100)/pgno_last));
+			    dbp, feedback_code, (int)((i * 100)/pgno_last));
 		if ((ret = __os_seek(env, fhp, i, dbp->pgsize, 0)) != 0)
 			break;
 		if ((ret = __os_read(env, fhp, page, dbp->pgsize, &n)) != 0)
@@ -607,36 +648,3 @@ __db_lastpgno(dbp, real_name, fhp, pgno_lastp)
 	return (0);
 }
 
-/*
- * __db_set_lastpgno --
- *	Update the meta->last_pgno field.
- *
- * Code assumes that we do not have checksums/crypto on the page.
- */
-static int
-__db_set_lastpgno(dbp, real_name, fhp)
-	DB *dbp;
-	char *real_name;
-	DB_FH *fhp;
-{
-	DBMETA meta;
-	ENV *env;
-	int ret;
-	size_t n;
-
-	env = dbp->env;
-	if ((ret = __os_seek(env, fhp, 0, 0, 0)) != 0)
-		return (ret);
-	if ((ret = __os_read(env, fhp, &meta, sizeof(meta), &n)) != 0)
-		return (ret);
-	dbp->pgsize = meta.pagesize;
-	if ((ret = __db_lastpgno(dbp, real_name, fhp, &meta.last_pgno)) != 0)
-		return (ret);
-	if ((ret = __os_seek(env, fhp, 0, 0, 0)) != 0)
-		return (ret);
-	if ((ret = __os_write(env, fhp, &meta, sizeof(meta), &n)) != 0)
-		return (ret);
-
-	return (0);
-}
-#endif /* HAVE_UPGRADE_SUPPORT */

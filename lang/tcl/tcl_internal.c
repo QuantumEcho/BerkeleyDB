@@ -156,6 +156,8 @@ _DeleteInfo(p)
 	}	
 	if (p->i_errpfx != NULL)
 		__os_free(NULL, p->i_errpfx);
+	if (p->i_msgpfx != NULL)
+		__os_free(NULL, p->i_msgpfx);
 	if (p->i_compare != NULL) {
 		Tcl_DecrRefCount(p->i_compare);
 	}
@@ -173,6 +175,9 @@ _DeleteInfo(p)
 	}
 	if (p->i_second_call != NULL) {
 		Tcl_DecrRefCount(p->i_second_call);
+	}
+	if (p->i_slice_callback != NULL) {
+		Tcl_DecrRefCount(p->i_slice_callback);
 	}
 	if (p->i_rep_eid != NULL) {
 		Tcl_DecrRefCount(p->i_rep_eid);

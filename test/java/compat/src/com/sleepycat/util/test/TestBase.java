@@ -21,6 +21,9 @@ import org.junit.runner.Description;
  */
 public abstract class TestBase {
 
+    private static final boolean copySucceeded =
+        Boolean.getBoolean("test.copySucceeded");
+
     /*
      * Need to provide a customized name suffix for those tests which are 
      * Parameterized.
@@ -45,6 +48,17 @@ public abstract class TestBase {
         /* Copy Environments when the test failed. */
         @Override
         protected void failed(Throwable t, Description desc) {
+            doCopy(desc);
+        }
+        
+        @Override
+        protected void succeeded(Description desc){
+            if (copySucceeded) {
+                doCopy(desc);
+            }
+        }
+
+        private void doCopy(Description desc) {
             String dirName = makeFileName(desc);
             try {
                 copyEnvironments(dirName);
@@ -52,10 +66,6 @@ public abstract class TestBase {
                 throw new RuntimeException
                     ("can't copy env dir to " + dirName  + " after failure", e);
             }
-        }
-        
-        @Override
-        protected void succeeded(Description desc){
         }
     };
     

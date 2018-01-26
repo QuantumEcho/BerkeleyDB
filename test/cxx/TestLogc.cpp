@@ -32,7 +32,7 @@ static void show_dbt(ostream &os, Dbt *dbt)
 int main(int argc, char *argv[])
 {
 	try {
-		DbEnv *env = new DbEnv(0);
+		DbEnv *env = new DbEnv((u_int32_t)0);
 		DbTxn *dbtxn;
 		env->open(".", DB_CREATE | DB_INIT_LOG | 
 			  DB_INIT_TXN | DB_INIT_MPOOL, 0);

@@ -208,7 +208,7 @@ __ham_31_hashmeta(dbp, real_name, flags, fhp, h, dirtyp)
 
 	/* Upgrade the flags. */
 	if (LF_ISSET(DB_DUPSORT))
-		F_SET(&newmeta->dbmeta, DB_HASH_DUPSORT);
+		F_SET(&newmeta->dbmeta, HASHM_DUPSORT);
 
 	*dirtyp = 1;
 	return (0);

@@ -41,7 +41,7 @@ typedef struct __db_globals {
 #endif
 	SECURITY_ATTRIBUTES *win_sec_attr;
 #endif
-	
+
 	/* TAILQ_HEAD(__envq, __dbenv) envq; */
 	struct __envq {
 		struct __env *tqh_first;
@@ -76,7 +76,7 @@ typedef struct __db_globals {
 
 	/* Underlying OS interface jump table.*/
 	void	(*j_assert) __P((const char *, const char *, int));
-	int	(*j_close) __P((int));	
+	int	(*j_close) __P((int));
 	void	(*j_dirfree) __P((char **, int));
 	int	(*j_dirlist) __P((const char *, char ***, int *));
 	int	(*j_exists) __P((const char *, int *));

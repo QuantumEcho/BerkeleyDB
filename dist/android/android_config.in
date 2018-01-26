@@ -37,11 +37,14 @@
 /* Define to 1 if platform reads and writes files atomically. */
 /* #undef HAVE_ATOMICFILEREAD */
 
+/* Define to 1 to use GCC's built-in atomic operations. */
+#define HAVE_ATOMIC_GCC_BUILTIN 1
+
 /* Define to 1 to use Solaris library routes for atomic operations. */
 /* #undef HAVE_ATOMIC_SOLARIS */
 
 /* Define to 1 to use native atomic operations. */
-/* #undef HAVE_ATOMIC_SUPPORT */
+#define HAVE_ATOMIC_SUPPORT 1
 
 /* Define to 1 to use GCC and x86 or x86_64 assemlby language atomic
    operations. */
@@ -251,6 +254,9 @@
 /* Define to 1 to use the GCC compiler and ARM assembly language mutexes. */
 #define HAVE_MUTEX_ARM_GCC_ASSEMBLY 1
 
+/* Define to 1 to use the BSD/Apple/Darwin OSSpinLockTry mutexes. */
+/* #undef HAVE_MUTEX_BSD_OSSPINLOCKTRY */
+
 /* Define to 1 to use the Apple/Darwin _spin_lock_try mutexes. */
 /* #undef HAVE_MUTEX_DARWIN_SPIN_LOCK_TRY */
 
@@ -422,7 +428,7 @@
 /* #undef HAVE_RANDOM */
 
 /* Define to 1 if you have the `random_r' function. */
-/* #undef HAVE_RANDOM_R /
+/* #undef HAVE_RANDOM_R */
 
 /* Define to 1 if building replication support. */
 /* #undef HAVE_REPLICATION */
@@ -456,6 +462,9 @@
 
 /* Define to 1 if thread identifier type db_threadid_t is integral. */
 #define HAVE_SIMPLE_THREAD_TYPE 1
+
+/* Define to 1 if building sliced environment support. */
+/* #undef HAVE_SLICES */
 
 /* Define to 1 if you have the `snprintf' function. */
 #define HAVE_SNPRINTF 1

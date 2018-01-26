@@ -27,9 +27,13 @@ namespace BerkeleyDB {
         /// </summary>
         public uint MetadataFlags { get { return st.heap_metaflags; } }
         /// <summary>
-        /// Number of blob records.
+        /// Number of external files.
         /// </summary>
-        public uint nBlobRecords { get { return st.heap_nblobs; } }
+        public uint nExternalFiles { get { return st.heap_ext_files; } }
+	/// <summary>
+        /// Deprecated.  Replaced by nExternalFiles.
+        /// </summary>
+        public uint nBlobRecords { get { return st.heap_ext_files; } }
         /// <summary>
         /// The number of pages in the database.
         /// </summary>

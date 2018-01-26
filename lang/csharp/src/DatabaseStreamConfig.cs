@@ -31,7 +31,7 @@ namespace BerkeleyDB {
         }
 
         /// <summary>
-        /// True if the database stream syncs the blob on each write.
+        /// True if the database stream syncs the external file on each write.
         /// </summary>
         public bool SyncPerWrite;
 

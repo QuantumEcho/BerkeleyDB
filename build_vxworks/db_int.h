@@ -56,11 +56,7 @@
 #include <arpa/inet.h>
 #endif
 
-#if defined(STDC_HEADERS) || defined(__cplusplus)
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 
 #include <ctype.h>
 #include <errno.h>
@@ -161,8 +157,8 @@ typedef SH_TAILQ_HEAD(__hash_head) DB_HASHTAB;
 #define	RECNO_OOB	0		/* Illegal record number. */
 
 /*
- * Define a macro which has no runtime effect, yet avoids triggering empty
- * statement compiler warnings. Use it as the text of conditionally-null macros.
+ * NOP_STATEMENT has no runtime effect, yet avoids triggering empty statement
+ * compiler warnings.  Use it as the text of conditionally-null macros.
  */
 #define	NOP_STATEMENT	do { } while (0)
 
@@ -289,10 +285,23 @@ typedef struct __fn {
 	    100 - ((double)(v) * 100) / (((double)total) * (pgsize))))
 
 /*
- * Statistics update shared memory and so are expensive -- don't update the
+ * Statistics update shared memory and so can be expensive -- don't update the
  * values unless we're going to display the results.
- * When performance monitoring is enabled, the changed value can be published
- * (via DTrace or SystemTap) along with another associated value or two.
+ *
+ * STAT_INC() increases a statistics value by one.
+ * STAT_DEC() decreases it by one.
+ * STAT_ADJUST() changes it by a given delta. 
+ * STAT_SET() overwrites it with a brand new value.
+ *
+ * Performance monitoring (--enable-perfmon) allows the changed value to be
+ * published (via DTrace or SystemTap)) along with another associated value or
+ * two.  Each monitored event has a two-part name (category, subcategory) to
+ * identify the value.  When defining a new statistic, a new subcategory will
+ * probably be needed.  Users of these macros should check that 'cat' and
+ * 'subcat' have corresponding entries in dist/events.in.
+ *
+ * The STAT_XXX_VERB() macros differ only by including an additional value in
+ * the DTrace or SystemTap event; typically that provides additional context.
  */
 #undef	STAT
 #ifdef	HAVE_STATISTICS
@@ -307,20 +316,21 @@ typedef struct __fn {
 		(val) += (amount);					\
 		STAT_PERFMON3((env), cat, subcat, (val), (id1), (id2));	\
 	} while (0)
+
 #define	STAT_INC(env, cat, subcat, val, id) 				\
 	STAT_ADJUST(env, cat, subcat, (val), 1, (id))
 #define	STAT_INC_VERB(env, cat, subcat, val, id1, id2) 			\
 	STAT_ADJUST_VERB((env), cat, subcat, (val), 1, (id1), (id2))
 /*
  * STAT_DEC() subtracts one rather than adding (-1) with STAT_ADJUST(); the
- * latter might generate a compilation warning for an unsigned value.
+ * latter can generate a compilation warning for an unsigned value.
  */
 #define	STAT_DEC(env, cat, subcat, val, id) 				\
 	do {								\
 		(val)--;						\
 		STAT_PERFMON2((env), cat, subcat, (val), (id));		\
 	} while (0)
-/* N.B.: Add a verbose version of STAT_DEC() when needed. */
+/* Add STAT_DEC_VERB() here, if it is ever needed. */
 
 #define	STAT_SET(env, cat, subcat, val, newval, id) 			\
 	do {								\
@@ -350,12 +360,12 @@ typedef struct __fn {
 #endif
 
 /*
- * These macros are used when an error condition is first noticed. They allow
+ * These macros are used when an error condition is first noticed.  They allow
  * one to be notified (via e.g. DTrace, SystemTap, ...) when an error occurs
  * deep inside DB, rather than when it is returned back through the API.
  *
  * The second actual argument to these is the second part of the error or
- * warning event name. They work when 'errcode' is a symbolic name e.g.
+ * warning event name.  They work when 'errcode' is a symbolic name e.g.
  * EINVAL or DB_LOCK_DEALOCK, not a variable.  Noticing system call failures
  * would be handled by tracing on syscall exit; when e.g., it returns < 0.
  */
@@ -386,6 +396,13 @@ typedef struct __db_msgbuf {
 	(a)->buf = (a)->cur = NULL;					\
 	(a)->len = (a)->flags = 0;					\
 } while (0)
+
+#define	DB_MSGBUF_INIT_BUFFER(a, buffer, length) do {			\
+	(a)->buf = (a)->cur = (buffer);					\
+	(a)->len = (length); 						\
+	(a)->flags = DB_MSGBUF_PREALLOCATED;				\
+} while (0)
+
 #define	DB_MSGBUF_FLUSH(env, a) do {					\
 	if ((a)->buf != NULL) {						\
 		if ((a)->cur != (a)->buf)				\
@@ -430,7 +447,7 @@ typedef struct __db_msgbuf {
 
 /*
  * The following macros are used to control how error and message strings are
- * output by Berkeley DB. There are essentially three different controls
+ * output by Berkeley DB.  There are essentially three different controls
  * available:
  *  - Default behavior is to output error strings with its unique identifier.
  *  - If HAVE_STRIPPED_MESSAGES is enabled, a unique identifier along with any
@@ -477,6 +494,19 @@ typedef struct __db_msgbuf {
 	memset(&(dbt), 0, sizeof(dbt));					\
 	DB_SET_DBT(dbt, d, s);						\
 } while (0)
+
+#define	DB_INIT_DBT_USERMEM(dbt, d, s)  do {				\
+	memset(&(dbt), 0, sizeof(dbt));					\
+	(dbt).data = (void *)(d);					\
+	(dbt).ulen = (u_int32_t)(s);					\
+	(dbt).flags = DB_DBT_USERMEM;					\
+} while (0)
+
+/*
+ * char *__db_tohex(source, len, buf) 'prints' the bytes of source as a hex
+ * string into buf.  The result buffer needs to be at least this large.
+ */
+#define DB_TOHEX_BUFSIZE(len)	(2 * (len) + 1)
 
 /*******************************************************
  * API return values
@@ -549,7 +579,8 @@ typedef enum {
 	DB_APP_LOG,			/* Log file. */
 	DB_APP_META,			/* Persistent metadata file. */
 	DB_APP_RECOVER,			/* We are in recovery. */
-	DB_APP_TMP			/* Temporary file. */
+	DB_APP_TMP,			/* Temporary file. */
+	DB_APP_REGION			/* Region file. */
 } APPNAME;
 
 /*
@@ -580,6 +611,28 @@ typedef enum {
 #define	REP_ON(env)							\
 	((env)->rep_handle != NULL && (env)->rep_handle->region != NULL)
 #define	TXN_ON(env)		((env)->tx_handle != NULL)
+
+/* Determine whether this environment is an active user of slices. */
+#ifdef HAVE_SLICES
+#define SLICES_ON(env)		((env)->slice_envs != NULL)
+/*
+ * SLICE_FOREACH precedes a statement (usually a { ... } block) that is to be
+ * executed once for each slice.  It skips the statement block in non-sliced
+ * environments or if slices are not enabled.  If the statement is followed
+ * by an 'else', then enclose the entire SLICE_FOREACH() <statement> in { }
+ * in order to shield the 'else' from being tied to the 'if' below.
+ */
+#define SLICE_FOREACH(dbenv, slice, pos)				\
+	if (SLICES_ON((dbenv)->env)) 					\
+	    for ((pos) = -1;						\
+		((slice) = __slice_iterate((dbenv), &(pos))) != NULL; )
+#else
+#define SLICES_ON(env)		(0)
+#define SLICE_FOREACH(dbenv, slice, pos)				\
+	COMPQUIET((slice), NULL);					\
+	COMPQUIET((pos), 0);						\
+	for (; 0; )
+#endif
 
 /*
  * STD_LOCKING	Standard locking, that is, locking was configured and CDB
@@ -640,7 +693,7 @@ typedef enum {
 } while (0)
 
 /*
- * Publicize the current thread's intention to run failchk. This invokes
+ * Publicize the current thread's intention to run failchk.  This invokes
  * DB_ENV->is_alive() in the mutex code, to avoid hanging on dead processes.
  */
 #define	FAILCHK_THREAD(env, ip) do {					\
@@ -687,7 +740,6 @@ typedef enum {
 typedef enum {
 	THREAD_SLOT_NOT_IN_USE=0,
 	THREAD_OUT,
-	THREAD_OUT_DEAD,
 	THREAD_ACTIVE,
 	THREAD_BLOCKED,
 	THREAD_BLOCKED_DEAD,
@@ -742,7 +794,7 @@ struct __db_thread_info { /* SHARED */
 
 	/*
 	 * While thread tracking is active this caches one of the lockers
-	 * created by each thread. This locker remains allocated, with an
+	 * created by each thread.  This locker remains allocated, with an
 	 * invalid id, even after the locker id is freed.
 	 */
 	roff_t		dbth_local_locker;
@@ -833,10 +885,9 @@ struct __env {
 	 *
 	 * Arguments to DB_ENV->open.
 	 */
-	char	 *db_home;		/* Database home */
+	char	 *db_home;		/* Environment's home directory. */
 	u_int32_t open_flags;		/* Flags */
 	int	  db_mode;		/* Default open permissions */
-	u_int32_t envid;		/* Cached env id, panic if != REGENV. */
 
 	pid_t	pid_cache;		/* Cached process ID */
 
@@ -846,20 +897,31 @@ struct __env {
 
 	DB_DISTAB   recover_dtab;	/* Dispatch table for recover funcs */
 
+#ifdef HAVE_SLICES
+	/*
+	 * A containing environment has slice_envs[] set, the others are zero.
+	 * A slice (subordinate) environment has both slice_container and
+	 * slice_index set.  A non-slice-aware environment sets all to zero.
+	 */
+	DB_ENV	   **slice_envs;	/* Array of slice_cnt dbenvs, +1 NULL */
+	ENV	    *slice_container;	/* The containing env of this slice. */
+	db_slice_t   slice_index;	/* Position in container's slice_envs */
+#endif
+
 	int dir_mode;			/* Intermediate directory perms. */
 
 #define ENV_DEF_DATA_LEN		100
 	u_int32_t data_len;		/* Data length in __db_prbytes. */
 
-	/* Registered processes */
-	size_t	num_active_pids;	/* number of entries in active_pids */
-	size_t	size_active_pids;	/* allocated size of active_pids */
-	pid_t	*active_pids;		/* array active pids */
+	/* Registered processes */ 
+	size_t	num_active_pids;	/* number of entries in active_pids */ 
+	size_t	size_active_pids;	/* allocated size of active_pids */ 
+	pid_t	*active_pids;		/* array active pids */ 
 
 	/*
 	 * Thread tracking: a kind of configurable thread local storage that is
-	 * located in the environment region. Allocating a new entry requires
-	 * locking mtx_regenv. Entries are neither deleted nor moved between
+	 * located in the environment region.  Allocating a new entry requires
+	 * locking mtx_regenv.  Entries are neither deleted nor moved between
 	 * buckets, which permits safe lookups without requiring any mutexes.
 	 */
 	u_int32_t	 thr_nbucket;	/* Number of hash buckets */
@@ -914,17 +976,18 @@ struct __env {
 
 #define	DB_TEST_ELECTINIT	 1	/* after __rep_elect_init */
 #define	DB_TEST_ELECTVOTE1	 2	/* after sending VOTE1 */
-#define	DB_TEST_NO_PAGES	 3	/* before sending PAGE */
-#define	DB_TEST_POSTDESTROY	 4	/* after destroy op */
-#define	DB_TEST_POSTLOG		 5	/* after logging all pages */
-#define	DB_TEST_POSTLOGMETA	 6	/* after logging meta in btree */
-#define	DB_TEST_POSTOPEN	 7	/* after __os_open */
-#define	DB_TEST_POSTSYNC	 8	/* after syncing the log */
-#define	DB_TEST_PREDESTROY	 9	/* before destroy op */
-#define	DB_TEST_PREOPEN		 10	/* before __os_open */
-#define	DB_TEST_REPMGR_PERM	 11	/* repmgr perm/archiving tests */
-#define	DB_TEST_SUBDB_LOCKS	 12	/* subdb locking tests */
-#define	DB_TEST_REPMGR_HEARTBEAT 13	/* repmgr stop sending heartbeats */
+#define	DB_TEST_NO_CHUNKS	 3	/* before sending BLOB data */
+#define	DB_TEST_NO_PAGES	 4	/* before sending PAGE */
+#define	DB_TEST_POSTDESTROY	 5	/* after destroy op */
+#define	DB_TEST_POSTLOG		 6	/* after logging all pages */
+#define	DB_TEST_POSTLOGMETA	 7	/* after logging meta in btree */
+#define	DB_TEST_POSTOPEN	 8	/* after __os_open */
+#define	DB_TEST_POSTSYNC	 9	/* after syncing the log */
+#define	DB_TEST_PREDESTROY	 10	/* before destroy op */
+#define	DB_TEST_PREOPEN		 11	/* before __os_open */
+#define	DB_TEST_REPMGR_PERM	 12	/* repmgr perm/archiving tests */
+#define	DB_TEST_SUBDB_LOCKS	 13	/* subdb locking tests */
+#define	DB_TEST_REPMGR_HEARTBEAT 14	/* repmgr stop sending heartbeats */
 #define	DB_TEST_NO_MUTEX         15     /* thread is holding no mutexes */
 #define	DB_TEST_LATCH            16     /* thread is sharing a latch */
 #define	DB_TEST_EXC_LATCH        17     /* thread has an exclusive latch */
@@ -987,7 +1050,6 @@ struct __env {
 	DBC	 *pdbc;			/* Pointer to parent cursor. */ \
 									\
 	void	 *page;			/* Referenced page. */		\
-	u_int32_t part;			/* Partition number. */		\
 	db_pgno_t root;			/* Tree root. */		\
 	db_pgno_t pgno;			/* Referenced page number. */	\
 	db_indx_t indx;			/* Referenced key item index. */\
@@ -1146,7 +1208,7 @@ typedef struct __dbpginfo {
 		__txn = SH_TAILQ_FIRST(&(ip)->dbth_xatxn, __db_txn);	\
 		if (__txn != NULL &&					\
 		    __txn->xa_thr_status == TXN_XA_THREAD_ASSOCIATED)	\
-		    	retval = EINVAL;				\
+		    	retval = USR_ERR(__txn->mgrp->env, EINVAL);	\
 	}								\
 }
 

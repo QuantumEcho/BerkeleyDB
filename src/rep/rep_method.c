@@ -24,6 +24,7 @@ static int  __rep_check_applied __P((ENV *,
 static void __rep_config_map __P((ENV *, u_int32_t *, u_int32_t *));
 static u_int32_t __rep_conv_vers __P((ENV *, u_int32_t));
 static int  __rep_defview __P((DB_ENV *, const char *, int *, u_int32_t));
+static void __rep_openfiles __P((ENV*, DB_THREAD_INFO *));
 static int  __rep_restore_prepared __P((ENV *));
 static int  __rep_save_lsn_hist __P((ENV *, DB_THREAD_INFO *, DB_LSN *));
 /*
@@ -126,6 +127,7 @@ __rep_get_config(dbenv, which, onp)
     DB_REP_CONF_ELECT_LOGLENGTH | DB_REP_CONF_INMEM |			\
     DB_REP_CONF_LEASE | DB_REP_CONF_NOWAIT |				\
     DB_REPMGR_CONF_2SITE_STRICT | DB_REPMGR_CONF_ELECTIONS |		\
+    DB_REPMGR_CONF_FORWARD_WRITES |					\
     DB_REPMGR_CONF_PREFMAS_CLIENT | DB_REPMGR_CONF_PREFMAS_MASTER)
 
 	if (FLD_ISSET(which, ~OK_FLAGS))
@@ -187,8 +189,10 @@ __rep_set_config(dbenv, which, on)
     DB_REP_CONF_ELECT_LOGLENGTH | DB_REP_CONF_INMEM |			\
     DB_REP_CONF_LEASE | DB_REP_CONF_NOWAIT |				\
     DB_REPMGR_CONF_2SITE_STRICT | DB_REPMGR_CONF_ELECTIONS |		\
+    DB_REPMGR_CONF_FORWARD_WRITES |					\
     DB_REPMGR_CONF_PREFMAS_CLIENT | DB_REPMGR_CONF_PREFMAS_MASTER)
 #define	REPMGR_FLAGS (REP_C_2SITE_STRICT | REP_C_ELECTIONS |		\
+    REP_C_FORWARD_WRITES |						\
     REP_C_PREFMAS_CLIENT | REP_C_PREFMAS_MASTER)
 
 #define	TURNING_ON_PREFMAS(orig, curr)					\
@@ -242,10 +246,10 @@ __rep_set_config(dbenv, which, on)
 		if (FLD_ISSET(mapped, (REP_C_ELECT_LOGLENGTH |
 		    REP_C_PREFMAS_MASTER | REP_C_PREFMAS_CLIENT)) &&
 		    F_ISSET(rep, REP_F_START_CALLED)) {
-			__db_errx(env, DB_STR("3706",
+			__db_errx(env, DB_STR_A("3706",
 			    "DB_ENV->rep_set_config: %s "
-			    "must be configured before DB_ENV->repmgr_start"),
-			    FLD_ISSET(mapped, REP_C_ELECT_LOGLENGTH) ?
+			    "must be configured before DB_ENV->repmgr_start",
+			    "%s"), FLD_ISSET(mapped, REP_C_ELECT_LOGLENGTH) ?
 			    "ELECT_LOGLENGTH" : "preferred master");
 			ENV_LEAVE(env, ip);
 			return (EINVAL);
@@ -261,9 +265,9 @@ __rep_set_config(dbenv, which, on)
 		    (__log_get_config(dbenv,
 		    DB_LOG_IN_MEMORY, &inmemlog) == 0 &&
 		    (inmemlog > 0 || F_ISSET(env, ENV_PRIVATE))))) {
-			__db_errx(env, DB_STR("3707",
+			__db_errx(env, DB_STR_A("3707",
 			    "DB_ENV->rep_set_config: preferred master mode "
-			    "cannot be used with %s"),
+			    "cannot be used with %s", "%s"),
 			    REP_CONFIG_IS_SET(env, REP_C_LEASE) ?
 			    "master leases" :
 			    REP_CONFIG_IS_SET(env, REP_C_INMEM) ?
@@ -281,9 +285,9 @@ __rep_set_config(dbenv, which, on)
 		if (PREFMAS_IS_SET(env) && ((FLD_ISSET(mapped,
 		    (REP_C_ELECTIONS | REP_C_2SITE_STRICT)) && on == 0) ||
 		    (FLD_ISSET(mapped, REP_C_LEASE) && on > 0))) {
-			__db_errx(env, DB_STR("3708",
+			__db_errx(env, DB_STR_A("3708",
 			    "DB_ENV->rep_set_config: cannot %s %s "
-			    "in preferred master mode"),
+			    "in preferred master mode", "%s %s"),
 			    on == 0 ? "disable" : "enable",
 			    FLD_ISSET(mapped, REP_C_ELECTIONS) ? "elections" :
 			    FLD_ISSET(mapped, REP_C_LEASE) ? "leases" :
@@ -389,6 +393,14 @@ __rep_set_config(dbenv, which, on)
 			    &db_rep->config);
 #endif
 	}
+
+#ifdef HAVE_REPLICATION_THREADS
+	/* Set write forwarding callback on or off as requested. */
+	if (FLD_ISSET(mapped, REP_C_FORWARD_WRITES)) {
+		ret = __repmgr_set_write_forwarding(env, on);
+	}
+#endif
+
 prefmas_err:
 	if (pm_ret != 0) {
 		__db_errx(env, DB_STR("3709",
@@ -448,6 +460,10 @@ __rep_config_map(env, inflagsp, outflagsp)
 	if (FLD_ISSET(*inflagsp, DB_REPMGR_CONF_ELECTIONS)) {
 		FLD_SET(*outflagsp, REP_C_ELECTIONS);
 		FLD_CLR(*inflagsp, DB_REPMGR_CONF_ELECTIONS);
+	}
+	if (FLD_ISSET(*inflagsp, DB_REPMGR_CONF_FORWARD_WRITES)) {
+		FLD_SET(*outflagsp, REP_C_FORWARD_WRITES);
+		FLD_CLR(*inflagsp, DB_REPMGR_CONF_FORWARD_WRITES);
 	}
 	if (FLD_ISSET(*inflagsp, DB_REPMGR_CONF_PREFMAS_CLIENT)) {
 		FLD_SET(*outflagsp, REP_C_PREFMAS_CLIENT);
@@ -909,6 +925,15 @@ __rep_start_int(env, dbt, flags, startopts)
 		if (role_chg) {
 			pending_event = DB_EVENT_REP_MASTER;
 			/*
+ 			 * We were a client but we didn't complete our initial
+ 			 * sync.  We may be in an inconsistent state.  In
+ 			 * particular, files that are supposed to be open
+ 			 * during recover may not have been opened.  Go
+ 			 * through the log and make sure they are opened.
+ 			 */
+ 			if (rep->stat.st_startup_complete == 0)
+ 				__rep_openfiles(env, ip);
+			/*
 			 * If prepared transactions have not been restored
 			 * look to see if there are any.  If there are,
 			 * then mark the open files, otherwise close them.
@@ -960,6 +985,7 @@ __rep_start_int(env, dbt, flags, startopts)
 		 * Start a non-client as a client.
 		 */
 		rep->master_id = DB_EID_INVALID;
+		rep->stat.st_startup_complete = 0;
 		/*
 		 * A non-client should not have been participating in an
 		 * election, so most election flags should be off.  The TALLY
@@ -1071,16 +1097,6 @@ __rep_start_int(env, dbt, flags, startopts)
 			locked = 0;
 		}
 
-		if (F_ISSET(env, ENV_PRIVATE))
-			/*
-			 * If we think we're a new client, and we have a
-			 * private env, set our gen number down to 0.
-			 * Otherwise, we can restart and think
-			 * we're ready to accept a new record (because our
-			 * gen is okay), but really this client needs to
-			 * sync with the master.
-			 */
-			SET_GEN(0);
 		/*
 		 * If we are changing role to client, reset our min log file
 		 * until we hear from a master or another client.  In
@@ -1142,6 +1158,52 @@ out:
 }
 
 /*
+ * Recover all open files to make sure all files that should remain
+ * open at the end of the log are opened.
+ */
+static void
+__rep_openfiles(env, ip)
+	ENV *env;
+	DB_THREAD_INFO *ip;
+{
+	DBT data;
+	DB_LOGC *logc;
+	DB_LSN first_lsn, last_lsn, ckp_lsn;
+	DB_TXNHEAD *txninfo;
+	__txn_ckp_args *ckp_args;
+
+	logc = NULL;
+	txninfo = NULL;
+	ckp_args = NULL;
+	memset(&data, 0, sizeof(data));
+
+	if (__log_cursor(env, &logc) != 0)
+		return;
+	if (__logc_get(logc, &last_lsn, &data, DB_LAST) != 0)
+		goto err;
+	/* If we can find a recent checkpoint use it. */
+	if (__txn_getckp(env, &ckp_lsn) == 0 &&
+	    __logc_get(logc, &ckp_lsn, &data, DB_SET) == 0 &&
+	    __txn_ckp_read(env, data.data, &ckp_args) == 0 &&
+	    __logc_get(logc, &ckp_args->ckp_lsn, &data, DB_SET) == 0)
+		first_lsn = ckp_args->ckp_lsn;
+	else if (__logc_get(logc, &first_lsn, &data, DB_FIRST) != 0)
+		goto err;
+
+	if (__db_txnlist_init(env, ip, 0, 0, NULL, &txninfo) != 0)
+		goto err;
+
+	(void)__env_openfiles(env, logc, txninfo, &data,
+	    &first_lsn, &last_lsn, 1.0, 0);
+	
+err:	if (txninfo != NULL)
+		__db_txnlist_end(env, txninfo);
+	if (ckp_args != NULL)
+		__os_free(env, ckp_args);
+	(void)__logc_close(logc);
+}
+
+/*
  * Write the current generation's base LSN into the history database.
  */
 static int
@@ -1178,6 +1240,7 @@ __rep_save_lsn_hist(env, ip, lsnp)
 	 * so clear the cached handle and close the database once we've written
 	 * our update.
 	 */
+	MUTEX_LOCK(env, db_rep->mtx_lsnhist);
 	if ((dbp = db_rep->lsn_db) == NULL &&
 	    (ret = __rep_open_sysdb(env,
 	    ip, txn, REPLSNHIST, DB_CREATE, &dbp)) != 0)
@@ -1203,6 +1266,7 @@ err:
 	    (t_ret = __db_close(dbp, txn, DB_NOSYNC)) != 0 && ret == 0)
 		ret = t_ret;
 	db_rep->lsn_db = NULL;
+	MUTEX_UNLOCK(env, db_rep->mtx_lsnhist);
 
 	DB_ASSERT(env, txn != NULL);
 	if ((t_ret = __db_txn_auto_resolve(env, txn, 0, ret)) != 0 && ret == 0)
@@ -2127,7 +2191,8 @@ __rep_set_timeout_pp(dbenv, which, timeout)
 	if (which == DB_REP_ACK_TIMEOUT || which == DB_REP_CONNECTION_RETRY ||
 	    which == DB_REP_ELECTION_RETRY ||
 	    which == DB_REP_HEARTBEAT_MONITOR ||
-	    which == DB_REP_HEARTBEAT_SEND)
+	    which == DB_REP_HEARTBEAT_SEND ||
+	    which == DB_REP_WRITE_FORWARD_TIMEOUT)
 		repmgr_timeout = 1;
 
 	ENV_NOT_CONFIGURED(
@@ -2238,6 +2303,12 @@ __rep_set_timeout_int(env, which, timeout)
 		else
 			db_rep->heartbeat_frequency = timeout;
 		break;
+	case DB_REP_WRITE_FORWARD_TIMEOUT:
+		if (REP_ON(env))
+			rep->write_forward_timeout = timeout;
+		else
+			db_rep->write_forward_timeout = timeout;
+		break;
 #endif
 	default:
 		__db_errx(env, DB_STR("3569",
@@ -2304,6 +2375,10 @@ __rep_get_timeout(dbenv, which, timeout)
 	case DB_REP_HEARTBEAT_SEND:
 		*timeout = REP_ON(env) ?
 		    rep->heartbeat_frequency : db_rep->heartbeat_frequency;
+		break;
+	case DB_REP_WRITE_FORWARD_TIMEOUT:
+		*timeout = REP_ON(env) ?
+		    rep->write_forward_timeout : db_rep->write_forward_timeout;
 		break;
 #endif
 	default:
@@ -3400,6 +3475,7 @@ retry:
 	    (ret = __txn_begin(env, ip, NULL, txn, 0)) != 0)
 		return (ret);
 
+	MUTEX_LOCK(env, db_rep->mtx_lsnhist);
 	if ((dbp = db_rep->lsn_db) == NULL) {
 		if ((ret = __rep_open_sysdb(env,
 		    ip, *txn, REPLSNHIST, 0, &dbp)) != 0) {
@@ -3417,10 +3493,12 @@ retry:
 				ret = DB_TIMEOUT;
 				reasonp->why = AWAIT_NIMDB;
 			}
+			MUTEX_UNLOCK(env, db_rep->mtx_lsnhist);
 			goto err;
 		}
 		db_rep->lsn_db = dbp;
 	}
+	MUTEX_UNLOCK(env, db_rep->mtx_lsnhist);
 
 	if (*dbc == NULL &&
 	    (ret = __db_cursor(dbp, ip, *txn, dbc, 0)) != 0)
@@ -3496,6 +3574,8 @@ __rep_conv_vers(env, log_ver)
 	 * We can't use a switch statement, some of the DB_LOGVERSION_XX
 	 * constants are the same.
 	 */
+	if (log_ver == DB_LOGVERSION_62)
+		return (DB_REPVERSION_62);
 	if (log_ver == DB_LOGVERSION_61)
 		return (DB_REPVERSION_61);
 	if (log_ver == DB_LOGVERSION_60p1)
@@ -3515,12 +3595,6 @@ __rep_conv_vers(env, log_ver)
 		return (DB_REPVERSION_48);
 	if (log_ver == DB_LOGVERSION_47)
 		return (DB_REPVERSION_47);
-	if (log_ver == DB_LOGVERSION_46)
-		return (DB_REPVERSION_46);
-	if (log_ver == DB_LOGVERSION_45)
-		return (DB_REPVERSION_45);
-	if (log_ver == DB_LOGVERSION_44)
-		return (DB_REPVERSION_44);
 	if (log_ver == DB_LOGVERSION)
 		return (DB_REPVERSION);
 	return (DB_REPVERSION_INVALID);

@@ -19,7 +19,7 @@ namespace BerkeleyDB {
 
         internal MPoolStats(Internal.MempStatStruct stats) {
             st = stats.st;
-            ci = new CacheInfo(st.st_gbytes, st.st_bytes, (int)st.st_max_ncache);
+            ci = new CacheInfo(st.st_gbytes, st.st_bytes, (int)st.st_ncache);
             mempfiles = new List<MPoolFileStats>();
             foreach (Internal.MPoolFileStatStruct file in stats.files)
                 mempfiles.Add(new MPoolFileStats(file));
@@ -31,7 +31,7 @@ namespace BerkeleyDB {
         /// <summary>
         /// Maximum number of regions. 
         /// </summary>
-        public uint CacheRegions { get { return st.st_ncache; } }
+        public uint MaxCacheRegions { get { return st.st_max_ncache; } }
         /// <summary>
         /// Maximum file size for mmap. 
         /// </summary>

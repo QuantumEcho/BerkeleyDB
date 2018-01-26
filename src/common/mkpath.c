@@ -53,7 +53,7 @@ __db_mkpath(env, name)
 			}
 	} else
 		for (p = t + 1; p[0] != '\0'; ++p)
-			if (strchr(PATH_SEPARATOR, p[0]) != NULL) {
+			if (strchr(PATH_SEPARATOR, p[0]) != NULL && p[0] != ':') {
 				savech = *p;
 				*p = '\0';
 				if (__os_exists(env, t, NULL) &&
