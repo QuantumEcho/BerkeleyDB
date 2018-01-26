@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 11.2.5.3</p>
+        <p>Library Version 12.1.6.0</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -106,7 +106,7 @@ DB_ENV-&gt;rep_process_message(DB_ENV *env,
                  The <code class="methodname">DB_ENV-&gt;rep_process_message()</code> method will return
                  <code class="literal">DB_REP_IGNORE</code> if this message cannot be processed. This is an
                  indication that this message is irrelevant to the current replication state (for
-                 example, an old message from a previous generation arrives and is processed late).
+                 example, an old message from a previous master arrives and is processed late).
             </p>
           </li>
           <li>
@@ -175,7 +175,7 @@ DB_ENV-&gt;rep_process_message(DB_ENV *env,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp54061176"></a>Parameters</h3>
+              <h3 class="title"><a id="idp3691040"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -183,7 +183,7 @@ DB_ENV-&gt;rep_process_message(DB_ENV *env,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp54060272"></a>control</h4>
+                <h4 class="title"><a id="idp3690392"></a>control</h4>
               </div>
             </div>
           </div>
@@ -198,7 +198,7 @@ See the <a class="xref" href="reptransport.html" title="DB_ENV-&gt;rep_set_trans
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp54068096"></a>rec</h4>
+                <h4 class="title"><a id="idp3698376"></a>rec</h4>
               </div>
             </div>
           </div>
@@ -213,7 +213,7 @@ See the <a class="xref" href="reptransport.html" title="DB_ENV-&gt;rep_set_trans
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp54069544"></a>envid</h4>
+                <h4 class="title"><a id="idp3700040"></a>envid</h4>
               </div>
             </div>
           </div>
@@ -228,7 +228,7 @@ See the <a class="xref" href="reptransport.html" title="DB_ENV-&gt;rep_set_trans
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp54072224"></a>ret_lsnp</h4>
+                <h4 class="title"><a id="idp3702504"></a>ret_lsnp</h4>
               </div>
             </div>
           </div>
@@ -251,7 +251,7 @@ See the <a class="xref" href="reptransport.html" title="DB_ENV-&gt;rep_set_trans
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp54056240"></a>Errors</h3>
+              <h3 class="title"><a id="idp3686576"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -268,7 +268,7 @@ See the <a class="xref" href="reptransport.html" title="DB_ENV-&gt;rep_set_trans
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp54077968"></a>EINVAL</h4>
+                <h4 class="title"><a id="idp3708048"></a>EINVAL</h4>
               </div>
             </div>
           </div>
@@ -287,7 +287,7 @@ See the <a class="xref" href="reptransport.html" title="DB_ENV-&gt;rep_set_trans
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp54078824"></a>Class</h3>
+              <h3 class="title"><a id="idp3708904"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -299,7 +299,7 @@ See the <a class="xref" href="reptransport.html" title="DB_ENV-&gt;rep_set_trans
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp54080656"></a>See Also</h3>
+              <h3 class="title"><a id="idp3710736"></a>See Also</h3>
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -131,10 +131,15 @@ __env_open(dbenv, db_home, flags, mode)
 	ENV *env;
 	u_int32_t orig_flags;
 	int register_recovery, ret, t_ret;
+	char *old_passwd;
+	size_t old_passwd_len;
+	u_int32_t old_encrypt_flags;
 
 	ip = NULL;
 	env = dbenv->env;
 	register_recovery = 0;
+	old_passwd = NULL;
+	old_passwd_len = 0;
 
 	/* Initial configuration. */
 	if ((ret = __env_config(dbenv, db_home, &flags, mode)) != 0)
@@ -171,8 +176,21 @@ __env_open(dbenv, db_home, flags, mode)
 			dbenv->is_alive = __envreg_isalive;
 		}
 
-		if ((ret =
-		    __envreg_register(env, &register_recovery, flags)) != 0)
+		/* 
+		 * Backup the current key, because it would be consumed by
+		 * __envreg_register below
+		 */
+		if (dbenv->passwd != NULL) {
+			if ((ret = __os_strdup(env, dbenv->passwd, &old_passwd)) != 0)
+				goto err;
+			old_passwd_len = dbenv->passwd_len;
+			__env_get_encrypt_flags(dbenv, &old_encrypt_flags);
+		}
+
+		F_SET(dbenv, DB_ENV_NOPANIC);
+		ret = __envreg_register(env, &register_recovery, flags);
+		dbenv->flags = orig_flags;
+		if (ret != 0)
 			goto err;
 		if (register_recovery) {
 			if (!LF_ISSET(DB_RECOVER)) {
@@ -205,6 +223,15 @@ retry:	if (LF_ISSET(DB_RECOVER | DB_RECOVER_FATAL))
 #endif
 		    (ret = __env_refresh(dbenv, orig_flags, 0)) != 0)
 			goto err;
+
+	/* Restore the database key. */
+	if (LF_ISSET(DB_REGISTER) && old_passwd != NULL) {
+		ret = __env_set_encrypt(dbenv, old_passwd, old_encrypt_flags);
+		memset(old_passwd, 0xff, old_passwd_len - 1);
+		__os_free(env, old_passwd);
+		if (ret != 0)
+			goto err;
+	}
 
 	if ((ret = __env_attach_regions(dbenv, flags, orig_flags, 1)) != 0)
 		goto err;
@@ -506,7 +533,7 @@ __env_close_pp(dbenv, flags)
 {
 	DB_THREAD_INFO *ip;
 	ENV *env;
-	int rep_check, ret, t_ret;
+	int ret, t_ret;
 	u_int32_t close_flags, flags_orig;
 
 	env = dbenv->env;
@@ -526,56 +553,65 @@ __env_close_pp(dbenv, flags)
 	if (flags == DB_FORCESYNC)
 		close_flags |= DBENV_FORCESYNC;
 
+	/* 
+	 * Call __env_close() to clean up resources even though the open
+	 * didn't fully succeed.
+	 * */
+	if (!F_ISSET(env, ENV_OPEN_CALLED))
+		goto do_close;
+
 	/*
 	 * If the environment has panic'd, all we do is try and discard
 	 * the important resources.
 	 */
 	if (PANIC_ISSET(env)) {
+		flags_orig = dbenv->flags;
+		F_SET(dbenv, DB_ENV_NOPANIC);
+		ENV_ENTER(env, ip);
 		/* clean up from registry file */
 		if (dbenv->registry != NULL) {
 			/*
 			 * Temporarily set no panic so we do not trigger the
-			 * LAST_PANIC_CHECK_BEFORE_IO check in __os_physwr
+			 * LAST_PANIC_CHECK_BEFORE_IO check in __os_physwrite
 			 * thus allowing the unregister to happen correctly.
 			 */
-			flags_orig = F_ISSET(dbenv, DB_ENV_NOPANIC);
-			F_SET(dbenv, DB_ENV_NOPANIC);
 			(void)__envreg_unregister(env, 0);
 			dbenv->registry = NULL;
-			if (!flags_orig)
-				F_CLR(dbenv, DB_ENV_NOPANIC);
 		}
 
 		/* Close all underlying threads and sockets. */
-		if (IS_ENV_REPLICATED(env))
-			(void)__repmgr_close(env);
+		(void)__repmgr_close(env);
 
 		/* Close all underlying file handles. */
 		(void)__file_handle_cleanup(env);
+		ENV_LEAVE(env, ip);
 
-		PANIC_CHECK(env);
+		dbenv->flags = flags_orig;
+		(void)__env_region_cleanup(env);
+
+		return (__env_panic_msg(env));
 	}
 
 	ENV_ENTER(env, ip);
 
-	rep_check = IS_ENV_REPLICATED(env) ? 1 : 0;
-	if (rep_check) {
 #ifdef HAVE_REPLICATION_THREADS
-		/*
-		 * Shut down Replication Manager threads first of all.  This
-		 * must be done before __env_rep_enter to avoid a deadlock that
-		 * could occur if repmgr's background threads try to do a rep
-		 * operation that needs __rep_lockout.
-		 */
-		if ((t_ret = __repmgr_close(env)) != 0 && ret == 0)
-			ret = t_ret;
+	/*
+	 * Shut down Replication Manager threads first of all.  This
+	 * must be done before __env_rep_enter to avoid a deadlock that
+	 * could occur if repmgr's background threads try to do a rep
+	 * operation that needs __rep_lockout.
+	 */
+	if ((t_ret = __repmgr_close(env)) != 0 && ret == 0)
+		ret = t_ret;
 #endif
+	if (IS_ENV_REPLICATED(env)) {
 		if ((t_ret = __env_rep_enter(env, 0)) != 0 && ret == 0)
 			ret = t_ret;
+		if (ret == 0)
+			close_flags |= DBENV_CLOSE_REPCHECK;
 	}
 
-	if (rep_check)
-		close_flags |= DBENV_CLOSE_REPCHECK;
+do_close:
 	if ((t_ret = __env_close(dbenv, close_flags)) != 0 && ret == 0)
 		ret = t_ret;
 
@@ -680,6 +716,9 @@ __env_close(dbenv, flags)
 	if (dbenv->db_md_dir != NULL)
 		__os_free(env, dbenv->db_md_dir);
 	dbenv->db_md_dir = NULL;
+	if (dbenv->db_blob_dir != NULL)
+		__os_free(env, dbenv->db_blob_dir);
+	dbenv->db_blob_dir = NULL;
 	if (dbenv->db_data_dir != NULL) {
 		for (p = dbenv->db_data_dir; *p != NULL; ++p)
 			__os_free(env, *p);
@@ -936,17 +975,35 @@ __file_handle_cleanup(env)
 	ENV *env;
 {
 	DB_FH *fhp;
+	DB_MPOOL *dbmp;
+	u_int i;
 
-	if (TAILQ_FIRST(&env->fdlist) == NULL)
+	if (TAILQ_EMPTY(&env->fdlist))
 		return (0);
 
-	__db_errx(env, DB_STR("1581",
-	    "File handles still open at environment close"));
+	__db_errx(env,
+	    DB_STR("1581", "File handles still open at environment close"));
 	while ((fhp = TAILQ_FIRST(&env->fdlist)) != NULL) {
-		__db_errx(env, DB_STR_A("1582", "Open file handle: %s", "%s"),
-		    fhp->name);
+		__db_errx(env,
+		    DB_STR_A("1582", "Open file handle: %s", "%s"), fhp->name);
 		(void)__os_closehandle(env, fhp);
 	}
+	if (env->lockfhp != NULL)
+		env->lockfhp = NULL;
+	/* Invalidate saved pointers to the regions' files: all are closed. */
+	if (env->reginfo != NULL)
+		env->reginfo->fhp = NULL;
+	if (env->lg_handle != NULL)
+		env->lg_handle->reginfo.fhp = NULL;
+	if (env->lk_handle != NULL)
+		env->lk_handle->reginfo.fhp = NULL;
+	if (env->mutex_handle != NULL)
+		env->mutex_handle->reginfo.fhp = NULL;
+	if (env->tx_handle != NULL)
+		env->tx_handle->reginfo.fhp = NULL;
+	if ((dbmp = env->mp_handle) != NULL && dbmp->reginfo != NULL)
+		for (i = 0; i < env->dbenv->mp_ncache; ++i)
+			dbmp->reginfo[i].fhp = NULL;
 	return (EINVAL);
 }
 
@@ -1125,8 +1182,15 @@ __env_attach_regions(dbenv, flags, orig_flags, retry_ok)
 		goto err;
 
 	rep_check = IS_ENV_REPLICATED(env) ? 1 : 0;
-	if (rep_check && (ret = __env_rep_enter(env, 0)) != 0)
+	if (rep_check && (ret = __env_rep_enter(env, 0)) != 0) {
+		/*
+		 * If we get an error we didn't increment handle_cnt,
+		 * so we don't want to decrement it later.  Turn off
+		 * rep_check here.
+		 */
+		rep_check = 0;
 		goto err;
+	}
 
 	if (LF_ISSET(DB_INIT_MPOOL)) {
 		if ((ret = __memp_open(env, create_ok)) != 0)

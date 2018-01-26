@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -230,6 +230,7 @@ loop:	renv = NULL;
 
 	/* Call the region join routine to acquire the region. */
 	memset(&tregion, 0, sizeof(tregion));
+	tregion.type = REGION_TYPE_ENV;
 	tregion.size = (roff_t)size;
 	tregion.max = (roff_t)max;
 	tregion.segid = segid;
@@ -289,6 +290,11 @@ user_map_functions:
 	}
 	if (renv->magic != DB_REGION_MAGIC)
 		goto retry;
+
+	if (dbenv->blob_threshold != 0 &&
+	    renv->blob_threshold != dbenv->blob_threshold)
+		__db_msg(env, DB_STR("1591",
+"Warning: Ignoring blob_threshold size when joining environment"));
 
 	/*
 	 * Get a reference to the underlying REGION information for this
@@ -447,6 +453,8 @@ creation:
 	 */
 	renv->init_flags = (init_flagsp == NULL) ? 0 : *init_flagsp;
 
+	renv->blob_threshold = dbenv->blob_threshold;
+
 	/*
 	 * Set up the region array.  We use an array rather than a linked list
 	 * as we have to traverse this list after failure in some cases, and
@@ -550,7 +558,7 @@ retry:	/* Close any open file handle. */
 		(void)__env_sys_detach(env,
 		    infop, F_ISSET(infop, REGION_CREATE));
 
-		if (rp != NULL && F_ISSET(env, DB_PRIVATE))
+		if (rp != NULL && F_ISSET(env, ENV_PRIVATE))
 			__env_alloc_free(infop, rp);
 	}
 
@@ -775,6 +783,30 @@ __env_ref_get(dbenv, countp)
 }
 
 /*
+ * __env_region_cleanup --
+ *	Detach from any regions, e.g., when closing after a panic.
+ *
+ * PUBLIC: int __env_region_cleanup __P((ENV *));
+ */
+int
+__env_region_cleanup(env)
+	ENV *env;
+{
+	if (env->reginfo != NULL) {
+		(void)__lock_region_detach(env, env->lk_handle);
+		(void)__log_region_detach(env, env->lg_handle);
+		(void)__memp_region_detach(env, env->mp_handle);
+		(void)__mutex_region_detach(env, env->mutex_handle);
+		(void)__txn_region_detach(env, env->tx_handle);
+		(void)__env_detach(env, 0);
+		/* Remember the panic state after detaching. */
+		F_SET(env, ENV_REMEMBER_PANIC);
+	}
+	return (0);
+}
+
+
+/*
  * __env_detach --
  *	Detach from the environment.
  *
@@ -796,9 +828,7 @@ __env_detach(env, destroy)
 
 	/* Close the locking file handle. */
 	if (env->lockfhp != NULL) {
-		if ((t_ret =
-		    __os_closehandle(env, env->lockfhp)) != 0 && ret == 0)
-			ret = t_ret;
+		ret = __os_closehandle(env, env->lockfhp);
 		env->lockfhp = NULL;
 	}
 

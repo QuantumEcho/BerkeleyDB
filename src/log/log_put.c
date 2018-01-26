@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -1621,6 +1621,37 @@ err:
 	return (ret);
 }
 
+/*
+ * __log_rep_write --
+ *	Way for replication clients to write the log buffer for the
+ * DB_TXN_WRITE_NOSYNC option.  This is just a thin PUBLIC wrapper
+ * for __log_write that is similar to __log_flush_commit.
+ *
+ * Note that the REP->mtx_clientdb should be held when this is called.
+ * Note that we acquire the log region mutex while holding mtx_clientdb.
+ *
+ * PUBLIC: int __log_rep_write __P((ENV *));
+ */
+int
+__log_rep_write(env)
+	ENV *env;
+{
+	DB_LOG *dblp;
+	LOG *lp;
+	int ret;
+
+	dblp = env->lg_handle;
+	lp = dblp->reginfo.primary;
+	ret = 0;
+	LOG_SYSTEM_LOCK(env);
+	if (!lp->db_log_inmemory && lp->b_off != 0)
+		if ((ret = __log_write(dblp, dblp->bufp,
+		    (u_int32_t)lp->b_off)) == 0)
+			lp->b_off = 0;
+	LOG_SYSTEM_UNLOCK(env);
+	return (ret);
+}
+
 static int
 __log_encrypt_record(env, dbt, hdr, orig)
 	ENV *env;
@@ -1773,6 +1804,7 @@ __log_put_record_int(env, dbp, txnp, ret_lsnp,
 	DB_TXNLOGREC *lr;
 	LOG *lp;
 	PAGE *pghdrstart;
+	u_int64_t ulltmp;
 	u_int32_t hdrsize, op, zero, uinttmp, txn_num;
 	u_int npad;
 	u_int8_t *bp;
@@ -1890,6 +1922,11 @@ __log_put_record_int(env, dbp, txnp, ret_lsnp,
 			uinttmp = va_arg(argp, u_int32_t);
 			LOGCOPY_32(env, bp, &uinttmp);
 			bp += sizeof(uinttmp);
+			break;
+		case LOGREC_LONGARG:
+			ulltmp = va_arg(argp, u_int64_t);
+			LOGCOPY_64(env, bp, &ulltmp);
+			bp += sizeof(ulltmp);
 			break;
 		case LOGREC_OP:
 			op = va_arg(argp, u_int32_t);

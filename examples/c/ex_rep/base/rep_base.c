@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2001, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -168,6 +168,8 @@ main(argc, argv)
 		dbenv->err(dbenv, ret, "Main loop failed");
 		goto err;
 	}
+
+	machtab_destroy(machtab);
 
 	/* Finish checkpoint and log archive threads. */
 	if ((ret = finish_support_threads(&ckp_thr, &lga_thr)) != 0)

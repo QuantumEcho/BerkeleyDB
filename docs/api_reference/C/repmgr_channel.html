@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 11.2.5.3</p>
+        <p>Library Version 12.1.6.0</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -74,7 +74,7 @@ DB_ENV-&gt;repmgr_channel(DB_ENV *env, int eid, DB_CHANNEL **channelp,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp54345936"></a>Parameters</h3>
+              <h3 class="title"><a id="idp4010360"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -82,7 +82,7 @@ DB_ENV-&gt;repmgr_channel(DB_ENV *env, int eid, DB_CHANNEL **channelp,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp54358600"></a>eid</h4>
+                <h4 class="title"><a id="idp4010552"></a>eid</h4>
               </div>
             </div>
           </div>
@@ -93,7 +93,7 @@ DB_ENV-&gt;repmgr_channel(DB_ENV *env, int eid, DB_CHANNEL **channelp,
             <ul type="disc">
               <li>
                 <p>
-                         The numerical env ID of a remote site in the
+                         The numerical environment ID of a remote site in the
                          replication group.
                      </p>
               </li>
@@ -107,7 +107,7 @@ DB_ENV-&gt;repmgr_channel(DB_ENV *env, int eid, DB_CHANNEL **channelp,
                          the current master, even if the master has changed
                          since the channel was opened. If the current
                          master is disconnected or unknown, the operation
-                         fails and repmgr returns an error code.
+                         fails and Replication Manager returns an error code.
                      </p>
                 <p>
                          If the local site is the master, then sending
@@ -123,7 +123,7 @@ DB_ENV-&gt;repmgr_channel(DB_ENV *env, int eid, DB_CHANNEL **channelp,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp54366368"></a>channelp</h4>
+                <h4 class="title"><a id="idp4019360"></a>channelp</h4>
               </div>
             </div>
           </div>
@@ -136,7 +136,7 @@ DB_ENV-&gt;repmgr_channel(DB_ENV *env, int eid, DB_CHANNEL **channelp,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp54364088"></a>flags</h4>
+                <h4 class="title"><a id="idp4017136"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -150,7 +150,7 @@ DB_ENV-&gt;repmgr_channel(DB_ENV *env, int eid, DB_CHANNEL **channelp,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp54363008"></a>Errors</h3>
+              <h3 class="title"><a id="idp4016056"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -167,7 +167,21 @@ DB_ENV-&gt;repmgr_channel(DB_ENV *env, int eid, DB_CHANNEL **channelp,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp54358768"></a>EINVAL</h4>
+                <h4 class="title"><a id="idp4023096"></a>DB_REP_UNAVAIL</h4>
+              </div>
+            </div>
+          </div>
+          <p>
+                If the <span class="bold"><strong>eid</strong></span> parameter is 
+                <code class="literal">DB_EID_MASTER</code> but the current master is
+                disconnected or unknown.
+            </p>
+        </div>
+        <div class="sect3" lang="en" xml:lang="en">
+          <div class="titlepage">
+            <div>
+              <div>
+                <h4 class="title"><a id="idp4024824"></a>EINVAL</h4>
               </div>
             </div>
           </div>
@@ -181,7 +195,7 @@ DB_ENV-&gt;repmgr_channel(DB_ENV *env, int eid, DB_CHANNEL **channelp,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp54354328"></a>Class</h3>
+              <h3 class="title"><a id="idp4022232"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -193,12 +207,13 @@ DB_ENV-&gt;repmgr_channel(DB_ENV *env, int eid, DB_CHANNEL **channelp,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp54369472"></a>See Also</h3>
+              <h3 class="title"><a id="idp4026552"></a>See Also</h3>
             </div>
           </div>
         </div>
         <p>
-             <a class="xref" href="rep.html#replist" title="Replication and Related Methods">Replication and Related Methods</a> 
+            <a class="xref" href="rep.html#replist" title="Replication and Related Methods">Replication and Related Methods</a>,
+            <a class="xref" href="db_channel.html" title="The DB_CHANNEL Handle">The DB_CHANNEL Handle</a>
         </p>
       </div>
     </div>

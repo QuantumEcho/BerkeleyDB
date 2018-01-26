@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 11.2.5.3</p>
+        <p>Library Version 12.1.6.0</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -83,7 +83,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp49854872"></a>Parameters</h3>
+              <h3 class="title"><a id="idm7735928"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -91,7 +91,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49885248"></a>txnid</h4>
+                <h4 class="title"><a id="idm4770472"></a>txnid</h4>
               </div>
             </div>
           </div>
@@ -122,7 +122,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49895336"></a>file</h4>
+                <h4 class="title"><a id="idm2570120"></a>file</h4>
               </div>
             </div>
           </div>
@@ -148,7 +148,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49851072"></a>database</h4>
+                <h4 class="title"><a id="idm6717936"></a>database</h4>
               </div>
             </div>
           </div>
@@ -160,7 +160,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
                   in a <span class="bold"><strong>file</strong></span> that was not initially
                   created using a <span class="bold"><strong>database</strong></span> name. 
                   Further, the <span class="bold"><strong>database</strong></span> parameter is
-                  not supported by the Queue format.  Finally, when opening multiple
+                  not supported by the Queue or Heap format.  Finally, when opening multiple
                   databases in the same physical file, it is important to consider
                   locking and memory cache issues; see 
                   <a href="../../programmer_reference/am_opensub.html" class="olink">Opening multiple databases in a single file</a> 
@@ -186,7 +186,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49891112"></a>type</h4>
+                <h4 class="title"><a id="idm4149816"></a>type</h4>
               </div>
             </div>
           </div>
@@ -213,7 +213,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49892184"></a>flags</h4>
+                <h4 class="title"><a id="idm7138912"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -322,12 +322,32 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
                             <code class="methodname">DB-&gt;open()</code> to be
                             <span class="emphasis"><em>free-threaded</em></span>; that is,
                             concurrently usable by multiple threads in the
-                            address space.
+                            address space. You should use this flag only in
+                            the absence of an encompassing environment.
+                        </p>
+                <p>
+                            When opening the database within an
+                            encompassing environment, the database inherits
+                            the state of this flag from the environment.
+                            That is, if the encompassing environment is
+                            threaded, then the database will also be
+                            threaded. Note that it is an error to specify
+                            this flag to the database open if the
+                            encompassing environment is not threaded.
                         </p>
                 <p>
                             Note that this flag is incompatible with the 
                             <a class="link" href="dbset_lk_exclusive.html" title="DB-&gt;set_lk_exclusive()">DB-&gt;set_lk_exclusive()</a>
                             method.
+                        </p>
+                <p>
+                            Be aware that enabling this flag will serialize
+                            calls to DB when using the handle across
+                            threads. If concurrent scaling is important to
+                            your application we recommend opening separate
+                            handles for each thread (and not specifying
+                            this flag), rather than sharing handles between
+                            threads.
                         </p>
               </li>
               <li>
@@ -354,7 +374,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49923776"></a>mode</h4>
+                <h4 class="title"><a id="idm4055120"></a>mode</h4>
               </div>
             </div>
           </div>
@@ -378,7 +398,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp49898440"></a>Environment Variables</h3>
+              <h3 class="title"><a id="idm1534088"></a>Environment Variables</h3>
             </div>
           </div>
         </div>
@@ -390,8 +410,8 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
         <p>
             <code class="methodname">DB-&gt;open()</code> is affected by any
             database directory specified using the 
-            <a class="xref" href="envset_data_dir.html" title="DB_ENV-&gt;set_data_dir()">DB_ENV-&gt;set_data_dir()</a> 
-            method, or by setting the "set_data_dir" string in the
+            <a class="xref" href="envadd_data_dir.html" title="DB_ENV-&gt;add_data_dir()">DB_ENV-&gt;add_data_dir()</a> 
+            method, or by setting the "add_data_dir" string in the
             environment's <a href="../../programmer_reference/env_db_config.html#env_db_config.DB_CONFIG" class="olink">DB_CONFIG</a> file.
         </p>
         <div class="itemizedlist">
@@ -416,7 +436,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp49943400"></a>Errors</h3>
+              <h3 class="title"><a id="idm5682352"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -432,7 +452,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49888936"></a>DB_LOCK_DEADLOCK</h4>
+                <h4 class="title"><a id="idm1561944"></a>DB_LOCK_DEADLOCK</h4>
               </div>
             </div>
           </div>
@@ -445,7 +465,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49925152"></a>DB_LOCK_NOTGRANTED</h4>
+                <h4 class="title"><a id="idm7713600"></a>DB_LOCK_NOTGRANTED</h4>
               </div>
             </div>
           </div>
@@ -465,7 +485,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49896304"></a>ENOENT</h4>
+                <h4 class="title"><a id="idm4691320"></a>ENOENT</h4>
               </div>
             </div>
           </div>
@@ -477,7 +497,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49946368"></a>ENOENT</h4>
+                <h4 class="title"><a id="idm3267080"></a>ENOENT</h4>
               </div>
             </div>
           </div>
@@ -489,7 +509,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49940616"></a>DB_OLD_VERSION</h4>
+                <h4 class="title"><a id="idm6107776"></a>DB_OLD_VERSION</h4>
               </div>
             </div>
           </div>
@@ -501,7 +521,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49947592"></a>EEXIST</h4>
+                <h4 class="title"><a id="idm4267816"></a>EEXIST</h4>
               </div>
             </div>
           </div>
@@ -514,7 +534,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49941952"></a>EINVAL</h4>
+                <h4 class="title"><a id="idm7545696"></a>EINVAL</h4>
               </div>
             </div>
           </div>
@@ -546,7 +566,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49940832"></a>  DB_REP_HANDLE_DEAD</h4>
+                <h4 class="title"><a id="idm3030784"></a>  DB_REP_HANDLE_DEAD</h4>
               </div>
             </div>
           </div>
@@ -565,7 +585,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp49921784"></a>DB_REP_LOCKOUT</h4>
+                <h4 class="title"><a id="idm6646568"></a>DB_REP_LOCKOUT</h4>
               </div>
             </div>
           </div>
@@ -578,7 +598,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp49920752"></a>Class</h3>
+              <h3 class="title"><a id="idm5830592"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -590,7 +610,7 @@ DB-&gt;open(DB *db, DB_TXN *txnid, const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp49935408"></a>See Also</h3>
+              <h3 class="title"><a id="idm6470600"></a>See Also</h3>
             </div>
           </div>
         </div>

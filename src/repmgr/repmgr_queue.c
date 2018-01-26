@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2006, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2006, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -24,7 +24,10 @@ __repmgr_queue_destroy(env)
 	DB_REP *db_rep;
 	REPMGR_MESSAGE *m;
 	REPMGR_CONNECTION *conn;
+	u_int32_t mtype;
 	int ret, t_ret;
+
+	COMPQUIET(mtype, 0);
 
 	db_rep = env->rep_handle;
 
@@ -37,6 +40,22 @@ __repmgr_queue_destroy(env)
 			    (t_ret = __repmgr_decr_conn_ref(env, conn)) != 0 &&
 			    ret == 0)
 				ret = t_ret;
+		}
+		if (m->msg_hdr.type == REPMGR_OWN_MSG) {
+			mtype = REPMGR_OWN_MSG_TYPE(m->msg_hdr);
+			if ((conn = m->v.gmdb_msg.conn) != NULL) {
+				/*
+				 * A site that removed itself may have already
+				 * closed its connections.
+				 */
+				if ((t_ret = __repmgr_close_connection(env,
+				    conn)) != 0 && ret == 0 &&
+				    mtype != REPMGR_REMOVE_REQUEST)
+					ret = t_ret;
+				if ((t_ret = __repmgr_decr_conn_ref(env,
+				    conn)) != 0 && ret == 0)
+					ret = t_ret;
+			}
 		}
 		__os_free(env, m);
 	}
@@ -157,9 +176,25 @@ __repmgr_queue_put(env, msg)
 	REPMGR_MESSAGE *msg;
 {
 	DB_REP *db_rep;
+	REP *rep;
+	u_int32_t limit;
 
 	db_rep = env->rep_handle;
+	rep = db_rep->region;
 
+	/*
+	 * Drop message if incoming queue contains more messages than the
+	 * limit.  See dbenv->repmgr_set_incoming_queue_max() for more
+	 * information.
+	 */
+	limit = FLD_ISSET(rep->config, REP_C_BULK) ?
+	    rep->inqueue_bulkmsg_max : rep->inqueue_msg_max;
+	if (db_rep->input_queue.size > (int)limit) {
+		RPRINT(env, (env, DB_VERB_REPMGR_MISC,
+		    "incoming queue limit exceeded"));
+		__os_free(env, msg);
+		return (0);
+	}
 	STAILQ_INSERT_TAIL(&db_rep->input_queue.header, msg, entries);
 	db_rep->input_queue.size++;
 

@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1999, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -458,6 +458,8 @@ __db_exchange_page(dbc, pgp, opg, newpgno, flags, pgs_donep)
 	 */
 	if (PGNO(newpage) > PGNO(*pgp)) {
 		/* It is unfortunate but you can't just free a new overflow. */
+		/* XXX Is the above comment still true? */
+		/* XXX Should __db_new(OVERFLOW) zero OV_LEN()? */
 		if (TYPE(newpage) == P_OVERFLOW)
 			OV_LEN(newpage) = 0;
 		if ((ret = __LPUT(dbc, lock)) != 0)

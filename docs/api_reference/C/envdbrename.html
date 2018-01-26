@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 11.2.5.3</p>
+        <p>Library Version 12.1.6.0</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -66,15 +66,15 @@ DB_ENV-&gt;dbrename(DB_ENV *dbenv, DB_TXN *txnid, const char *file,
     </p>
       <p>
         <code class="methodname">DB_ENV-&gt;dbrename()</code> is affected by any database directory specified using the
-        <a class="xref" href="envset_data_dir.html" title="DB_ENV-&gt;set_data_dir()">DB_ENV-&gt;set_data_dir()</a>
-        method, or by setting the <code class="literal">set_data_dir</code> string in the environment's
+        <a class="xref" href="envadd_data_dir.html" title="DB_ENV-&gt;add_data_dir()">DB_ENV-&gt;add_data_dir()</a>
+        method, or by setting the <code class="literal">add_data_dir</code> string in the environment's
         <a href="../../programmer_reference/env_db_config.html#env_db_config.DB_CONFIG" class="olink">DB_CONFIG</a> file.
     </p>
       <div class="sect2" lang="en" xml:lang="en">
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp51365152"></a>Parameters</h3>
+              <h3 class="title"><a id="idp985848"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -82,7 +82,7 @@ DB_ENV-&gt;dbrename(DB_ENV *dbenv, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp51365344"></a>txnid</h4>
+                <h4 class="title"><a id="idp986040"></a>txnid</h4>
               </div>
             </div>
           </div>
@@ -103,7 +103,7 @@ DB_ENV-&gt;dbrename(DB_ENV *dbenv, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp51366400"></a>file</h4>
+                <h4 class="title"><a id="idp987096"></a>file</h4>
               </div>
             </div>
           </div>
@@ -122,7 +122,7 @@ DB_ENV-&gt;dbrename(DB_ENV *dbenv, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp51327920"></a>database</h4>
+                <h4 class="title"><a id="idp954464"></a>database</h4>
               </div>
             </div>
           </div>
@@ -135,7 +135,7 @@ DB_ENV-&gt;dbrename(DB_ENV *dbenv, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp51361128"></a>newname</h4>
+                <h4 class="title"><a id="idp981696"></a>newname</h4>
               </div>
             </div>
           </div>
@@ -148,7 +148,7 @@ DB_ENV-&gt;dbrename(DB_ENV *dbenv, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp51362672"></a>flags</h4>
+                <h4 class="title"><a id="idp982360"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -177,7 +177,7 @@ DB_ENV-&gt;dbrename(DB_ENV *dbenv, DB_TXN *txnid, const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp51374216"></a>Environment Variables</h3>
+              <h3 class="title"><a id="idp994896"></a>Environment Variables</h3>
             </div>
           </div>
         </div>
@@ -190,7 +190,7 @@ DB_ENV-&gt;dbrename(DB_ENV *dbenv, DB_TXN *txnid, const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp51363752"></a>Errors</h3>
+              <h3 class="title"><a id="idp983888"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -206,7 +206,7 @@ DB_ENV-&gt;dbrename(DB_ENV *dbenv, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp51379864"></a>DB_LOCK_DEADLOCK</h4>
+                <h4 class="title"><a id="idp1000520"></a>DB_LOCK_DEADLOCK</h4>
               </div>
             </div>
           </div>
@@ -219,7 +219,7 @@ DB_ENV-&gt;dbrename(DB_ENV *dbenv, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp51378240"></a>DB_LOCK_NOTGRANTED</h4>
+                <h4 class="title"><a id="idp999328"></a>DB_LOCK_NOTGRANTED</h4>
               </div>
             </div>
           </div>
@@ -239,7 +239,7 @@ DB_ENV-&gt;dbrename(DB_ENV *dbenv, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp51381072"></a>EINVAL</h4>
+                <h4 class="title"><a id="idp1001728"></a>EINVAL</h4>
               </div>
             </div>
           </div>
@@ -252,7 +252,7 @@ DB_ENV-&gt;dbrename(DB_ENV *dbenv, DB_TXN *txnid, const char *file,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp51382152"></a>ENOENT</h4>
+                <h4 class="title"><a id="idp996000"></a>ENOENT</h4>
               </div>
             </div>
           </div>
@@ -265,7 +265,7 @@ DB_ENV-&gt;dbrename(DB_ENV *dbenv, DB_TXN *txnid, const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp51377704"></a>Class</h3>
+              <h3 class="title"><a id="idp999224"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -277,7 +277,7 @@ DB_ENV-&gt;dbrename(DB_ENV *dbenv, DB_TXN *txnid, const char *file,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp51383232"></a>See Also</h3>
+              <h3 class="title"><a id="idp998584"></a>See Also</h3>
             </div>
           </div>
         </div>

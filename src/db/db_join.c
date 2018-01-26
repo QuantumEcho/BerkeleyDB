@@ -1,7 +1,7 @@
 /*
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1998, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1998, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -793,7 +793,7 @@ __db_join_getnext(dbc, key, data, exhausted, opmods)
 	int ret, cmp;
 	DB *dbp;
 	DBT ldata;
-	int (*func) __P((DB *, const DBT *, const DBT *));
+	int (*func) __P((DB *, const DBT *, const DBT *, size_t *));
 
 	dbp = dbc->dbp;
 	func = (dbp->dup_compare == NULL) ? __bam_defcmp : dbp->dup_compare;
@@ -809,7 +809,7 @@ __db_join_getnext(dbc, key, data, exhausted, opmods)
 		if ((ret = __dbc_get(dbc,
 		    key, &ldata, opmods | DB_CURRENT)) != 0)
 			break;
-		cmp = func(dbp, data, &ldata);
+		cmp = func(dbp, data, &ldata, NULL);
 		if (cmp == 0) {
 			/*
 			 * We have to return the real data value.  Copy

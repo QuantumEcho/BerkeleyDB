@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
  */
 /*
  * Copyright (c) 1995, 1996
@@ -231,7 +231,8 @@ __txn_begin(env, ip, parent, txnpp, flags)
 		if (IS_REP_CLIENT(env)) {
 			__db_errx(env, DB_STR("4572",
 		"DB_TXN_SNAPSHOT may not be used on a replication client"));
-			return (EINVAL);
+			ret = (EINVAL);
+			goto err;
 		} else
 			F_SET(txn, TXN_SNAPSHOT);
 	}
@@ -587,8 +588,7 @@ __txn_continue(env, txn, td, ip, add_to_list)
 	txn->set_timeout = __txn_set_timeout;
 	txn->set_txn_lsnp = __txn_set_txn_lsnp;
 
-	/* XXX Do we need to explicitly set a SYNC flag here? */
-	txn->flags = TXN_MALLOC |
+	txn->flags = TXN_MALLOC | TXN_SYNC |
 	    (F_ISSET(td, TXN_DTL_NOWAIT) ? TXN_NOWAIT : 0);
 	txn->xa_thr_status = TXN_XA_THREAD_NOTA;
 

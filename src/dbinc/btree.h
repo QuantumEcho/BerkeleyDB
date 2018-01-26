@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
  */
 /*
  * Copyright (c) 1990, 1993, 1994, 1995, 1996
@@ -472,7 +472,7 @@ struct __btree {			/* Btree access method. */
 	u_int32_t bt_minkey;		/* Minimum keys per page. */
 
 					/* Btree comparison function. */
-	int (*bt_compare) __P((DB *, const DBT *, const DBT *));
+	int (*bt_compare) __P((DB *, const DBT *, const DBT *, size_t *));
 					/* Btree prefix function. */
 	size_t (*bt_prefix) __P((DB *, const DBT *, const DBT *));
 					/* Btree compress function. */
@@ -483,7 +483,8 @@ struct __btree {			/* Btree access method. */
 	int (*bt_decompress) __P((DB *, const DBT *, const DBT *, DBT *, DBT *,
 					 DBT *));
 					/* dup_compare for compression */
-	int (*compress_dup_compare) __P((DB *, const DBT *, const DBT *));
+	int (*compress_dup_compare) __P((DB *, const DBT *, const DBT *,
+	    size_t *));
 #endif
 
 					/* Recno access method. */

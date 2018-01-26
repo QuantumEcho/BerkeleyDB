@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 11.2.5.3</p>
+        <p>Library Version 12.1.6.0</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -352,6 +352,14 @@ DB_ENV-&gt;memp_stat(DB_ENV *env, DB_MPOOL_STAT **gsp,
           </li>
           <li>
             <p>
+                         <span class="bold"><strong>uintmax_t st_mvcc_reused;</strong></span>
+                </p>
+            <p>
+                         The number of outdated intermediate versions reused.
+                </p>
+          </li>
+          <li>
+            <p>
                          <span class="bold"><strong>uintmax_t st_mvcc_thawed;</strong></span>
                 </p>
             <p>
@@ -503,6 +511,14 @@ DB_ENV-&gt;memp_stat(DB_ENV *env, DB_MPOOL_STAT **gsp,
                         Pages written from the cache to the backing file.
                 </p>
           </li>
+          <li>
+            <p>
+                         <span class="bold"><strong>uintmax_t st_backup_spins;</strong></span>
+                </p>
+            <p>
+                        Spins while trying to back up the file.
+                </p>
+          </li>
         </ul>
       </div>
       <p>
@@ -521,7 +537,7 @@ DB_ENV-&gt;memp_stat(DB_ENV *env, DB_MPOOL_STAT **gsp,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp53261848"></a>Parameters</h3>
+              <h3 class="title"><a id="idp2919976"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -529,7 +545,7 @@ DB_ENV-&gt;memp_stat(DB_ENV *env, DB_MPOOL_STAT **gsp,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp53286184"></a>gsp</h4>
+                <h4 class="title"><a id="idp2920256"></a>gsp</h4>
               </div>
             </div>
           </div>
@@ -543,7 +559,7 @@ DB_ENV-&gt;memp_stat(DB_ENV *env, DB_MPOOL_STAT **gsp,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp53289784"></a>fsp</h4>
+                <h4 class="title"><a id="idp2924248"></a>fsp</h4>
               </div>
             </div>
           </div>
@@ -557,7 +573,7 @@ DB_ENV-&gt;memp_stat(DB_ENV *env, DB_MPOOL_STAT **gsp,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp53290560"></a>flags</h4>
+                <h4 class="title"><a id="idp2925120"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -583,7 +599,7 @@ DB_ENV-&gt;memp_stat(DB_ENV *env, DB_MPOOL_STAT **gsp,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp53295480"></a>Errors</h3>
+              <h3 class="title"><a id="idp2929944"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -599,7 +615,7 @@ DB_ENV-&gt;memp_stat(DB_ENV *env, DB_MPOOL_STAT **gsp,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp53300128"></a>EINVAL</h4>
+                <h4 class="title"><a id="idp2907280"></a>EINVAL</h4>
               </div>
             </div>
           </div>
@@ -612,7 +628,7 @@ DB_ENV-&gt;memp_stat(DB_ENV *env, DB_MPOOL_STAT **gsp,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp53298832"></a>Class</h3>
+              <h3 class="title"><a id="idp2933256"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -624,7 +640,7 @@ DB_ENV-&gt;memp_stat(DB_ENV *env, DB_MPOOL_STAT **gsp,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp53301208"></a>See Also</h3>
+              <h3 class="title"><a id="idp2935632"></a>See Also</h3>
             </div>
           </div>
         </div>

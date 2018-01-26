@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -32,6 +32,7 @@ __log_open(env)
 	DB_ENV *dbenv;
 	DB_LOG *dblp;
 	LOG *lp;
+	u_int32_t log_flags;
 	u_int8_t *bulk;
 	int region_locked, ret;
 
@@ -130,43 +131,55 @@ __log_open(env)
 		}
 	} else {
 		/*
-		 * A process joining the region may have reset the log file
-		 * size, too.  If so, it only affects the next log file we
-		 * create.  We need to check that the size is reasonable given
-		 * the buffer size in the region.
+		 * The log file size and DB_LOG_AUTO_REMOVE will be ignored
+		 * when joining the environment, so print a warning if either
+		 * was set.
 		 */
-		LOG_SYSTEM_LOCK(env);
-		region_locked = 1;
+		 if (dbenv->lg_size != 0 && lp->log_nsize != dbenv->lg_size)
+			__db_msg(env, DB_STR("2585",
+"Warning: Ignoring maximum log file size when joining the environment"));
 
-		 if (dbenv->lg_size != 0) {
-			if ((ret =
-			    __log_check_sizes(env, dbenv->lg_size, 0)) != 0)
-				goto err;
-
-			lp->log_nsize = dbenv->lg_size;
-		 }
-
-		LOG_SYSTEM_UNLOCK(env);
-		region_locked = 0;
-
-		if (dbenv->lg_flags != 0 && (ret =
-		    __log_set_config_int(dbenv, dbenv->lg_flags, 1, 0)) != 0)
+		log_flags = dbenv->lg_flags & ~DB_LOG_AUTO_REMOVE;
+		if ((dbenv->lg_flags & DB_LOG_AUTO_REMOVE)
+		    && lp->db_log_autoremove == 0)
+			__db_msg(env, DB_STR("2586",
+"Warning: Ignoring DB_LOG_AUTO_REMOVE when joining the environment."));
+		if (log_flags != 0 && (ret =
+		    __log_set_config_int(dbenv, log_flags, 1, 0)) != 0)
 			return (ret);
 	}
 	dblp->reginfo.mtx_alloc = lp->mtx_region;
 
 	return (0);
 
-err:	if (dblp->reginfo.addr != NULL) {
-		if (region_locked)
-			LOG_SYSTEM_UNLOCK(env);
-		(void)__env_region_detach(env, &dblp->reginfo, 0);
-	}
-	env->lg_handle = NULL;
-
+err:	if (region_locked)
+		LOG_SYSTEM_UNLOCK(env);
 	(void)__mutex_free(env, &dblp->mtx_dbreg);
-	__os_free(env, dblp);
+	(void)__log_region_detach(env, dblp);
 
+	return (ret);
+}
+
+/*
+ * __log_region_detach --
+ *
+ * PUBLIC: int __log_region_detach __P((ENV *, DB_LOG *));
+ */
+int
+__log_region_detach(env, dblp)
+	ENV *env;
+	DB_LOG *dblp;
+{
+	int ret;
+
+	ret = 0;
+	if (dblp != NULL) {
+		if (dblp->reginfo.addr != NULL)
+			ret = __env_region_detach(env, &dblp->reginfo, 0);
+		/* Discard DB_LOG. */
+		__os_free(env, dblp);
+		env->lg_handle = NULL;
+	}
 	return (ret);
 }
 
@@ -721,10 +734,10 @@ __log_valid(dblp, number, set_persist, fhpp, flags, statusp, versionp)
 			    hdr->len - hdrsize, is_hmac)) != 0)
 				goto bad_checksum;
 			/*
- 			 * The checksum verifies without the header.  Make note
- 			 * of that, because it is only acceptable when the log
- 			 * version < DB_LOGCHKSUM.  Later, when we determine log
- 			 * version, we will confirm this.
+			 * The checksum verifies without the header.  Make note
+			 * of that, because it is only acceptable when the log
+			 * version < DB_LOGCHKSUM.  Later, when we determine log
+			 * version, we will confirm this.
 			 */
 			chksum_includes_hdr = 0;
 		}
@@ -799,7 +812,7 @@ __log_valid(dblp, number, set_persist, fhpp, flags, statusp, versionp)
 		/*
 		 * We might have to declare a checksum failure here, if:
 		 * - the checksum verified only by ignoring the header, and
-		 * - the log version indicates that the header should have 
+		 * - the log version indicates that the header should have
 		 * been included.
 		 */
 		if (!chksum_includes_hdr && logversion >= DB_LOGCHKSUM)

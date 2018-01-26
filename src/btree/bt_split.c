@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
  */
 /*
  * Copyright (c) 1990, 1993, 1994, 1995, 1996
@@ -685,6 +685,7 @@ __bam_broot(dbc, rootp, split, lp, rp)
 			DB_SET_DBT(hdr, &bi, SSZA(BINTERNAL, data));
 			DB_SET_DBT(data, &bo, BOVERFLOW_SIZE);
 			break;
+		case B_BLOB:
 		case B_DUPLICATE:
 		default:
 			goto pgfmt;
@@ -791,7 +792,7 @@ __ram_root(dbc, rootp, lp, rp)
  *	rchild	- right child page. The source of the pgno of the new item.
  *	flags	- BPI_REPLACE | BPI_NORENCUM
  *		  BPI_NOLOGGING
- *		  
+ *
  *	The pgno of the item always comes from rchild, which often is the same
  *	as parent[1].page. The key for DB_BTREE comes from the next lower page
  *	in the stack under parent, not from either lchild or rchild parameter --
@@ -901,8 +902,9 @@ __bam_pinsert(dbc, parent, split, lchild, rchild, flags)
 				 * copy in case the data item gets removed.
 				 */
 				memset(&hdr, 0, sizeof(hdr));
-				if ((ret = __db_goff(dbc, &hdr, child_bo->tlen,
-				     child_bo->pgno, &hdr.data, &hdr.size)) == 0)
+				if ((ret = __db_goff(dbc, &hdr,
+				    child_bo->tlen, child_bo->pgno,
+				    &hdr.data, &hdr.size)) == 0)
 					ret = __db_poff(dbc, &hdr, &bo.pgno);
 				if (hdr.data != NULL)
 					__os_free(dbp->env, hdr.data);
@@ -918,6 +920,7 @@ __bam_pinsert(dbc, parent, split, lchild, rchild, flags)
 			DB_SET_DBT(data, &bo, BOVERFLOW_SIZE);
 			size = BINTERNAL_SIZE(BOVERFLOW_SIZE);
 			break;
+		case B_BLOB:
 		case B_DUPLICATE:
 		default:
 			goto pgfmt;
@@ -1020,6 +1023,7 @@ noprefix:		if (P_FREESPACE(dbp, ppage) + oldsize < nbytes)
 			DB_SET_DBT(data, &bo, BOVERFLOW_SIZE);
 			size = BINTERNAL_SIZE(BOVERFLOW_SIZE);
 			break;
+		case B_BLOB:
 		case B_DUPLICATE:
 		default:
 			goto pgfmt;
@@ -1189,23 +1193,32 @@ __bam_psplit(dbc, cp, lp, rp, splitret)
 				nbytes += BINTERNAL_SIZE(BOVERFLOW_SIZE);
 			break;
 		case P_LBTREE:
-			if (B_TYPE(GET_BKEYDATA(dbp, pp, off)->type) ==
-			    B_KEYDATA)
-				nbytes += BKEYDATA_SIZE(GET_BKEYDATA(dbp,
-				    pp, off)->len);
-			else
+			switch (B_TYPE(GET_BKEYDATA(dbp, pp, off)->type)) {
+			case B_KEYDATA:
+				nbytes += BKEYDATA_SIZE(
+				    GET_BKEYDATA(dbp, pp, off)->len);
+				break;
+			case B_BLOB:
+				nbytes += BBLOB_SIZE;
+				break;
+			default:
 				nbytes += BOVERFLOW_SIZE;
-
+			}
 			++off;
 			/* FALLTHROUGH */
 		case P_LDUP:
 		case P_LRECNO:
-			if (B_TYPE(GET_BKEYDATA(dbp, pp, off)->type) ==
-			    B_KEYDATA)
-				nbytes += BKEYDATA_SIZE(GET_BKEYDATA(dbp,
-				    pp, off)->len);
-			else
+			switch (B_TYPE(GET_BKEYDATA(dbp, pp, off)->type)) {
+			case B_KEYDATA:
+				nbytes += BKEYDATA_SIZE(
+				    GET_BKEYDATA(dbp, pp, off)->len);
+				break;
+			case B_BLOB:
+				nbytes += BBLOB_SIZE;
+				break;
+			default:
 				nbytes += BOVERFLOW_SIZE;
+			}
 			break;
 		case P_IRECNO:
 			nbytes += RINTERNAL_SIZE;
@@ -1338,12 +1351,17 @@ __bam_copy(dbp, pp, cp, nxt, stop)
 			/* FALLTHROUGH */
 		case P_LDUP:
 		case P_LRECNO:
-			if (B_TYPE(GET_BKEYDATA(dbp, pp, nxt)->type) ==
-			    B_KEYDATA)
-				nbytes = BKEYDATA_SIZE(GET_BKEYDATA(dbp,
-				    pp, nxt)->len);
-			else
+			switch (B_TYPE(GET_BKEYDATA(dbp, pp, nxt)->type)) {
+			case B_KEYDATA:
+				nbytes = BKEYDATA_SIZE(
+				    GET_BKEYDATA(dbp, pp, nxt)->len);
+				break;
+			case B_BLOB:
+				nbytes = BBLOB_SIZE;
+				break;
+			default:
 				nbytes = BOVERFLOW_SIZE;
+			}
 			break;
 		case P_IRECNO:
 			nbytes = RINTERNAL_SIZE;

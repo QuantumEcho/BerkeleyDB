@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 11.2.5.3</p>
+        <p>Library Version 12.1.6.0</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -92,7 +92,7 @@ DbEnv::txn_begin(DbTxn *parent, DbTxn **tid, u_int32_t flags);</pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp10323016"></a>Parameters</h3>
+              <h3 class="title"><a id="idp10575024"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -100,7 +100,7 @@ DbEnv::txn_begin(DbTxn *parent, DbTxn **tid, u_int32_t flags);</pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp10322368"></a>parent</h4>
+                <h4 class="title"><a id="idp10575472"></a>parent</h4>
               </div>
             </div>
           </div>
@@ -118,7 +118,7 @@ DbEnv::txn_begin(DbTxn *parent, DbTxn **tid, u_int32_t flags);</pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp10281968"></a>flags</h4>
+                <h4 class="title"><a id="idp10534472"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -252,6 +252,7 @@ DbEnv::txn_begin(DbTxn *parent, DbTxn **tid, u_int32_t flags);</pre>
                  databases with 
                  <a class="link" href="dbopen.html#dbopen_DB_MULTIVERSION">DB_MULTIVERSION</a> 
                  not set on the underlying database (read locks are acquired).
+                 Snapshot isolation is not supported with replication.
             </p>
                 <p>
                  The error <code class="literal">DB_LOCK_DEADLOCK</code> will be
@@ -318,7 +319,7 @@ DbEnv::txn_begin(DbTxn *parent, DbTxn **tid, u_int32_t flags);</pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp10339720"></a>Errors</h3>
+              <h3 class="title"><a id="idp10592096"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -336,7 +337,7 @@ DbEnv::txn_begin(DbTxn *parent, DbTxn **tid, u_int32_t flags);</pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp10336912"></a><span>DbMemoryException or </span> ENOMEM</h4>
+                <h4 class="title"><a id="idp10578840"></a><span>DbMemoryException or </span> ENOMEM</h4>
               </div>
             </div>
           </div>
@@ -355,7 +356,7 @@ DbEnv::txn_begin(DbTxn *parent, DbTxn **tid, u_int32_t flags);</pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp10337776"></a>Class</h3>
+              <h3 class="title"><a id="idp10590152"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -367,7 +368,7 @@ DbEnv::txn_begin(DbTxn *parent, DbTxn **tid, u_int32_t flags);</pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp10326904"></a>See Also</h3>
+              <h3 class="title"><a id="idp10579176"></a>See Also</h3>
             </div>
           </div>
         </div>

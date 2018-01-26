@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 11.2.5.3</p>
+        <p>Library Version 12.1.6.0</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -45,9 +45,9 @@ DbEnv::repmgr_site(const char * host, u_int16_t port,
     DB_SITE **sitep, u_int32_t flags); </pre>
       <p>
         The <code class="methodname">DbEnv::repmgr_site()</code> method returns a 
-        DbSite handle that defines a site's
-        host/port network address. You use the DbSite
-        handle to configure and manage replication sites.
+        DbSite handle that defines a site's network address.
+        You use the DbSite
+        handle to configure and manage a Replication Manager site.
     </p>
       <p>
         This method allocates memory for the handle, returning a pointer to
@@ -80,7 +80,7 @@ DbEnv::repmgr_site(const char * host, u_int16_t port,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp9905736"></a>Parameters</h3>
+              <h3 class="title"><a id="idp10142864"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -88,7 +88,7 @@ DbEnv::repmgr_site(const char * host, u_int16_t port,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp9913048"></a>host</h4>
+                <h4 class="title"><a id="idp10151336"></a>host</h4>
               </div>
             </div>
           </div>
@@ -100,7 +100,7 @@ DbEnv::repmgr_site(const char * host, u_int16_t port,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp9923408"></a>port</h4>
+                <h4 class="title"><a id="idp10161600"></a>port</h4>
               </div>
             </div>
           </div>
@@ -112,7 +112,7 @@ DbEnv::repmgr_site(const char * host, u_int16_t port,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp9923816"></a>sitep</h4>
+                <h4 class="title"><a id="idp10162008"></a>sitep</h4>
               </div>
             </div>
           </div>
@@ -125,7 +125,7 @@ DbEnv::repmgr_site(const char * host, u_int16_t port,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp9924264"></a>flags</h4>
+                <h4 class="title"><a id="idp10162456"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -139,7 +139,7 @@ DbEnv::repmgr_site(const char * host, u_int16_t port,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp9882856"></a>Errors</h3>
+              <h3 class="title"><a id="idp10143976"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -158,7 +158,7 @@ DbEnv::repmgr_site(const char * host, u_int16_t port,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp9884672"></a>EINVAL</h4>
+                <h4 class="title"><a id="idp10105488"></a>EINVAL</h4>
               </div>
             </div>
           </div>
@@ -172,7 +172,7 @@ DbEnv::repmgr_site(const char * host, u_int16_t port,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp9899024"></a>Class</h3>
+              <h3 class="title"><a id="idp10140432"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -184,12 +184,13 @@ DbEnv::repmgr_site(const char * host, u_int16_t port,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp9887824"></a>See Also</h3>
+              <h3 class="title"><a id="idp10111672"></a>See Also</h3>
             </div>
           </div>
         </div>
         <p>
-             <a class="xref" href="rep.html#replist" title="Replication and Related Methods">Replication and Related Methods</a> 
+            <a class="xref" href="rep.html#replist" title="Replication and Related Methods">Replication and Related Methods</a>,
+            <a class="xref" href="db_site.html" title="The DbSite Handle">The DbSite Handle</a>
         </p>
       </div>
     </div>

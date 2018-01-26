@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996, 2013 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
 #
 # $Id$
 #
@@ -143,6 +143,7 @@ proc open_and_dump_file {
 	set envarg ""
 	set txn ""
 	set txnenv 0
+	set bflags "-blob_dir $testdir/__db_bl"
 	if { $env != "NULL" } {
 		append envarg " -env $env "
 		set txnenv [is_txnenv $env]
@@ -152,8 +153,10 @@ proc open_and_dump_file {
 			error_check_good txn [is_valid_txn $t $env] TRUE
 			set txn "-txn $t"
 		}
+		set bflags ""
 	}
-	set db [eval {berkdb open} $envarg -rdonly -unknown $encarg $args $dbname]
+	set db [eval {berkdb open} $envarg -rdonly -unknown \
+	    $encarg $bflags $args $dbname]
 	error_check_good dbopen [is_valid_db $db] TRUE
 	$dump_func $db $txn $outfile $checkfunc $beg $cont
 	if { $txnenv == 1 } {
@@ -176,6 +179,7 @@ proc open_and_dump_subfile {
 	set envarg ""
 	set txn ""
 	set txnenv 0
+	set bflags "-blob_dir $testdir/__db_bl"
 	if { $env != "NULL" } {
 		append envarg "-env $env"
 		set txnenv [is_txnenv $env]
@@ -185,9 +189,10 @@ proc open_and_dump_subfile {
 			error_check_good txn [is_valid_txn $t $env] TRUE
 			set txn "-txn $t"
 		}
+		set bflags ""
 	}
 	set db [eval {berkdb open -rdonly -unknown} \
-	    $envarg $encarg {$dbname $subdb}]
+	    $envarg $encarg $bflags {$dbname $subdb}]
 	error_check_good dbopen [is_valid_db $db] TRUE
 	$dump_func $db $txn $outfile $checkfunc $beg $cont
 	if { $txnenv == 1 } {
@@ -1124,6 +1129,7 @@ proc cleanup { dir env { quiet 0 } } {
 	global passwd
 	source ./include.tcl
 
+	set uflags "-b $testdir/__db_bl"
 	if { $gen_upgrade == 1 || $gen_dump == 1 } {
 		save_upgrade_files $dir
 	}
@@ -1172,11 +1178,13 @@ proc cleanup { dir env { quiet 0 } } {
 					if { [is_txnenv $env] } {
 						append envargs " -auto_commit "
 					}
+					set bflags ""
 				} else {
 					if { $old_encrypt != 0 } {
 						set encarg "-encryptany $passwd"
 					}
 					set file $fileorig
+					set bflags "-blob_dir $testdir/__db_bl"
 				}
 
 				# If a database is left in a corrupt
@@ -1187,7 +1195,7 @@ proc cleanup { dir env { quiet 0 } } {
 				# message.
 				set ret [catch \
 				    {eval {berkdb dbremove} $envargs $encarg \
-				    $file} res]
+				    $bflags $file} res]
 				# If dbremove failed and we're not in an env,
 				# note that we don't have 100% certainty
 				# about whether the previous run used
@@ -1199,13 +1207,13 @@ proc cleanup { dir env { quiet 0 } } {
 						set ret [catch \
 				    		    {eval {berkdb dbremove} \
 						    -encryptany $passwd \
-				    		    $file} res]
+				    		    $bflags $file} res]
 					}
 					if { $env == "NULL" && \
 					    $old_encrypt == 1 } {
 						set ret [catch \
 						    {eval {berkdb dbremove} \
-						    $file} res]
+						    $bflags $file} res]
 					}
 					if { $ret != 0 } {
 						if { $quiet == 0 } {
@@ -1229,29 +1237,35 @@ proc cleanup { dir env { quiet 0 } } {
 			# it fails, try again a few times.  HFS is found on
 			# Mac OS X machines only (although not all of them)
 			# so we can limit the extra delete attempts to that 
-			# platform.  
+			# platform.
 			#
 			# This bug has been compensated for in Tcl with a fix
 			# checked into Tcl 8.4.  When Berkeley DB requires
 			# Tcl 8.5, we can remove this while loop and replace
 			# it with a simple 'fileremove -f $remfiles'.
 			#
+			# QNX file system has the same issue, and using Tcl 8.5
+			# does not fix that.
+			#
 			set count 0
-			if { $is_osx_test } {
-				while { [catch {eval fileremove -f $remfiles}] == 1 \
-				    && $count < 5 } {
+			if { $is_osx_test || $is_qnx_test } {
+				while { [catch {eval fileremove \
+				    -f $remfiles}] == 1 && $count < 5 } {
 					incr count
 				}
+				# The final attempt to remove files should
+				# only be performed when previous try fails.
+				if {$count >= 5} {
+					eval fileremove -f $remfiles
+				}
+			} else {
+				eval fileremove -f $remfiles
 			}
-			# The final attempt to remove files can be for all
-			# OSes including Darwin.  Don't catch failures, we'd
-			# like to notice them.
-			eval fileremove -f $remfiles 
 		}
 
 		if { $is_je_test } {
-			set rval [catch {eval {exec \
-			    $util_path/db_dump} -h $dir -l } res]
+			set rval [catch {eval {exec $util_path/db_dump} \
+			    -h $dir -l $uflags} res]
 			if { $rval == 0 } {
 				set envargs " -env $env "
 				if { [is_txnenv $env] } {
@@ -1260,7 +1274,8 @@ proc cleanup { dir env { quiet 0 } } {
 
 				foreach db $res {
 					set ret [catch {eval \
-					   {berkdb dbremove} $envargs $db } res]
+					    {berkdb dbremove} \
+					    $envargs $db } res]
 				}
 			}
 		}
@@ -2213,6 +2228,10 @@ proc is_valid_cursor { dbc db } {
 	return [is_valid_widget $dbc $db.c]
 }
 
+proc is_valid_dbstream { dbs dbc } {
+	return [is_valid_widget $dbs $dbc.dbs]
+}
+
 proc is_valid_lock { lock env } {
 	return [is_valid_widget $lock $env.lock]
 }
@@ -2546,7 +2565,7 @@ proc split_pageargs { largs pageargsp } {
 	} else {
 		set eend [expr $eindex + 1]
 		set e [lrange $largs $eindex $eend]
-		set newl [lreplace $largs $eindex $eend ""]
+		set newl [lreplace $largs $eindex $eend]
 	}
 	return $newl
 }
@@ -3100,7 +3119,7 @@ proc dbverify_inmem { filename {directory $testdir} \
 
 # Verify all .db files in the specified directory.
 proc verify_dir { {directory $testdir} { pref "" } \
-    { noredo 0 } { quiet 0 } { nodump 0 } { cachesize 0 } { unref 1 } } {
+    { noredo 0 } { quiet 0 } { nodump 0 } { cachesize 0 } { unref 1 } { blobdir 0 }} {
 	global encrypt
 	global passwd
 
@@ -3136,9 +3155,12 @@ proc verify_dir { {directory $testdir} { pref "" } \
 	if { $encrypt != 0 } {
 		set encarg "-encryptaes $passwd"
 	}
+	if { $blobdir == 0 } {
+		set blobdir $directory/__db_bl
+	}
 
 	set env [eval {berkdb_env -create -private} $encarg \
-	    {-cachesize [list 0 $cachesize 0]}]
+	    {-cachesize [list 0 $cachesize 0]} -blob_dir $blobdir]
 	set earg " -env $env "
 
 	# The 'unref' flag means that we report unreferenced pages
@@ -3249,6 +3271,25 @@ proc db_compare { olddb newdb olddbname newdbname } {
 	return 0
 }
 
+proc dump_compare { file1 file2 } {
+	global testdir
+	global util_path
+
+	fileremove -f $testdir/dump1
+	fileremove -f $testdir/dump2
+
+	if { [catch { eval exec $util_path/db_dump \
+	    -f $testdir/dump1 $file1 } res] } {
+		error "FAIL db_dump: $res"
+	}
+	if { [catch { eval exec $util_path/db_dump \
+	    -f $testdir/dump2 $file2 } res] } {
+		error "FAIL db_dump: $res"
+	}
+	error_check_good compare_dump \
+	    [filecmp $testdir/dump1 $testdir/dump2] 0
+}
+
 proc dumploadtest_inmem { db envdir } {
 	global util_path
 	global encrypt
@@ -3319,22 +3360,24 @@ proc dumploadtest { db } {
 	global util_path
 	global encrypt
 	global passwd
+	global testdir
 
 	set newdbname $db-dumpload.db
 
-	set dbarg ""
-	set utilflag ""
-   	set keyflag "-k"
+	set dbarg "-blob_dir $testdir/__db_bl"
+	set utilflag "-b $testdir/__db_bl"
+	set keyflag "-k"
 	set heapdb 0
 
 	if { $encrypt != 0 } {
-		set dbarg "-encryptany $passwd"
+		append dbarg " -encryptany $passwd"
 		set utilflag "-P $passwd"
 	}
 
 	# Open original database to find dbtype.
 	set olddb [eval {berkdb_open -rdonly} $dbarg $db]
 	error_check_good olddb($db) [is_valid_db $olddb] TRUE
+	set threshold [$olddb get_blob_threshold]
     	if { [is_heap [$olddb get_type]] } {
 		set heapdb 1
 	    	set keyflag ""
@@ -3342,6 +3385,10 @@ proc dumploadtest { db } {
 	error_check_good orig_db_close($db) [$olddb close] 0
 
 	set dumpflags "$utilflag $keyflag"
+	# Specify the blob threshold in db_load.
+	if { $threshold != 0 } {
+		append utilflag " -o $threshold"
+	}
 
 	# Dump/load the whole file, including all subdbs.
 	set rval [catch {eval {exec $util_path/db_dump} $dumpflags \
@@ -3393,7 +3440,18 @@ proc dumploadtest { db } {
 		# Open the new database.
 		set newdb [eval {berkdb_open -rdonly} $dbarg $newdbname]
 		error_check_good newdb($db) [is_valid_db $newdb] TRUE
-		db_compare $olddb $newdb $db $newdbname
+		if { [is_substr $db "bigfile003"] != 1 } {
+			db_compare $olddb $newdb $db $newdbname
+		} else {
+			# We expect an error for db_compare in the test
+			# bigfile003 because of the large blobs.
+			# Make sure it's the right error.
+			set ret [catch {eval db_compare \
+			    $olddb $newdb $db $newdbname} res]
+			error_check_good db_compare \
+			    [is_substr $res "DB_BUFFER_SMALL"] 1
+			error_check_bad db_compare $ret 0
+		}
 		error_check_good new_db_close($db) [$newdb close] 0
 	}
 
@@ -3407,6 +3465,7 @@ proc salvage_dir { dir { noredo 0 } { quiet 0 } } {
 	global util_path
 	global encrypt
 	global passwd
+	global testdir
 
 	# If we're doing salvage testing between tests, don't do it
 	# twice without an intervening cleanup.
@@ -3433,21 +3492,41 @@ proc salvage_dir { dir { noredo 0 } { quiet 0 } } {
 		set sortedsalvage $db-salvage-sorted
 		set aggsalvagefile $db-aggsalvage
 
-		set dbarg ""
-		set utilflag ""
+		set dbarg "-blob_dir $testdir/__db_bl"
+		set utilflag "-b $testdir/__db_bl"
 		if { $encrypt != 0 } {
-			set dbarg "-encryptany $passwd"
-			set utilflag "-P $passwd"
+			append dbarg " -encryptany $passwd"
+			append utilflag " -P $passwd"
 		}
 
-		# Dump the database with salvage, with aggressive salvage,
-		# and without salvage.
-		#
+		# First do an ordinary db_dump and save the results
+		# for comparison to the salvage dumps. 
+		set rval [catch {eval {exec $util_path/db_dump} $utilflag \
+		    -f $dumpfile $db} res]
+		error_check_good dump($db:$res) $rval 0
+
+		# Queue databases must be dumped with -k to display record
+		# numbers if we're not in salvage mode.  Look at the dump
+		# and dump again with -k if it was queue. 
+		if { [isqueuedump $dumpfile] == 1 } {
+			set rval [catch {eval {exec $util_path/db_dump} \
+			    $utilflag -k -f $dumpfile $db} res]
+		}
+
+		filesort $dumpfile $sorteddump
+
+		# Discard db_pagesize lines from file dumped with ordinary
+		# db_dump -- they are omitted from a salvage dump.
+		discardline $sorteddump TEMPFILE "db_pagesize="
+		file copy -force TEMPFILE $sorteddump
+
+		# Now the regular salvage. 
 		set rval [catch {eval {exec $util_path/db_dump} $utilflag -r \
 		    -f $salvagefile $db} res]
 		error_check_good salvage($db:$res) $rval 0
 		filesort $salvagefile $sortedsalvage
 
+		# Finally the aggressive salvage.
 		# We can't avoid occasional verify failures in aggressive
 		# salvage.  Make sure it's the expected failure.
 		set rval [catch {eval {exec $util_path/db_dump} $utilflag -R \
@@ -3459,21 +3538,6 @@ proc salvage_dir { dir { noredo 0 } { quiet 0 } } {
 		} else {
 			error_check_good aggressive_salvage($db:$res) $rval 0
 		}
-
-		# Queue databases must be dumped with -k to display record
-		# numbers if we're not in salvage mode.
-		if { [isqueuedump $salvagefile] == 1 } {
-			append utilflag " -k "
-		}
-
-		# Discard db_pagesize lines from file dumped with ordinary
-		# db_dump -- they are omitted from a salvage dump.
-		set rval [catch {eval {exec $util_path/db_dump} $utilflag \
-		    -f $dumpfile $db} res]
-		error_check_good dump($db:$res) $rval 0
-		filesort $dumpfile $sorteddump
-		discardline $sorteddump TEMPFILE "db_pagesize="
-		file copy -force TEMPFILE $sorteddump
 
 		# A non-aggressively salvaged file should match db_dump.
 		error_check_good compare_dump_and_salvage \
@@ -4188,4 +4252,11 @@ proc my_isalive { pid } {
 		return 0
 	}
 	return 1
+}
+
+# Tests if a directory in the blob directory structure exists
+proc check_blob_sub_exists { blobdir blobsubdir expected } {
+	set blob_subdir $blobdir/$blobsubdir
+	error_check_good "blob subdir exists" \
+	    [file exists $blob_subdir] $expected
 }

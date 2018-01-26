@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -151,6 +151,20 @@ loop:	/* Attempt to acquire the resource for N spins. */
 			if (F_ISSET(dbenv, DB_ENV_FAILCHK) &&
 			    ip == NULL && dbenv->is_alive(dbenv,
 			    mutexp->pid, mutexp->tid, 0) == 0) {
+				/*
+				 * The process owing the mutex is "dead" now, but it may
+				 * have already released the mutex. We need to check again
+				 * by going back to the top of the loop
+				 * if the mutex is still held by the "dead" process. We
+				 * yield 10 us to increase the likelyhood of mutexp fields
+				 * being up-to-date. Set spin so we spin one more time
+				 * because no need to spin more if dead process owns mutex.
+				 */                               
+				if (nspins > 1) {
+					nspins = 2;
+					__os_yield(env, 0, 10);
+					continue;
+				}
 				ret = __env_set_state(env, &ip, THREAD_VERIFY);
 				if (ret != 0 ||
 				    ip->dbth_state == THREAD_FAILCHK)

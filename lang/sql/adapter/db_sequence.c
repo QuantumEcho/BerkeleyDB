@@ -1,7 +1,7 @@
 /*
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2010, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2010, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -54,8 +54,10 @@
 #define	DB_SEQ_NEXT		0x0000
 #define	DB_SEQ_CURRENT		0x0001
 
-#define	MSG_CREATE_FAIL	"Sequence create failed: "
-#define	MSG_MALLOC_FAIL	"Malloc failed during sequence operation."
+#define	MSG_CREATE_FAIL		"Sequence create failed: "
+#define	MSG_MALLOC_FAIL		"Malloc failed during sequence operation."
+#define	MSG_INTMPDB_FAIL	"Sequences do not support in-memory or"	\
+                                " temporary databases."
 
 #define CACHE_ENTRY_VALID(_e)						\
 	(_e != NULL &&							\
@@ -160,7 +162,7 @@ static void db_seq_create_func(
 				    "%sInvalid parameter.", MSG_CREATE_FAIL);
 				goto err;
 			}
-			cookie.cache = sqlite3_value_int(argv[i]);
+			cookie.cache = (u32)sqlite3_value_int(argv[i]);			
 		} else if (strncmp((char *)sqlite3_value_text(argv[i]),
 		    "incr", 4) == 0) {
 			if (i == argc ||
@@ -255,7 +257,7 @@ static void db_seq_create_func(
 
 	if ((rc = btreeSeqGetHandle(context, p, SEQ_HANDLE_CREATE, &cookie)) !=
 	    SQLITE_OK) {
-		if (rc != SQLITE_ERROR)
+		if (rc != DB_NOINTMP)
 			btreeSeqError(context, dberr2sqlite(rc, NULL),
 			    "Failed to create sequence %s. Error: %s",
 			    (const char *)sqlite3_value_text(argv[0]),
@@ -300,7 +302,7 @@ static void db_seq_drop_func(
 		if (rc == DB_NOTFOUND) 
 			btreeSeqError(context, dberr2sqlite(rc, NULL),
 			    "no such sequence: %s", cookie.name + 4);
-		else if (rc != SQLITE_ERROR)
+		else if (rc != DB_NOINTMP)
 			btreeSeqError(context, dberr2sqlite(rc, NULL),
 			"Fail to drop sequence %s. Error: %s",
 			cookie.name + 4, db_strerror(rc));
@@ -322,18 +324,19 @@ static void db_seq_drop_func(
 		goto done;
 	}
 
+	/*
+	 * Drop the mutex - it's not valid to begin a transaction while
+	 * holding the mutex. We can drop it safely because it's use is to
+	 * protect handle cache changes.
+	 */
 	sqlite3_mutex_leave(pBt->mutex);
+
 	if ((rc = btreeSeqStartTransaction(context, p, 1)) != SQLITE_OK) {
 			btreeSeqError(context, SQLITE_ERROR,
 			    "Could not begin transaction for drop.");
 			return;
 	}
 
-	/*
-	 * Drop the mutex - it's not valid to begin a transaction while
-	 * holding the mutex. We can drop it safely because it's use is to
-	 * protect handle cache changes.
-	 */
 	sqlite3_mutex_enter(pBt->mutex);
 	btreeSeqRemoveHandle(context, p, cache_entry);
 done:	sqlite3_mutex_leave(pBt->mutex);
@@ -386,7 +389,7 @@ static void btreeSeqGetVal(
 		if (rc == DB_NOTFOUND) 
 			btreeSeqError(context, dberr2sqlite(rc, NULL),
 			    "no such sequence: %s", name);
-		else if (rc != SQLITE_ERROR)
+		else if (rc != DB_NOINTMP)
 			btreeSeqError(context, dberr2sqlite(rc, NULL),
 			    "Fail to get next value from seq %s. Error: %s",
 			    name, db_strerror(rc));
@@ -448,7 +451,7 @@ static void btreeSeqGetVal(
 		}
 		/* Cached gets can't be transactionally protected. */
 		if ((ret = cookie.handle->get(cookie.handle, NULL,
-		    cookie.incr, &val, 0)) != 0) {
+		    (u_int32_t)cookie.incr, &val, 0)) != 0) {
 			if (ret == EINVAL)
 				btreeSeqError(context, SQLITE_ERROR,
 				    "Sequence value out of bounds.");
@@ -509,10 +512,8 @@ static int btreeSeqGetHandle(sqlite3_context *context, Btree *p,
 
 	/* Does not support in-memory db and temp db for now */
 	if (pBt->dbStorage != DB_STORE_NAMED) {
-		btreeSeqError(context, SQLITE_ERROR,
-		    "Sequences do not support in-memory or "
-		    "temporary databases.");
-		return (SQLITE_ERROR);
+		btreeSeqError(context, SQLITE_ERROR, MSG_INTMPDB_FAIL);
+		return (DB_NOINTMP);
 	}
 
 	/*
@@ -883,7 +884,7 @@ static int btreeSeqPutCookie(
  * that case (and this function should not be called).
  *
  * It's safe to call this method multiple times since both
- * sqlite3BtreeBeginTrans and sqlite3BtreeBeginStmt are no-ops on subsequent
+ * btreeBeginTransInternal and sqlite3BtreeBeginStmt are no-ops on subsequent
  * calls.
  */
 static int btreeSeqStartTransaction(

@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -59,12 +59,6 @@ typedef struct __db_globals {
 	u_int32_t fid_serial;		/* file id counter */
 
 	int db_errno;			/* Errno value if not available */
-
-	size_t num_active_pids;		/* number of entries in active_pids */
-
-	size_t size_active_pids;	/* allocated size of active_pids */
-
-	pid_t *active_pids;		/* array active pids */
 
 	char *saved_errstr;		/* saved error string from backup */
 

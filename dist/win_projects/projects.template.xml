@@ -143,7 +143,7 @@
     </platform>
   </library>
   <library name="tcl">
-    <libname config="Debug">tcl85g</libname>
+    <libname config="Debug">tcl85</libname>
     <libname config="Release">tcl85</libname>
     <platform name="Win32 x64">
       <config type="Debug">
@@ -189,6 +189,10 @@
 <!--    <preprocessor config="Static Debug">DIAGNOSTIC</preprocessor>  -->
     <files>
       <file name="src/crypto/aes_method.c"/>
+      <file name="src/blob/blob_fileops.c"/>
+      <file name="src/blob/blob_page.c"/>
+      <file name="src/blob/blob_stream.c"/>
+      <file name="src/blob/blob_util.c"/>
       <file name="src/btree/bt_compact.c"/>
       <file name="src/btree/bt_compare.c"/>
       <file name="src/btree/bt_compress.c"/>
@@ -215,6 +219,7 @@
       <file name="lang/cxx/cxx_channel.cpp"/>
       <file name="lang/cxx/cxx_db.cpp"/>
       <file name="lang/cxx/cxx_dbc.cpp"/>
+      <file name="lang/cxx/cxx_dbstream.cpp"/>
       <file name="lang/cxx/cxx_dbt.cpp"/>
       <file name="lang/cxx/cxx_env.cpp"/>
       <file name="lang/cxx/cxx_except.cpp"/>
@@ -309,7 +314,6 @@
       <file name="src/hash/hash_verify.c"/>
       <file name="src/heap/heap.c"/>
       <file name="src/heap/heap_auto.c"/>
-      <file name="src/heap/heap_autop.c"/>
       <file name="src/heap/heap_backup.c"/>
       <file name="src/heap/heap_conv.c"/>
       <file name="src/heap/heap_method.c"/>
@@ -317,6 +321,7 @@
       <file name="src/heap/heap_rec.c"/>
       <file name="src/heap/heap_reclaim.c"/>
       <file name="src/heap/heap_stat.c"/>
+      <file name="src/heap/heap_upgrade.c"/>
       <file name="src/heap/heap_verify.c"/>
       <file name="src/hmac/hmac.c"/>
       <file name="lang/hsearch/hsearch.c"/>
@@ -389,6 +394,7 @@
       <file name="src/os_windows/os_map.c"/>
       <file name="src/os_windows/os_mkdir.c"/>
       <file name="src/os_windows/os_open.c"/>
+      <file name="src/os_windows/os_rmdir.c"/>
       <file name="src/os/os_path.c"/>
       <file name="src/os/os_pid.c"/>
       <file name="src/os_windows/os_rename.c"/>
@@ -475,6 +481,10 @@
     <preprocessor config="all">_UNICODE;UNICODE;HAVE_SMALLBUILD</preprocessor>
     <preprocessor config="dll">DB_CREATE_DLL</preprocessor>
     <files>
+      <file name="src\blob\blob_fileops.c"/>
+      <file name="src\blob\blob_page.c"/>
+      <file name="src\blob\blob_stream.c"/>
+      <file name="src\blob\blob_util.c"/>
       <file name="src\btree\bt_compact.c"/>
       <file name="src\btree\bt_compare.c"/>
       <file name="src\btree\bt_conv.c"/>
@@ -513,6 +523,7 @@
       <file name="lang\cxx\cxx_channel.cpp"/>
       <file name="lang\cxx\cxx_db.cpp"/>
       <file name="lang\cxx\cxx_dbc.cpp"/>
+      <file name="lang\cxx\cxx_dbstream.cpp"/>
       <file name="lang\cxx\cxx_dbt.cpp"/>
       <file name="lang\cxx\cxx_env.cpp"/>
       <file name="lang\cxx\cxx_except.cpp"/>
@@ -649,6 +660,7 @@
       <file name="src\os_windows\os_map.c"/>
       <file name="src\os_windows\os_mkdir.c"/>
       <file name="src\os_windows\os_open.c"/>
+      <file name="src/os_windows/os_rmdir.c"/>
       <file name="src\os\os_path.c"/>
       <file name="src\os_windows\os_rename.c"/>
       <file name="src\os_windows\os_rw.c"/>
@@ -721,6 +733,7 @@
       <file name="lang\sql\sqlite\ext\fts3\fts3_icu.c"/>
       <file name="lang\sql\sqlite\ext\fts3\fts3_porter.c"/>
       <file name="lang\sql\sqlite\ext\fts3\fts3_snippet.c"/>
+      <file name="lang\sql\sqlite\ext\fts3\fts3_term.c"/>
       <file name="lang\sql\sqlite\ext\fts3\fts3_tokenizer1.c"/>
       <file name="lang\sql\sqlite\ext\fts3\fts3_tokenizer.c"/>
       <file name="lang\sql\sqlite\ext\fts3\fts3_write.c"/>
@@ -769,6 +782,7 @@
       <file name="lang\sql\sqlite\src\vdbeaux.c"/>
       <file name="lang\sql\sqlite\src\vdbeblob.c"/>
       <file name="lang\sql\sqlite\src\vdbemem.c"/>
+      <file name="lang\sql\sqlite\src\vdbesort.c"/>
       <file name="lang\sql\sqlite\src\vdbetrace.c"/>
       <file name="lang\sql\sqlite\src\vtab.c"/>
       <file name="lang\sql\adapter\wal.c"/>
@@ -787,7 +801,7 @@
       <command config="ReleaseDebug">
 mkdir "./$(OutDir)/jdbc_classes/" 
 echo compiling JDBC classes
-javac -g -target 1.5 -d "$(OutDir)\jdbc_classes" -classpath "$(OutDir)\jdbc_classes" ..\..\lang\sql\jdbc\SQLite\*java ..\..\lang\sql\jdbc\SQLite\JDBC2x\*java
+javac -g -d "$(OutDir)\jdbc_classes" -classpath "$(OutDir)\jdbc_classes" ..\..\lang\sql\jdbc\SQLite\*java ..\..\lang\sql\jdbc\SQLite\JDBC2x\*java
 echo Building JNI header files
 javah -o ..\..\lang\sql\jdbc\native\sqlite_jni.h -classpath "$(OutDir)\jdbc_classes" SQLite.Database SQLite.Vm SQLite.FunctionContext SQLite.Stmt SQLite.Blob
 echo creating jar file
@@ -859,6 +873,7 @@ echo JDBC build finished</command>
       <file name="lang/tcl/tcl_db.c"/>
       <file name="lang/tcl/tcl_db_pkg.c"/>
       <file name="lang/tcl/tcl_dbcursor.c"/>
+      <file name="lang/tcl/tcl_dbstream.c"/>
       <file name="lang/tcl/tcl_env.c"/>
       <file name="lang/tcl/tcl_internal.c"/>
       <file name="lang/tcl/tcl_lock.c"/>
@@ -884,11 +899,11 @@ echo JDBC build finished</command>
       <command config="ReleaseDebug">
 echo compiling Berkeley DB Java classes 
 mkdir "./$(OutDir)/classes/" 
-javac -g -target 1.5 -d "$(OutDir)\classes" -classpath "$(OutDir)\classes" ..\..\lang\java\src\com\sleepycat\db\*.java ..\..\lang\java\src\com\sleepycat\db\internal\*.java ..\..\lang\java\src\com\sleepycat\asm\*.java ..\..\lang\java\src\com\sleepycat\bind\*.java ..\..\lang\java\src\com\sleepycat\bind\serial\*.java ..\..\lang\java\src\com\sleepycat\bind\tuple\*.java ..\..\lang\java\src\com\sleepycat\collections\*.java ..\..\lang\java\src\com\sleepycat\compat\*.java ..\..\lang\java\src\com\sleepycat\persist\*.java ..\..\lang\java\src\com\sleepycat\persist\evolve\*.java ..\..\lang\java\src\com\sleepycat\persist\impl\*.java ..\..\lang\java\src\com\sleepycat\persist\model\*.java ..\..\lang\java\src\com\sleepycat\persist\raw\*.java ..\..\lang\java\src\com\sleepycat\util\*.java ..\..\lang\java\src\com\sleepycat\util\keyrange\*.java
+javac -g -d "$(OutDir)\classes" -classpath "$(OutDir)\classes" ..\..\lang\java\src\com\sleepycat\db\*.java ..\..\lang\java\src\com\sleepycat\db\internal\*.java ..\..\lang\java\src\com\sleepycat\asm\*.java ..\..\lang\java\src\com\sleepycat\bind\*.java ..\..\lang\java\src\com\sleepycat\bind\serial\*.java ..\..\lang\java\src\com\sleepycat\bind\tuple\*.java ..\..\lang\java\src\com\sleepycat\collections\*.java ..\..\lang\java\src\com\sleepycat\compat\*.java ..\..\lang\java\src\com\sleepycat\persist\*.java ..\..\lang\java\src\com\sleepycat\persist\evolve\*.java ..\..\lang\java\src\com\sleepycat\persist\impl\*.java ..\..\lang\java\src\com\sleepycat\persist\model\*.java ..\..\lang\java\src\com\sleepycat\persist\raw\*.java ..\..\lang\java\src\com\sleepycat\util\*.java ..\..\lang\java\src\com\sleepycat\util\keyrange\*.java
 java -classpath $(OutDir)\classes com.sleepycat.persist.model.ClassEnhancer $(OutDir)\classes
 echo compiling examples
 mkdir "$(OutDir)\classes.ex"
-javac -g -target 1.5 -d "$(OutDir)\classes.ex" -classpath "$(OutDir)\classes;$(OutDir)\classes.ex" ..\..\examples/java\src\db\*.java ..\..\examples/java\src\db\GettingStarted\*.java ..\..\examples/java\src\db\repquote\*.java ..\..\examples/java\src\db\repquote_gsg\*.java ..\..\examples/java\src\db\txn\*.java ..\..\examples/java\src\collections\access\*.java ..\..\examples/java\src\collections\hello\*.java ..\..\examples/java\src\collections\ship\basic\*.java ..\..\examples/java\src\collections\ship\entity\*.java ..\..\examples/java\src\collections\ship\factory\*.java ..\..\examples/java\src\collections\ship\index\*.java ..\..\examples/java\src\collections\ship\marshal\*.java ..\..\examples/java\src\collections\ship\sentity\*.java ..\..\examples/java\src\collections\ship\tuple\*.java ..\..\examples/java\src\persist\*.java ..\..\examples/java\src\persist\gettingStarted\*.java ..\..\examples/java\src\persist\txn\*.java
+javac -g -d "$(OutDir)\classes.ex" -classpath "$(OutDir)\classes;$(OutDir)\classes.ex" ..\..\examples/java\src\db\*.java ..\..\examples/java\src\db\GettingStarted\*.java ..\..\examples/java\src\db\repquote\*.java ..\..\examples/java\src\db\repquote_gsg\*.java ..\..\examples/java\src\db\txn\*.java ..\..\examples/java\src\collections\access\*.java ..\..\examples/java\src\collections\hello\*.java ..\..\examples/java\src\collections\ship\basic\*.java ..\..\examples/java\src\collections\ship\entity\*.java ..\..\examples/java\src\collections\ship\factory\*.java ..\..\examples/java\src\collections\ship\index\*.java ..\..\examples/java\src\collections\ship\marshal\*.java ..\..\examples/java\src\collections\ship\sentity\*.java ..\..\examples/java\src\collections\ship\tuple\*.java ..\..\examples/java\src\persist\*.java ..\..\examples/java\src\persist\gettingStarted\*.java ..\..\examples/java\src\persist\txn\*.java
 echo creating jar files
 jar cfm "$(OutDir)/db.jar" ../..\lang/java/jarManifestEntries -C "$(OutDir)\classes" .
 jar cf "$(OutDir)/dbexamples.jar" -C "$(OutDir)\classes.ex" .
@@ -907,6 +922,7 @@ echo Java build finished</command>
     <include type="ref">all</include>
     <options><nowp64/></options>
     <preprocessor config="all">DB_CREATE_DLL;_UNICODE;UNICODE</preprocessor>
+    <preprocessor config="Debug">CONFIG_TEST</preprocessor>
     <files>
       <file name="lang/csharp/libdb_csharp/db_csharp_wrap.c"/>
     </files>
@@ -1031,6 +1047,7 @@ echo Java build finished</command>
       <file name="src/dbreg/dbreg_autop.c"/>
       <file name="src/fileops/fileops_autop.c"/>
       <file name="src/hash/hash_autop.c"/>
+      <file name="src/heap/heap_autop.c"/>
       <file name="src/qam/qam_autop.c"/>
       <file name="src/repmgr/repmgr_autop.c"/>
       <file name="src/txn/txn_autop.c"/>
@@ -1066,6 +1083,20 @@ echo Java build finished</command>
     <include type="ref">all</include>
     <files>
       <file name="test/repmgr/db_repsite.cpp"/>
+      <file name="src/clib/getopt.c"/>
+    </files>
+  </project>
+  <project name="db_reptest" guid="{4786F27F-FF38-42e8-87C1-CC3B6E544C5D}">
+    <type>app</type>
+    <configuration></configuration>
+    <depends>db</depends>
+    <include type="ref">all</include>
+    <files>
+      <file name="test/repmgr/db_reptest.c"/>
+      <file name="test/repmgr/reptest_am.c"/>
+      <file name="test/repmgr/reptest_handles.c"/>
+      <file name="test/repmgr/reptest_spawn.c"/>
+      <file name="test/repmgr/reptest_util.c"/>
       <file name="src/clib/getopt.c"/>
     </files>
   </project>
@@ -1122,6 +1153,8 @@ echo Java build finished</command>
       <file name="lang\sql\sqlite\ext\fts3\fts3_icu.c"/>
       <file name="lang\sql\sqlite\ext\fts3\fts3_porter.c"/>
       <file name="lang\sql\sqlite\ext\fts3\fts3_snippet.c"/>
+      <file name="lang\sql\sqlite\ext\fts3\fts3_term.c"/>
+      <file name="lang\sql\sqlite\ext\fts3\fts3_test.c"/>
       <file name="lang\sql\sqlite\ext\fts3\fts3_tokenizer1.c"/>
       <file name="lang\sql\sqlite\ext\fts3\fts3_tokenizer.c"/>
       <file name="lang\sql\sqlite\ext\fts3\fts3_write.c"/>
@@ -1172,6 +1205,7 @@ echo Java build finished</command>
       <file name="lang\sql\sqlite\src\vdbeaux.c"/>
       <file name="lang\sql\sqlite\src\vdbeblob.c"/>
       <file name="lang\sql\sqlite\src\vdbemem.c"/>
+      <file name="lang\sql\sqlite\src\vdbesort.c"/>
       <file name="lang\sql\sqlite\src\vdbetrace.c"/>
       <file name="lang\sql\sqlite\src\vtab.c"/>
       <file name="lang\sql\adapter\wal.c"/>
@@ -1195,6 +1229,7 @@ echo Java build finished</command>
       <file name="lang\sql\sqlite\src\test_config.c"/>
       <file name="lang\sql\sqlite\src\test_demovfs.c"/>
       <file name="lang\sql\sqlite\src\test_devsym.c"/>
+      <file name="lang\sql\sqlite\src\test_fs.c"/>
       <file name="lang\sql\sqlite\src\test_func.c"/>
       <file name="lang\sql\sqlite\src\test_fuzzer.c"/>
       <file name="lang\sql\sqlite\src\test_hexio.c"/>
@@ -1208,6 +1243,7 @@ echo Java build finished</command>
       <file name="lang\sql\sqlite\src\test_osinst.c"/>
       <file name="lang\sql\sqlite\src\test_pcache.c"/>
       <file name="lang\sql\sqlite\src\test_quota.c"/>
+      <file name="lang\sql\sqlite\src\test_regexp.c"/>
       <file name="lang\sql\sqlite\src\test_rtree.c"/>
       <file name="lang\sql\sqlite\src\test_schema.c"/>
       <file name="lang\sql\sqlite\src\test_server.c"/>
@@ -1309,6 +1345,17 @@ echo Java build finished</command>
     <files>
       <file name="src/clib/getopt.c"/>
       <file name="examples/c/ex_access.c"/>
+    </files>
+  </project>
+  <project name="ex_blob" guid="0460962E-97E3-40fd-B3CD-702085F2FC98">
+    <type>app</type>
+    <configuration></configuration>
+    <depends>db</depends>
+    <references>db</references>
+    <include type="ref">all</include>
+    <files>
+      <file name="src/clib/getopt.c"/>
+      <file name="examples/c/ex_blob.c"/>
     </files>
   </project>
   <project name="ex_btrec" guid="5DD66F4B-EB4A-4453-BC31-3FF7B2240634">
@@ -1413,7 +1460,7 @@ echo Java build finished</command>
       <command config="ReleaseDebug">
 echo compiling examples
 mkdir "$(OutDir)\classes.ex"
-javac -g -target 1.5 -d "$(OutDir)\classes.ex" -classpath "$(OutDir)\classes;$(OutDir)\classes.ex" ..\..\examples/java\src\db\*.java ..\..\examples/java\src\db\GettingStarted\*.java ..\..\examples/java\src\db\repquote\*.java ..\..\examples/java\src\db\repquote_gsg\*.java ..\..\examples/java\src\db\txn\*.java ..\..\examples/java\src\collections\access\*.java ..\..\examples/java\src\collections\hello\*.java ..\..\examples/java\src\collections\ship\basic\*.java ..\..\examples/java\src\collections\ship\entity\*.java ..\..\examples/java\src\collections\ship\factory\*.java ..\..\examples/java\src\collections\ship\index\*.java ..\..\examples/java\src\collections\ship\marshal\*.java ..\..\examples/java\src\collections\ship\sentity\*.java ..\..\examples/java\src\collections\ship\tuple\*.java ..\..\examples/java\src\persist\*.java ..\..\examples/java\src\persist\gettingStarted\*.java ..\..\examples/java\src\persist\txn\*.java
+javac -g -d "$(OutDir)\classes.ex" -classpath "$(OutDir)\classes;$(OutDir)\classes.ex" ..\..\examples/java\src\db\*.java ..\..\examples/java\src\db\GettingStarted\*.java ..\..\examples/java\src\db\repquote\*.java ..\..\examples/java\src\db\repquote_gsg\*.java ..\..\examples/java\src\db\txn\*.java ..\..\examples/java\src\collections\access\*.java ..\..\examples/java\src\collections\hello\*.java ..\..\examples/java\src\collections\ship\basic\*.java ..\..\examples/java\src\collections\ship\entity\*.java ..\..\examples/java\src\collections\ship\factory\*.java ..\..\examples/java\src\collections\ship\index\*.java ..\..\examples/java\src\collections\ship\marshal\*.java ..\..\examples/java\src\collections\ship\sentity\*.java ..\..\examples/java\src\collections\ship\tuple\*.java ..\..\examples/java\src\persist\*.java ..\..\examples/java\src\persist\gettingStarted\*.java ..\..\examples/java\src\persist\txn\*.java
 echo creating jar files
 jar cf "$(OutDir)/dbexamples.jar" -C "$(OutDir)\classes.ex" .
 echo Java example build finished</command>
@@ -1581,6 +1628,17 @@ echo Java example build finished</command>
     <files>
       <file name="src/clib/getopt.c"/>
       <file name="examples/cxx/BtRecExample.cpp"/>
+    </files>
+  </project>
+  <project name="excxx_bulk" guid="5AEBE8D9-4B6D-46AA-B810-30CD7E6BBD5F">
+    <type>app</type>
+    <configuration></configuration>
+    <depends>db</depends>
+    <references>db</references>
+    <include type="ref">all</include>
+    <files>
+      <file name="src/clib/getopt.c"/>
+      <file name="examples/cxx/BulkExample.cpp"/>
     </files>
   </project>
   <project name="excxx_env" guid="E790C029-341D-489B-B987-D35947AD78C3">
@@ -1985,6 +2043,7 @@ echo Java example build finished</command>
       <file name="test/c/cutest/CuTest.c"/>
       <file name="test/c/cutest/CuTests.c"/>
       <file name="test/c/cutest/Runner.c"/>
+     <file name="test/c/suites/TestCallbackSetterAndGetter.c"/>
       <file name="test/c/suites/TestChannel.c"/>
       <file name="test/c/suites/TestDbHotBackup.c"/>
       <file name="test/c/suites/TestDbTuner.c"/>
@@ -1992,7 +2051,10 @@ echo Java example build finished</command>
       <file name="test/c/suites/TestEnvConfig.c"/>
       <file name="test/c/suites/TestEnvMethod.c"/>
       <file name="test/c/suites/TestKeyExistErrorReturn.c"/>
+      <file name="test/c/suites/TestMutexAlignment.c"/>
       <file name="test/c/suites/TestPartial.c"/>
+      <file name="test/c/suites/TestPartition.c"/>
+      <file name="test/c/suites/TestPreOpenSetterAndGetter.c"/>
       <file name="test/c/suites/TestQueue.c"/>
     </files> 
   </project>

@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 11.2.5.3</p>
+        <p>Library Version 12.1.6.0</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -63,7 +63,7 @@ Db::compact(DbTxn *txnid,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idm448944"></a>Parameters</h3>
+              <h3 class="title"><a id="idp269160"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -71,7 +71,7 @@ Db::compact(DbTxn *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm165544"></a>txnid</h4>
+                <h4 class="title"><a id="idp210888"></a>txnid</h4>
               </div>
             </div>
           </div>
@@ -102,7 +102,7 @@ Db::compact(DbTxn *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm1372928"></a>start</h4>
+                <h4 class="title"><a id="idm606632"></a>start</h4>
               </div>
             </div>
           </div>
@@ -121,7 +121,7 @@ Db::compact(DbTxn *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm1085136"></a>stop</h4>
+                <h4 class="title"><a id="idm651800"></a>stop</h4>
               </div>
             </div>
           </div>
@@ -139,7 +139,7 @@ Db::compact(DbTxn *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idm1896352"></a>c_data</h4>
+                <h4 class="title"><a id="idm822408"></a>c_data</h4>
               </div>
             </div>
           </div>
@@ -175,7 +175,9 @@ Db::compact(DbTxn *txnid,
                 <p>
                         If non-zero, the call will return after the
                         specified number of pages have been freed, or no
-                        more pages can be freed.
+                        more pages can be freed. The implementation does 
+                        not guarantee an exact match to the number of pages
+                        requested.
                     </p>
               </li>
               <li>
@@ -262,7 +264,7 @@ Db::compact(DbTxn *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp4593856"></a>flags</h4>
+                <h4 class="title"><a id="idm2310096"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -312,7 +314,7 @@ Db::compact(DbTxn *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp3774880"></a>end</h4>
+                <h4 class="title"><a id="idm2045240"></a>end</h4>
               </div>
             </div>
           </div>
@@ -331,7 +333,7 @@ Db::compact(DbTxn *txnid,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp3106064"></a>Errors</h3>
+              <h3 class="title"><a id="idp4392880"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -349,7 +351,7 @@ Db::compact(DbTxn *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp3880208"></a><span>DbDeadlockException or </span>DB_LOCK_DEADLOCK</h4>
+                <h4 class="title"><a id="idp3770608"></a><span>DbDeadlockException or </span>DB_LOCK_DEADLOCK</h4>
               </div>
             </div>
           </div>
@@ -367,7 +369,7 @@ Db::compact(DbTxn *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp2656000"></a><span>DbLockNotGrantedException or </span>DB_LOCK_NOTGRANTED</h4>
+                <h4 class="title"><a id="idp3687624"></a><span>DbLockNotGrantedException or </span>DB_LOCK_NOTGRANTED</h4>
               </div>
             </div>
           </div>
@@ -392,7 +394,7 @@ Db::compact(DbTxn *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp3056480"></a> <span>DbRepHandleDeadException or</span> DB_REP_HANDLE_DEAD</h4>
+                <h4 class="title"><a id="idp4925000"></a> <span>DbRepHandleDeadException or</span> DB_REP_HANDLE_DEAD</h4>
               </div>
             </div>
           </div>
@@ -414,7 +416,7 @@ Db::compact(DbTxn *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp3010448"></a><span>DbDeadlockException or </span>DB_REP_LOCKOUT</h4>
+                <h4 class="title"><a id="idp3530632"></a><span>DbDeadlockException or </span>DB_REP_LOCKOUT</h4>
               </div>
             </div>
           </div>
@@ -431,7 +433,7 @@ Db::compact(DbTxn *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp1673560"></a>EACCES</h4>
+                <h4 class="title"><a id="idp4499456"></a>EACCES</h4>
               </div>
             </div>
           </div>
@@ -443,7 +445,7 @@ Db::compact(DbTxn *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp1696840"></a>EINVAL</h4>
+                <h4 class="title"><a id="idp3171992"></a>EINVAL</h4>
               </div>
             </div>
           </div>
@@ -456,7 +458,7 @@ Db::compact(DbTxn *txnid,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp3838680"></a>Class</h3>
+              <h3 class="title"><a id="idp5040856"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -468,7 +470,7 @@ Db::compact(DbTxn *txnid,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp1905120"></a>See Also</h3>
+              <h3 class="title"><a id="idm1406408"></a>See Also</h3>
             </div>
           </div>
         </div>

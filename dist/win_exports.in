@@ -82,6 +82,7 @@ __os_read						db db_small
 __os_realloc						db db_small 
 __os_rename						db db_small 
 __os_strdup						db db_small 
+__os_support_direct_io					db db_small 
 __os_umalloc						db db_small 
 __os_unlink						db db_small 
 __os_write						db db_small 
@@ -165,14 +166,21 @@ __db_verify_internal						db db_small
 __dbreg_register_desc						db db_small 
 __dbt_usercopy						db db_small 
 __dbt_userfree						db db_small 
-__fop_create_42_desc						db db_small 
-__fop_create_desc						db db_small 
-__fop_file_remove_desc						db db_small 
+__fop_create_42_desc						db db_small
+__fop_create_60_desc						db db_small
+__fop_create_desc						db db_small
+__fop_file_remove_60_desc					db db_small
+__fop_file_remove_desc						db db_small
+__fop_remove_60_desc						db db_smal
 __fop_remove_desc						db db_small 
 __fop_rename_42_desc						db db_small 
+__fop_rename_60_desc						db db_small
 __fop_rename_desc						db db_small 
-__fop_write_42_desc						db db_small 
-__fop_write_desc						db db_small 
+__fop_write_42_desc						db db_small
+__fop_write_60_desc						db db_small
+__fop_write_desc						db db_small
+__fop_write_file_60_desc					db db_small
+__fop_write_file_desc						db db_small
 __ham_changeslot_desc						db 
 __ham_chgpg_desc						db 
 __ham_contract_desc						db 
@@ -192,9 +200,9 @@ __ham_release_meta						db
 __ham_replace_42_desc						db 
 __ham_replace_desc						db 
 __ham_splitdata_desc						db 
+__heap_addrem_50_desc						db
 __heap_addrem_desc						db 
 __heap_exist						db db_small 
-__heap_init_print						db db_small 
 __heap_pg_alloc_desc						db 
 __heap_trunc_meta_desc						db 
 __heap_trunc_page_desc						db 

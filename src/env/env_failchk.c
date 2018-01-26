@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2005, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2005, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -312,6 +312,7 @@ __env_in_api(env)
 	REGINFO *infop;
 	THREAD_INFO *thread;
 	u_int32_t i;
+	pid_t pid;
 	int unpin, ret;
 
 	if ((htab = env->thr_hashtab) == NULL)
@@ -325,6 +326,7 @@ __env_in_api(env)
 
 	for (i = 0; i < env->thr_nbucket; i++)
 		SH_TAILQ_FOREACH(ip, &htab[i], dbth_links, __db_thread_info) {
+			pid = ip->dbth_pid;
 			if (ip->dbth_state == THREAD_SLOT_NOT_IN_USE ||
 			    (ip->dbth_state == THREAD_OUT &&
 			    thread->thr_count <  thread->thr_max))
@@ -341,6 +343,28 @@ __env_in_api(env)
 				ip->dbth_state = THREAD_SLOT_NOT_IN_USE;
 				continue;
 			}
+			/*
+			 * The above tests are not atomic, so it is possible that
+			 * the process pointed by ip has changed during the tests.
+			 * In particular, if the process pointed by ip when is_alive
+			 * was executed terminated normally, a new process may reuse
+			 * the same ip structure and change its dbth_state before the
+			 * next two tests were performed. Therefore, we need to test
+			 * here that all four tests above are done on the same process.
+			 * If the process pointed by ip changed, all tests are invalid
+			 * and can be ignored.
+			 * Similarly, it's also possible for two processes racing to
+			 * change the dbth_state of the same ip structure. For example,
+			 * both process A and B reach the above test for the same
+			 * terminated process C where C's dbth_state is THREAD_OUT.
+			 * If A goes into the 'if' block and changes C's dbth_state to
+			 * THREAD_SLOT_NOT_IN_USE before B checks the condition, B
+			 * would incorrectly fail the test and run into this line.
+			 * Therefore, we need to check C's dbth_state again and fail
+			 * the db only if C's dbth_state is indeed THREAD_ACTIVE.
+			 */
+			if (ip->dbth_state != THREAD_ACTIVE || ip->dbth_pid != pid)
+				continue;
 			return (__db_failed(env, DB_STR("1507",
 			    "Thread died in Berkeley DB library"),
 			    ip->dbth_pid, ip->dbth_tid));
@@ -457,7 +481,9 @@ __env_set_state(env, ipp, state)
 
 	*ipp = NULL;
 	ret = 0;
-	if (ip == NULL) {
+	if (ip != NULL)
+		ip->dbth_state = state;
+	else {
 		infop = env->reginfo;
 		renv = infop->primary;
 		thread = R_ADDR(infop, renv->thread_off);
@@ -506,8 +532,8 @@ init:			ip->dbth_pid = id.pid;
 			SH_TAILQ_INIT(&ip->dbth_xatxn);
 		}
 		MUTEX_UNLOCK(env, renv->mtx_regenv);
-	} else
-		ip->dbth_state = state;
+	}
+
 	*ipp = ip;
 
 	DB_ASSERT(env, ret == 0);

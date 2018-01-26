@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1999, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -35,9 +35,6 @@ DB_GLOBALS __db_global_values = {
 	0,				/* rand_next */
 	0,				/* fid_serial */
 	0,				/* db_errno */
-	0,				/* num_active_pids */
-	0,				/* size_active_pids */
-	NULL,                           /* active_pids */
 	NULL,                           /* saved_errstr */
 	NULL,				/* j_assert */
 	NULL,				/* j_close */

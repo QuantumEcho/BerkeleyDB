@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -31,8 +31,8 @@ static int __lock_trade __P((ENV *, DB_LOCK *, DB_LOCKER *));
 static int __lock_vec_api __P((ENV *,
 		u_int32_t, u_int32_t,  DB_LOCKREQ *, int, DB_LOCKREQ **));
 
-static const char __db_lock_invalid[] = "%s: Lock is no longer valid";
-static const char __db_locker_invalid[] = "Locker is not valid";
+#define	LOCK_INVALID_ERR DB_STR_A("2056", "%s: Lock is no longer valid", "%s")
+#define	LOCKER_INVALID_ERR DB_STR("2057", "Locker is not valid")
 
 #ifdef DEBUG
 extern void __db_loadme (void);
@@ -111,7 +111,8 @@ __lock_vec(env, sh_locker, flags, list, nlist, elistp)
 	DB_LOCKREQ *list, **elistp;
 {
 	struct __db_lock *lp, *next_lock;
-	DB_LOCK lock; DB_LOCKOBJ *sh_obj;
+	DB_LOCK lock;
+	DB_LOCKOBJ *sh_obj;
 	DB_LOCKREGION *region;
 	DB_LOCKTAB *lt;
 	DBT *objlist, *np;
@@ -200,18 +201,12 @@ __lock_vec(env, sh_locker, flags, list, nlist, elistp)
 				if (writes == 1 ||
 				    lp->mode == DB_LOCK_READ ||
 				    lp->mode == DB_LOCK_READ_UNCOMMITTED) {
-					/*
-					 * It is safe to look at lp before
-					 * locking because any threads sharing
-					 * this locker must not be in the API
-					 * at the same time.
-					 */
+					SH_LIST_REMOVE(lp,
+					    locker_links, __db_lock);
 					sh_obj = SH_OFF_TO_PTR(lp,
 					    lp->obj, DB_LOCKOBJ);
 					ndx = sh_obj->indx;
 					OBJECT_LOCK_NDX(lt, region, ndx);
-					SH_LIST_REMOVE(lp,
-					    locker_links, __db_lock);
 					/*
 					 * We are not letting lock_put_internal
 					 * unlink the lock, so we'll have to
@@ -429,7 +424,7 @@ __lock_get_api(env, locker, flags, obj, lock_mode, lock)
 	region = env->lk_handle->reginfo.primary;
 
 	LOCK_LOCKERS(env, region);
-	ret = __lock_getlocker_int(env->lk_handle, locker, 0, &sh_locker);
+	ret = __lock_getlocker_int(env->lk_handle, locker, 0, NULL, &sh_locker);
 	UNLOCK_LOCKERS(env, region);
 	LOCK_SYSTEM_LOCK(env->lk_handle, region);
 	if (ret == 0)
@@ -1171,7 +1166,7 @@ __lock_put_nolock(env, lock, runp, flags)
 	lockp = R_ADDR(&lt->reginfo, lock->off);
 	DB_ASSERT(env, lock->gen == lockp->gen);
 	if (lock->gen != lockp->gen) {
-		__db_errx(env, __db_lock_invalid, "DB_LOCK->lock_put");
+		__db_errx(env, LOCK_INVALID_ERR, "DB_LOCK->lock_put");
 		LOCK_INIT(*lock);
 		return (EINVAL);
 	}
@@ -1230,7 +1225,7 @@ __lock_downgrade(env, lock, new_mode, flags)
 
 	lockp = R_ADDR(&lt->reginfo, lock->off);
 	if (lock->gen != lockp->gen) {
-		__db_errx(env, __db_lock_invalid, "lock_downgrade");
+		__db_errx(env, LOCK_INVALID_ERR, "lock_downgrade");
 		ret = EINVAL;
 		goto out;
 	}
@@ -1668,7 +1663,7 @@ __lock_inherit_locks(lt, sh_locker, flags)
 	 * locks, so inheritance is easy!
 	 */
 	if (sh_locker == NULL) {
-		__db_errx(env, __db_locker_invalid);
+		__db_errx(env, LOCKER_INVALID_ERR);
 		return (EINVAL);
 	}
 
@@ -1689,15 +1684,11 @@ __lock_inherit_locks(lt, sh_locker, flags)
 	for (lp = SH_LIST_FIRST(&sh_locker->heldby, __db_lock);
 	    lp != NULL;
 	    lp = SH_LIST_FIRST(&sh_locker->heldby, __db_lock)) {
-		/*
-		 * See if the parent already has a lock. It is safe to look at
-		 * lp before locking it because any threads sharing this locker
-		 * must not be in the API with the same time.
-		 */
-		obj = SH_OFF_TO_PTR(lp, lp->obj, DB_LOCKOBJ);
-		OBJECT_LOCK_NDX(lt, region, obj->indx);
 		SH_LIST_REMOVE(lp, locker_links, __db_lock);
 
+		/* See if the parent already has a lock. */
+		obj = SH_OFF_TO_PTR(lp, lp->obj, DB_LOCKOBJ);
+		OBJECT_LOCK_NDX(lt, region, obj->indx);
 		SH_TAILQ_FOREACH(hlp, &obj->holders, links, __db_lock)
 			if (hlp->holder == poff && lp->mode == hlp->mode)
 				break;

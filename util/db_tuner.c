@@ -1,7 +1,7 @@
 /* 
  * See the file LICENSE for redistribution information.
  * 
- * Copyright (c) 2011, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2011, 2015 Oracle and/or its affiliates.  All rights reserved.
  * 
  * $Id$
  * 
@@ -54,7 +54,7 @@
 
 #ifndef lint
 static const char copyright[] =
-    "Copyright (c) 2011, 2013 Oracle and/or its affiliates.  All rights reserved.\n";
+    "Copyright (c) 2011, 2015 Oracle and/or its affiliates.  All rights reserved.\n";
 #endif
 
 /*
@@ -123,8 +123,8 @@ static int __tuner_record_leaf_pg __P((int, TUNER_FF_STAT *));
 static int __tuner_record_ovfl_pg __P((u_int32_t, int, TUNER_FF_STAT *));
 
 static int get_opd_size __P((DBC*, PAGE*, u_int32_t*));
-static int item_size __P((DB *, PAGE *, db_indx_t));
-static int item_space __P((DB *, PAGE *, db_indx_t));
+static int item_size __P((DB *, PAGE *, int));
+static int item_space __P((DB *, PAGE *, int));
 int main __P((int, char *[]));
 static int open_db __P((DB **, DB_ENV *, char *, char *));
 static int sum_opd_page_data_entries __P((DB *, PAGE *));
@@ -139,6 +139,7 @@ main(argc, argv)
 	char *argv[];
 {
 	extern char *optarg;
+	extern int optind;
 	DB *dbp;
 	DB_ENV *dbenv;
 	DBTYPE dbtype;
@@ -177,6 +178,8 @@ main(argc, argv)
 		default:
 			usage();
 		}
+	argc -= optind;
+	argv += optind;
 
 	/* Handle possible interruptions. */
 	__db_util_siginit();
@@ -667,7 +670,6 @@ __tuner_opd_data(dbc, h, indx_pgsz, is_opd, cookie)
 	DB_MPOOLFILE *mpf;
 	PAGE *p;
 	db_pgno_t next_pgno;
-	u_int32_t pgsize;
 	int ret;
 
 	dbp = dbc->dbp;
@@ -675,7 +677,6 @@ __tuner_opd_data(dbc, h, indx_pgsz, is_opd, cookie)
 	mpf = dbp->mpf;
 
 	p = h;
-	pgsize = (1 << indx_pgsz) * DB_MIN_PGSIZE;
 
 	/*
 	 * __tuner_leaf_page has inserted one key for each opd already,
@@ -1112,7 +1113,7 @@ static int
 item_space(dbp, h, indx)
 	DB *dbp;
 	PAGE *h;
-	db_indx_t indx;
+	int indx;
 {
 	return (B_TYPE(GET_BKEYDATA(dbp, h, indx)->type) == B_KEYDATA ?
 	    BKEYDATA_PSIZE(GET_BKEYDATA(dbp, h, indx)->len) :
@@ -1124,7 +1125,7 @@ static int
 item_size(dbp, h, indx)
 	DB *dbp;
 	PAGE *h;
-	db_indx_t indx;
+	int indx;
 {
 	return (B_TYPE(GET_BKEYDATA(dbp, h, indx)->type) == B_KEYDATA ?
 	    GET_BKEYDATA(dbp, h, indx)->len : GET_BOVERFLOW(dbp, h,

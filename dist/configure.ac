@@ -231,7 +231,6 @@ else
 fi
 
 CFLAGS="$CFLAGS$extra_cflags"
-CXXFLAGS=${CXXFLAGS-"$CFLAGS"}
 
 # The default compiler is cc (NOT gcc), the default CFLAGS is as specified
 # above, NOT what is set by AC_PROG_CC, as it won't set optimization flags
@@ -257,8 +256,12 @@ else
 	hpux11*)	CPPFLAGS="$CPPFLAGS -mt"
 			test "$host_cpu" = "ia64" &&
 			    CFLAGS="$CFLAGS +u1";;
+	solaris*)	CFLAGS="$CFLAGS "
+			CFLAGS=`echo "$CFLAGS" | sed 's/-O /-xO2 /g'`;;
 	esac
 fi
+
+CXXFLAGS=${CXXFLAGS-"$CFLAGS"}
 
 # Check for "const" and "inline" keywords.
 AC_C_CONST
@@ -567,7 +570,7 @@ if test "$db_cv_sql" = "yes"; then
 	fi
 
 	if test "$db_cv_build_cryptography" = "yes"; then
-		SQL_FLAGS="$SQL_FLAGS"
+		SQL_FLAGS="$SQL_FLAGS -DSQLITE_HAS_CODEC=1"
 	fi
 fi
 

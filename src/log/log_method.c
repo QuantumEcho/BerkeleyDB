@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1999, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -377,10 +377,11 @@ __log_set_flags(env, flags, on)
  */
 #undef	OK_FLAGS
 #define	OK_FLAGS							\
-    (DB_LOG_AUTO_REMOVE | DB_LOG_DIRECT |				\
-    DB_LOG_DSYNC | DB_LOG_IN_MEMORY | DB_LOG_ZERO)
+    (DB_LOG_AUTO_REMOVE | DB_LOG_BLOB |					\
+     DB_LOG_DIRECT | DB_LOG_DSYNC | DB_LOG_IN_MEMORY | DB_LOG_ZERO)
 static const FLAG_MAP LogMap[] = {
 	{ DB_LOG_AUTO_REMOVE,	DBLOG_AUTOREMOVE},
+	{ DB_LOG_BLOB,		DBLOG_BLOB},
 	{ DB_LOG_DIRECT,	DBLOG_DIRECT},
 	{ DB_LOG_DSYNC,		DBLOG_DSYNC},
 	{ DB_LOG_IN_MEMORY,	DBLOG_INMEMORY},

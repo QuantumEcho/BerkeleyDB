@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -607,7 +607,7 @@ nohdr:		switch (flags) {
 			if (eof && logc->bp_lsn.file != nlsn.file)
 				__db_errx(env, DB_STR_A("2583",
 	     "Log file %d not found, check log directory configuration", "%d"),
-	     			     nlsn.file);
+				     nlsn.file);
 			else
 				__db_errx(env, DB_STR("2576",
 		"Encountered zero length records while traversing backwards"));
@@ -1534,6 +1534,10 @@ __log_read_record(env, dbpp, td, recbuf, spec, size, argpp)
 		case LOGREC_DBOP:
 			LOGCOPY_32(env, ap + sp->offset, bp);
 			bp += sizeof(uinttmp);
+			break;
+		case LOGREC_LONGARG:
+			LOGCOPY_64(env, ap + sp->offset, bp);
+			bp += sizeof(u_int64_t);
 			break;
 		case LOGREC_OP:
 			LOGCOPY_32(env, &op, bp);

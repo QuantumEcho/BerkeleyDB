@@ -1,14 +1,12 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2002, 2013 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2002, 2015 Oracle and/or its affiliates.  All rights reserved.
  */
 
 #include "db_cxx.h"
 #include <stdlib.h>
-#ifdef HAVE_STRING_H
 #include <string.h>
-#endif
 using namespace std;
 
 void test1()
