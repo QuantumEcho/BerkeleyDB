@@ -94,5 +94,5 @@ __bt_new(t, npg)
 		t->bt_free = h->nextpg;
 		return (h);
 	}
-	return (mpool_new(t->bt_mp, npg));
+	return (mpool_new(t->bt_mp, npg, MPOOL_PAGE_NEXT));
 }
