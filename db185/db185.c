@@ -11,7 +11,7 @@
 static const char copyright[] =
     "Copyright (c) 1996-2001\nSleepycat Software Inc.  All rights reserved.\n";
 static const char revid[] =
-    "$Id: db185.c,v 11.18 2001/04/10 20:43:53 bostic Exp $";
+    "$Id: db185.c,v 11.19 2001/07/30 22:31:06 bostic Exp $";
 #endif
 
 #ifndef NO_SYSTEM_INCLUDES
@@ -40,8 +40,13 @@ static int	db185_sync __P((const DB185 *, u_int));
 
 /*
  * EXTERN: #define dbopen __db185_open
+ * EXTERN: #ifdef _DB185_INT_H_
  * EXTERN: DB185 *__db185_open
  * EXTERN:     __P((const char *, int, int, DBTYPE, const void *));
+ * EXTERN: #else
+ * EXTERN: DB *__db185_open
+ * EXTERN:     __P((const char *, int, int, DBTYPE, const void *));
+ * EXTERN: #endif
  */
 DB185 *
 __db185_open(file, oflags, mode, type, openinfo)
