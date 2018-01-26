@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -201,12 +201,18 @@ __lock_vec(env, sh_locker, flags, list, nlist, elistp)
 				if (writes == 1 ||
 				    lp->mode == DB_LOCK_READ ||
 				    lp->mode == DB_LOCK_READ_UNCOMMITTED) {
-					SH_LIST_REMOVE(lp,
-					    locker_links, __db_lock);
+					/*
+					 * It is safe to look at lp before
+					 * locking because any threads sharing
+					 * this locker must not be in the API
+					 * at the same time.
+					 */
 					sh_obj = SH_OFF_TO_PTR(lp,
 					    lp->obj, DB_LOCKOBJ);
 					ndx = sh_obj->indx;
 					OBJECT_LOCK_NDX(lt, region, ndx);
+					SH_LIST_REMOVE(lp,
+					    locker_links, __db_lock);
 					/*
 					 * We are not letting lock_put_internal
 					 * unlink the lock, so we'll have to
@@ -554,6 +560,7 @@ __lock_get_internal(lt, sh_locker, flags, obj, lock_mode, timeout, lock)
 		    (u_long)lock_mode);
 		return (EINVAL);
 	}
+	DB_ASSERT(env, !F_ISSET(sh_locker, DB_LOCKER_TRADED));
 
 again:	if (obj == NULL) {
 		DB_ASSERT(env, LOCK_ISSET(*lock));
@@ -819,9 +826,8 @@ again:	if (obj == NULL) {
 		 * detector, save that information.
 		 */
 		no_dd = sh_locker->master_locker == INVALID_ROFF &&
-		    SH_LIST_FIRST(
-		    &sh_locker->child_locker, __db_locker) == NULL &&
-		    SH_LIST_FIRST(&sh_locker->heldby, __db_lock) == NULL;
+		    SH_LIST_EMPTY(&sh_locker->child_locker) &&
+		    SH_LIST_EMPTY(&sh_locker->heldby);
 
 		SH_LIST_INSERT_HEAD(
 		    &sh_locker->heldby, newl, locker_links, __db_lock);
@@ -839,7 +845,7 @@ upgrade:	lp = R_ADDR(&lt->reginfo, lock->off);
 			goto done;
 		if (lp->status != DB_LSTAT_WAITING) {
 			/* We have already been granted. */
-			MUTEX_LOCK(env, lp->mtx_lock);
+			MUTEX_LOCK_NO_CTR(env, lp->mtx_lock);
 			newl = lp;
 			if (lp->status == DB_LSTAT_EXPIRED)
 				goto expired;
@@ -980,12 +986,24 @@ in_abort:	newl->status = DB_LSTAT_WAITING;
 			goto err;
 		}
 
+		/*
+		 * Sleep until someone releases a lock which might let us in.
+		 * Since we want to set the thread state back to ACTIVE, don't
+		 * use the normal MUTEX_LOCK() macro, which would immediately
+		 * return a panic error code. Instead, return the panic after
+		 * restoring the thread state.
+		 * Do not include this mutex in the mutex counter, failchk
+		 * will release this mutex when it releases the associated
+		 * lock.
+		 */
 		PERFMON2(env, lock, suspend, (DBT *) obj, lock_mode);
-		MUTEX_LOCK(env, newl->mtx_lock);
+		ret = __mutex_lock(env, newl->mtx_lock, 0, MUTEX_WAIT);
 		PERFMON2(env, lock, resume, (DBT *) obj, lock_mode);
 
 		if (ip != NULL)
 			ip->dbth_state = THREAD_ACTIVE;
+		if (ret != 0)
+			return (ret);
 
 		LOCK_SYSTEM_LOCK(lt, region);
 		OBJECT_LOCK_NDX(lt, region, ndx);
@@ -1251,7 +1269,7 @@ out:	LOCK_SYSTEM_UNLOCK(lt, region);
 
 /*
  * __lock_put_internal -- put a lock structure
- * We assume that we are called with the proper object locked.
+ * We require that the proper object has already been locked.
  */
 static int
 __lock_put_internal(lt, lockp, obj_ndx, flags)
@@ -1369,7 +1387,10 @@ __lock_put_internal(lt, lockp, obj_ndx, flags)
 /*
  * __lock_freelock --
  *	Free a lock.  Unlink it from its locker if necessary.
- * We must hold the object lock.
+ *
+ * We must hold the object lock when flags includes DB_LOCK_FREE,
+ * but when only unlinking from the locker nothing is needed; lockers
+ * are supposed to be used by just one thread at a time.
  *
  */
 static int
@@ -1407,7 +1428,7 @@ __lock_freelock(lt, lockp, sh_locker, flags)
 		     lockp->status != DB_LSTAT_EXPIRED) {
 			if ((ret = __mutex_refresh(env, lockp->mtx_lock)) != 0)
 				return (ret);
-			MUTEX_LOCK(env, lockp->mtx_lock);
+			MUTEX_LOCK_NO_CTR(env, lockp->mtx_lock);
 		}
 
 		lockp->status = DB_LSTAT_FREE;
@@ -1583,10 +1604,14 @@ __lock_same_family(lt, sh_locker1, sh_locker2)
 	DB_LOCKER *sh_locker1;
 	DB_LOCKER *sh_locker2;
 {
+	/* Lockers owned by different processes are never compatible. */
+	if (sh_locker1->pid != sh_locker2->pid)
+		return (0);
 	while (sh_locker2->parent_locker != INVALID_ROFF) {
 		sh_locker2 = R_ADDR(&lt->reginfo, sh_locker2->parent_locker);
 		if (sh_locker2 == sh_locker1)
 			return (1);
+		DB_ASSERT(lt->env, !F_ISSET(sh_locker2, DB_LOCKER_FREE));
 	}
 
 	if (!F_ISSET(sh_locker2, DB_LOCKER_FAMILY_LOCKER))
@@ -1596,9 +1621,10 @@ __lock_same_family(lt, sh_locker1, sh_locker2)
 	 * If checking for a family locker situation, compare the last ancestor
 	 * of each locker.
 	 */
-	while (sh_locker1->parent_locker != INVALID_ROFF)
-		sh_locker1 =
-		    R_ADDR(&lt->reginfo, sh_locker1->parent_locker);
+	while (sh_locker1->parent_locker != INVALID_ROFF) {
+		sh_locker1 = R_ADDR(&lt->reginfo, sh_locker1->parent_locker);
+		DB_ASSERT(lt->env, !F_ISSET(sh_locker1, DB_LOCKER_FREE));
+	}
 
 	return (sh_locker1 == sh_locker2);
 }
@@ -1684,11 +1710,15 @@ __lock_inherit_locks(lt, sh_locker, flags)
 	for (lp = SH_LIST_FIRST(&sh_locker->heldby, __db_lock);
 	    lp != NULL;
 	    lp = SH_LIST_FIRST(&sh_locker->heldby, __db_lock)) {
-		SH_LIST_REMOVE(lp, locker_links, __db_lock);
-
-		/* See if the parent already has a lock. */
+		/*
+		 * See if the parent already has a lock. It is safe to look at
+		 * lp before locking it because any threads sharing this locker
+		 * must not be in the API with the same time.
+		 */
 		obj = SH_OFF_TO_PTR(lp, lp->obj, DB_LOCKOBJ);
 		OBJECT_LOCK_NDX(lt, region, obj->indx);
+		SH_LIST_REMOVE(lp, locker_links, __db_lock);
+
 		SH_TAILQ_FOREACH(hlp, &obj->holders, links, __db_lock)
 			if (hlp->holder == poff && lp->mode == hlp->mode)
 				break;
@@ -1823,8 +1853,8 @@ __lock_promote(lt, obj, state_changedp, flags)
 		lp_w->status = DB_LSTAT_PENDING;
 		SH_TAILQ_INSERT_TAIL(&obj->holders, lp_w, links);
 
-		/* Wake up waiter. */
-		MUTEX_UNLOCK(lt->env, lp_w->mtx_lock);
+		/* Wake up waiter. This mutex is not counted.*/
+		MUTEX_UNLOCK_NO_CTR(lt->env, lp_w->mtx_lock);
 		state_changed = 1;
 		if (LF_ISSET(DB_LOCK_ONEWAITER))
 			break;
@@ -1891,7 +1921,7 @@ __lock_remove_waiter(lt, sh_obj, lockp, status)
 	 * Wake whoever is waiting on this lock.
 	 */
 	if (do_wakeup)
-		MUTEX_UNLOCK(lt->env, lockp->mtx_lock);
+		MUTEX_UNLOCK_NO_CTR(lt->env, lockp->mtx_lock);
 
 	return (0);
 }
@@ -1899,9 +1929,16 @@ __lock_remove_waiter(lt, sh_obj, lockp, status)
 /*
  * __lock_trade --
  *
- * Trade locker ids on a lock.  This is used to reassign file locks from
- * a transactional locker id to a long-lived locker id.  This should be
- * called with the region mutex held.
+ * Trade locker ids on a lock.  This is used to reassign file locks from a
+ * transactional locker id to a long-lived locker id, at the end of the txn.
+ * The destination locker of a trade outlives the source locker. A lock_trade
+ * is permissible only after the source locker has acquired all of its locks and
+ * its transaction is about to commit.
+ *
+ * Side Effects:
+ *	DB_LOCK_TRADED is set in the lock's "from" locker if the trade actually
+ *	happened. If so the locker must not acquire any more locks; there might
+ *	be ACID (Isolation) inconsistencies in violating two phase locking
  */
 static int
 __lock_trade(env, lock, new_locker)
@@ -1910,6 +1947,7 @@ __lock_trade(env, lock, new_locker)
 	DB_LOCKER *new_locker;
 {
 	struct __db_lock *lp;
+	DB_LOCKER *old_locker;
 	DB_LOCKTAB *lt;
 	int ret;
 
@@ -1918,11 +1956,24 @@ __lock_trade(env, lock, new_locker)
 
 	/* If the lock is already released, simply return. */
 	if (lp->gen != lock->gen)
-		return (DB_NOTFOUND);
+		return (USR_ERR(env, DB_NOTFOUND));
 
 	if (new_locker == NULL) {
 		__db_errx(env, DB_STR("2040", "Locker does not exist"));
 		return (EINVAL);
+	}
+
+	/*
+	 * Since the old locker is about to be deallocated, make sure that the
+	 * new_locker->parent_locker does not point to it. A side effect of
+	 * invalidating parent_locker is that the old locker must not get any
+	 * more locks:  __lock_same_family() would behave differently. Set
+	 * DB_LOCKER_TRADED to help detect that. #24230
+	 */
+	if (new_locker->parent_locker == lp->holder) {
+		new_locker->parent_locker = INVALID_ROFF;
+		old_locker = R_ADDR(&lt->reginfo, lp->holder);
+		F_SET(old_locker, DB_LOCKER_TRADED);
 	}
 
 	/* Remove the lock from its current locker. */

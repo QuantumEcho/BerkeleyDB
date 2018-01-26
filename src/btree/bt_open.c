@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  */
 /*
  * Copyright (c) 1990, 1993, 1994, 1995, 1996
@@ -88,12 +88,7 @@ __bam_open(dbp, ip, txn, name, base_pgno, flags)
 		return (EINVAL);
 	}
 
-	/*
-	 * Verify that the bt_minkey value specified won't cause the
-	 * calculation of ovflsize to underflow [#2406] for this pagesize.
-	 */
-	if (B_MINKEY_TO_OVFLSIZE(dbp, t->bt_minkey, dbp->pgsize) >
-	    B_MINKEY_TO_OVFLSIZE(dbp, DEFMINKEYPAGE, dbp->pgsize)) {
+	if (t->bt_minkey > B_MINKEY_UPPER_LIMIT(dbp)) {
 		__db_errx(dbp->env, DB_STR_A("1007",
 		    "bt_minkey value of %lu too high for page size of %lu",
 		    "%lu %lu"), (u_long)t->bt_minkey, (u_long)dbp->pgsize);
@@ -233,9 +228,12 @@ __bam_metachk(dbp, name, btm)
 		}
 
 	if (F_ISSET(&btm->dbmeta, BTM_DUPSORT)) {
-		if (dbp->dup_compare == NULL)
-			dbp->dup_compare = __bam_defcmp;
-		F_SET(dbp, DB_AM_DUPSORT);
+		/* Turning on the DB_DUPSORT flag is not as simple as just
+		 * setting the bit as previous checks do. Therefore, we
+		 * reuse __db_set_flags() to do it.
+		 */
+		if ((ret = __db_set_flags(dbp, DB_DUPSORT)) != 0)
+			return (ret);
 	} else
 		if (dbp->dup_compare != NULL) {
 			__db_errx(env, DB_STR_A("1015",
@@ -291,7 +289,7 @@ __bam_metachk(dbp, name, btm)
 		__db_errx(env, DB_STR_A("1199",
 		    "%s: blobs require 64 integer compiler support.", "%s"),
 		    name);
-		return (EINVAL);
+		return (DB_OPNOTSUP);
 	}
 #endif
 

@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -14,7 +14,7 @@
 
 #ifndef lint
 static const char copyright[] =
-    "Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.\n";
+    "Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.\n";
 #endif
 
 int	 db_init __P((DB_ENV *, char *, int, u_int32_t, int *));
@@ -34,13 +34,15 @@ main(argc, argv)
 	extern char *optarg;
 	extern int optind;
 	DB_ENV	*dbenv;
-	DB *dbp;
+	DB *dbp, *dbvp;
 	db_pgno_t first, last;
 	u_int32_t cache;
 	int ch;
 	int exitval, keyflag, lflag, mflag, nflag, pflag, sflag, private;
+	u_int32_t vflag;
 	int ret, Rflag, rflag, resize;
 	char *blob_dir, *data_len, *dbname, *dopt, *filename, *home, *passwd;
+	char *vopt;
 
 	if ((progname = __db_rpath(argv[0])) == NULL)
 		progname = argv[0];
@@ -51,14 +53,17 @@ main(argc, argv)
 		return (ret);
 
 	dbenv = NULL;
-	dbp = NULL;
+	dbp = dbvp = NULL;
 	exitval = lflag = mflag = nflag = pflag = rflag = Rflag = sflag = 0;
+	private = 0;
+	vflag = 0;
 	first = last = PGNO_INVALID;
 	keyflag = 0;
 	cache = MEGABYTE;
-	private = 0;
 	blob_dir = data_len = dbname = dopt = filename = home = passwd = NULL;
-	while ((ch = getopt(argc, argv, "b:d:D:f:F:h:klL:m:NpP:rRs:V")) != EOF)
+	vopt = NULL;
+	while ((ch =
+	    getopt(argc, argv, "b:d:D:f:F:h:klL:m:NpP:rRS:s:Vv:")) != EOF)
 		switch (ch) {
 		case 'b':
 			if (blob_dir!= NULL) {
@@ -133,6 +138,20 @@ main(argc, argv)
 			/* FALLTHROUGH */
 		case 'r':
 			rflag = 1;
+			break;
+		case 'v': case 'S':
+			vopt = optarg;
+			switch(*vopt) {
+			case 'o':
+				vflag = DB_NOORDERCHK;
+				break;
+			case 'v':
+				vflag = 0;
+				break;
+			default:
+				(void)usage();
+				goto err;
+			}
 			break;
 		case 'V':
 			printf("%s\n", db_version(NULL, NULL, NULL));
@@ -236,7 +255,7 @@ retry:	if ((ret = db_env_create(&dbenv, 0)) != 0) {
 		goto err;
 
 	/*
-	 * Set data_len after environment opens. We want the value passed
+	 * Set data_len after environment opens.  The value passed
 	 * by -D takes priority.
 	 */
 	if (data_len != NULL && (ret = dbenv->set_data_len(dbenv,
@@ -275,6 +294,10 @@ retry:	if ((ret = db_env_create(&dbenv, 0)) != 0) {
 			goto err;
 		goto done;
 	}
+
+	if (vopt != NULL && (db_create(&dbvp, dbenv, 0) != 0 ||
+	    dbvp->verify(dbvp, filename, dbname, stdout, vflag) != 0))
+		goto err;
 
 	if ((ret = dbp->open(dbp, NULL,
 	    filename, dbname, DB_UNKNOWN, DB_RDWRMASTER|DB_RDONLY, 0)) != 0) {
@@ -540,10 +563,10 @@ usage()
 	(void)fprintf(stderr, "usage: %s [-bklNprRV]\n\t%s%s\n",
 	    progname,
 	    "[-b blob_dir] [-d ahr] [-f output] [-h home] ",
-	    "[-P password] [-s database] db_file");
+	    "[-P password] [-s database] [-S ov] db_file");
 	(void)fprintf(stderr, "usage: %s [-kNpV] %s\n",
 	    progname,
-	    "[-d ahr] [-D data_len] [-f output] [-h home] -m database");
+	    "[-d ahr] [-D data_len] [-f output] [-h home] [-v ov] -m database");
 	return (EXIT_FAILURE);
 }
 

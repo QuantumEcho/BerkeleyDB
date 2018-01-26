@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
 #
 # $Id$
 #
@@ -69,12 +69,6 @@ proc test042 { method {nentries 1000} args } {
 					return
 				}
 			}
-			if { [lsearch -exact $args "-chksum"] != -1 } {
-				set indx [lsearch -exact $args "-chksum"]
-				set args [lreplace $args $indx $indx]
-				puts "Test042 ignoring -chksum for blob"
-			}
-
 			# Set up the blob arguments.
 			append args $blob
 		}

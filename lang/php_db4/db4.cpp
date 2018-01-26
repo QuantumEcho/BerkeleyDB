@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2004, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2004, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * http://www.apache.org/licenses/LICENSE-2.0.txt
  * 
@@ -642,7 +642,7 @@ void setDbEnv(zval *z, DB_ENV *dbenv TSRMLS_DC)
     long rsrc_id;
 	struct php_DB_ENV *pdb = (struct php_DB_ENV *) emalloc(sizeof(*pdb));
 	pdb->dbenv = dbenv;
-    rsrc_id = zend_register_resource(NULL, pdb, le_dbenv);
+    rsrc_id = ZEND_REGISTER_RESOURCE(NULL, pdb, le_dbenv);
     zend_list_addref(rsrc_id);
     add_property_resource(z, "_dbenv_ptr", rsrc_id);
 }
@@ -851,7 +851,7 @@ void setDbc(zval *z, DBC *dbc, struct php_DB_TXN *txn TSRMLS_DC)
         pdbc->parent_txn = txn;
         txn->open_cursors = my_llist_add(txn->open_cursors, pdbc);
     }
-    rsrc_id = zend_register_resource(NULL, pdbc, le_dbc);
+    rsrc_id = ZEND_REGISTER_RESOURCE(NULL, pdbc, le_dbc);
     zend_list_addref(rsrc_id);
     add_property_resource(z, "_dbc_ptr", rsrc_id);
 }

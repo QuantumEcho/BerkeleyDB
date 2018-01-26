@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2002, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2002, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -110,6 +110,8 @@ public class EnvironmentConfig implements Cloneable {
     private int maxWrite = 0;
     private long maxWriteSleep = 0L;
     private java.io.File metadataDir = null;
+    private java.io.File msgfile = null;
+    private String msgfileStr = null;
     private int mutexAlignment = 0;
     private int mutexIncrement = 0;
     private int mutexTestAndSetSpins = 0;
@@ -134,6 +136,7 @@ public class EnvironmentConfig implements Cloneable {
     private java.io.File temporaryDirectory = null;
     private ReplicationManagerAckPolicy repmgrAckPolicy =
         ReplicationManagerAckPolicy.QUORUM;
+    private long repmgrIncomingQueueMax = 0;
     private java.util.Vector repmgrSitesConfig = new java.util.Vector();
 
     /* Initial region resource allocation. */
@@ -174,6 +177,7 @@ public class EnvironmentConfig implements Cloneable {
     private boolean logAutoRemove = false;
     private boolean logBlobContent = false;
     private boolean logInMemory = false;
+    private boolean logNoSync = false;
     private boolean logZero = false;
     private boolean multiversion = false;
     private boolean noLocking = false;
@@ -183,7 +187,6 @@ public class EnvironmentConfig implements Cloneable {
     private boolean replicationInMemory = false;
     private boolean txnNoSync = false;
     private boolean txnNoWait = false;
-    private boolean txnNotDurable = false;
     private boolean txnSnapshot = false;
     private boolean txnWriteNoSync = false;
     private boolean yieldCPU = false;
@@ -1613,6 +1616,36 @@ True if the database environment is configured to maintain transaction logs
     }
 
     /**
+    Configure the system to avoid fsync() calls during log file flushes.
+    <p>
+    Log nosync is only safe when recovery is not needed after a system crash.
+    If the system remains alive and the application crashes, the database will
+    be recoverable in that situation. 
+    <p>
+    This method may not be called after the environment has been opened.
+    <p>
+    @param logNoSync
+    If true, configure the system to avoid fsync() calls during log file flushes.
+    */
+    public void setLogNoSync(final boolean logNoSync) {
+        this.logNoSync = logNoSync;
+    }
+
+    /**
+    Return true if the system has been configured to avoid fsync() calls during
+    log files during flushes.
+    <p>
+    This method may be called at any time during the life of the application.
+    <p>
+    @return
+    True if the system has been configured to avoid fsync() calls during log
+    files flushes. 
+    */
+    public boolean getLogNoSync() {
+        return logNoSync;
+    }
+
+    /**
     Set a function to process application-specific log records.
     <p>
     This method configures only operations performed using a single a
@@ -1824,6 +1857,35 @@ The handler for application-specific log records.
     public ReplicationManagerAckPolicy getReplicationManagerAckPolicy()
     {
         return repmgrAckPolicy;
+    }
+
+    /**
+    Set the maximum amount of dynamic memory used by the Replication Manager
+    incoming queue.
+    <p>
+    By default, the Replication Manager incoming queue size has a limit of 100MB.
+    If zero is specified, then the Replication Manager incoming queue size is
+    limited by available heap memory.
+    <p>
+    @param repmgrIncomingQueueMax
+    The maximum amount of dynamic memory used by the Replication Manager incoming queue.
+    */
+    public void setReplicationManagerIncomingQueueMax(
+        final long repmgrIncomingQueueMax)
+    {
+        this.repmgrIncomingQueueMax = repmgrIncomingQueueMax;
+    }
+
+    /**
+    Get the maximum amount of dynamic memory used by the Replication Manager
+    incoming queue.
+    <p>
+    @return
+    The maximum amount of dynamic memory used by the Replication Manager incoming queue.
+    */
+    public long getReplicationManagerIncomingQueueMax()
+    {
+        return this.repmgrIncomingQueueMax;
     }
 
     /** 
@@ -2423,6 +2485,22 @@ The an OutputStream for displaying informational messages.
         return mmapSize;
     }
 
+    /**
+    Sets the path of a file to store statistical information.
+    <p>
+    This method may be called at any time during the life of the application.
+    <p>
+    @param file
+    The path of a file to store statistical information.
+    */
+    public void setMsgfile(java.io.File file) {
+        this.msgfile = file;
+        if (file != null)
+            this.msgfileStr = file.toString();
+        else
+            this.msgfileStr = null;
+    }
+   
 /**
 Sets the page size used to allocate the hash table and the number of mutexes
 expected to be needed by the buffer pool.
@@ -3743,47 +3821,6 @@ True if the transactions have been configured to not wait for locks by default.
     }
 
     /**
-    Configure the system to not write log records.
-    <p>
-    This means that transactions exhibit the ACI (atomicity, consistency,
-    and isolation) properties, but not D (durability); that is, database
-    integrity will be maintained, but if the application or system
-    fails, integrity will not persist.  All database files must be
-    verified and/or restored from backup after a failure.  In order to
-    ensure integrity after application shut down, all database handles
-    must be closed without specifying noSync, or all database changes
-    must be flushed from the database environment cache using the
-    {@link com.sleepycat.db.Environment#checkpoint Environment.checkpoint}.
-    <p>
-    This method only affects the specified {@link com.sleepycat.db.Environment Environment} handle (and
-any other library handles opened within the scope of that handle).
-For consistent behavior across the environment, all {@link com.sleepycat.db.Environment Environment}
-handles opened in the database environment must either call this method
-or the configuration should be specified in the database environment's
-DB_CONFIG configuration file.
-    <p>
-    This method may be called at any time during the life of the application.
-    <p>
-    @param txnNotDurable
-    If true, configure the system to not write log records.
-    */
-    public void setTxnNotDurable(final boolean txnNotDurable) {
-        this.txnNotDurable = txnNotDurable;
-    }
-
-    /**
-Return true if the system has been configured to not write log records.
-<p>
-This method may be called at any time during the life of the application.
-<p>
-@return
-True if the system has been configured to not write log records.
-    */
-    public boolean getTxnNotDurable() {
-        return txnNotDurable;
-    }
-
-    /**
     Configure the database environment to run transactions at snapshot
     isolation by default.  See {@link TransactionConfig#setSnapshot} for more
     information.
@@ -4527,11 +4564,6 @@ True if the system has been configured to yield the processor
         if (!txnNoWait && oldConfig.txnNoWait)
             offFlags |= DbConstants.DB_TXN_NOWAIT;
 
-        if (txnNotDurable && !oldConfig.txnNotDurable)
-            onFlags |= DbConstants.DB_TXN_NOT_DURABLE;
-        if (!txnNotDurable && oldConfig.txnNotDurable)
-            offFlags |= DbConstants.DB_TXN_NOT_DURABLE;
-
         if (txnSnapshot && !oldConfig.txnSnapshot)
             onFlags |= DbConstants.DB_TXN_SNAPSHOT;
         if (!txnSnapshot && oldConfig.txnSnapshot)
@@ -4567,6 +4599,9 @@ True if the system has been configured to yield the processor
 
         if (logInMemory != oldConfig.logInMemory)
             dbenv.log_set_config(DbConstants.DB_LOG_IN_MEMORY, logInMemory);
+
+        if (logNoSync != oldConfig.logNoSync)
+            dbenv.log_set_config(DbConstants.DB_LOG_NOSYNC, logNoSync);
 
         if (logZero != oldConfig.logZero)
             dbenv.log_set_config(DbConstants.DB_LOG_ZERO, logZero);
@@ -4724,6 +4759,8 @@ True if the system has been configured to yield the processor
             dbenv.set_mp_pagesize(mpPageSize);
         if (mpTableSize != oldConfig.mpTableSize)
             dbenv.set_mp_tablesize(mpTableSize);
+        if (msgfile != oldConfig.msgfile)
+            dbenv.set_msgfile(msgfile.toString());
         if (password != null)
             dbenv.set_encrypt(password, DbConstants.DB_ENCRYPT_AES);
         if (replicationClockskewFast != oldConfig.replicationClockskewFast ||
@@ -4788,6 +4825,8 @@ True if the system has been configured to yield the processor
 	        DbConstants.DB_REP_CONF_INMEM, replicationInMemory);
         if (repmgrAckPolicy != oldConfig.repmgrAckPolicy)
             dbenv.repmgr_set_ack_policy(repmgrAckPolicy.getId());
+        if (repmgrIncomingQueueMax != oldConfig.repmgrIncomingQueueMax)
+            dbenv.repmgr_set_incoming_queue_max(repmgrIncomingQueueMax);
         java.util.Iterator elems = repmgrSitesConfig.listIterator();
         java.util.Iterator oldElems = oldConfig.repmgrSitesConfig.listIterator();
         while (elems.hasNext()){
@@ -4864,7 +4903,6 @@ True if the system has been configured to yield the processor
         overwrite = ((envFlags & DbConstants.DB_OVERWRITE) != 0);
         txnNoSync = ((envFlags & DbConstants.DB_TXN_NOSYNC) != 0);
         txnNoWait = ((envFlags & DbConstants.DB_TXN_NOWAIT) != 0);
-        txnNotDurable = ((envFlags & DbConstants.DB_TXN_NOT_DURABLE) != 0);
         txnSnapshot = ((envFlags & DbConstants.DB_TXN_SNAPSHOT) != 0);
         txnWriteNoSync = ((envFlags & DbConstants.DB_TXN_WRITE_NOSYNC) != 0);
         yieldCPU = ((envFlags & DbConstants.DB_YIELDCPU) != 0);
@@ -4876,6 +4914,7 @@ True if the system has been configured to yield the processor
             logAutoRemove = dbenv.log_get_config(DbConstants.DB_LOG_AUTO_REMOVE);
             logBlobContent = dbenv.log_get_config(DbConstants.DB_LOG_BLOB);
             logInMemory = dbenv.log_get_config(DbConstants.DB_LOG_IN_MEMORY);
+            logNoSync = dbenv.log_get_config(DbConstants.DB_LOG_NOSYNC);
             logZero = dbenv.log_get_config(DbConstants.DB_LOG_ZERO);
         }
 
@@ -4984,6 +5023,8 @@ True if the system has been configured to yield the processor
             logRegionSize = 0;
         }
         messageStream = dbenv.get_message_stream();
+        if (msgfileStr != null)
+            msgfile = new java.io.File(msgfileStr);
 
         // XXX: intentional information loss?
         password = (dbenv.get_encrypt_flags() == 0) ? null : "";
@@ -5028,10 +5069,12 @@ True if the system has been configured to yield the processor
             replicationRequestMax = dbenv.rep_get_request_max();
             repmgrAckPolicy = ReplicationManagerAckPolicy.fromInt(
                 dbenv.repmgr_get_ack_policy());
+            repmgrIncomingQueueMax = dbenv.repmgr_get_incoming_queue_max();
         } else {
             replicationLimit = 0L;
             replicationRequestMin = 0;
             replicationRequestMax = 0;
+            repmgrIncomingQueueMax = 0;
         }
 
         segmentId = dbenv.get_shm_key();

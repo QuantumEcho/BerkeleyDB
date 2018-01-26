@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2012, 2015 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2012, 2017 Oracle and/or its affiliates.  All rights reserved.
 #
 # $Id$
 #
@@ -58,5 +58,6 @@ error_check_good stat $stat 1
 error_check_good ret [is_substr $ret DB_REP_LOCKOUT] 1
 
 tclsleep 1
+replclose $testdir/MSGQUEUEDIR
 
 return

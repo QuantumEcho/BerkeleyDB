@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1999, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -53,6 +53,15 @@ __ham_vrfy_meta(dbp, vdp, m, pgno, flags)
 	env = dbp->env;
 	isbad = 0;
 
+	if (dbp->type != DB_HASH && dbp->type != DB_BTREE &&
+	    dbp->type != DB_RECNO) {
+		EPRINT((env, DB_STR_A("1215",
+		    "Page %lu: invalid page type %u for %s database",
+		    "%lu %u %s"), (u_long)pgno, TYPE(m),
+		    __db_dbtype_to_string(dbp->type)));
+		return DB_VERIFY_FATAL;
+	}
+
 	if ((ret = __db_vrfy_getpageinfo(vdp, pgno, &pip)) != 0)
 		return (ret);
 
@@ -86,7 +95,7 @@ __ham_vrfy_meta(dbp, vdp, m, pgno, flags)
 			 * error rather than database corruption, so we want to
 			 * avoid extraneous errors.
 			 */
-			isbad = 1;
+			ret = USR_ERR(env, DB_VERIFY_FATAL);
 			goto err;
 		}
 
@@ -100,7 +109,7 @@ __ham_vrfy_meta(dbp, vdp, m, pgno, flags)
 		 * we just return--there will be lots of extraneous
 		 * errors.
 		 */
-		isbad = 1;
+		ret = USR_ERR(env, DB_VERIFY_FATAL);
 		goto err;
 	}
 
@@ -170,38 +179,48 @@ __ham_vrfy_meta(dbp, vdp, m, pgno, flags)
  * Where 64-bit integer support is not available,
  * return an error if the file has any blobs.
  */
+	t_ret = 0;
 #ifdef HAVE_64BIT_TYPES
-	GET_BLOB_FILE_ID(env, m, blob_id, ret);
-	if (ret != 0) {
+	GET_BLOB_FILE_ID(env, m, blob_id, t_ret);
+	if (t_ret != 0) {
 		isbad = 1;
 		EPRINT((env, DB_STR_A("1178",
 		    "Page %lu: blob file id overflow.", "%lu"), (u_long)pgno));
+		if (ret == 0)
+			ret = t_ret;
 	}
-	GET_BLOB_SDB_ID(env, m, blob_id, ret);
-	if (ret != 0) {
+	t_ret = 0;
+	GET_BLOB_SDB_ID(env, m, blob_id, t_ret);
+	if (t_ret != 0) {
 		isbad = 1;
 		EPRINT((env, DB_STR_A("1179",
 		    "Page %lu: blob subdatabase id overflow.",
 		    "%lu"), (u_long)pgno));
+		if (ret == 0)
+			ret = t_ret;
 	}
 #else /* HAVE_64BIT_TYPES */
 	/*
 	 * db_seq_t is an int on systems that do not have 64 integer types, so
 	 * this will compile and run.
 	 */
-	GET_BLOB_FILE_ID(env, m, blob_id, ret);
-	if (ret != 0 || blob_id != 0) {
+	GET_BLOB_FILE_ID(env, m, blob_id, t_ret);
+	if (t_ret != 0 || blob_id != 0) {
 		isbad = 1;
 		EPRINT((env, DB_STR_A("1203",
 		    "Page %lu: blobs require 64 integer compiler support.",
 		    "%lu"), (u_long)pgno));
+		if (ret == 0)
+			ret = t_ret;
 	}
-	GET_BLOB_SDB_ID(env, m, blob_id, ret);
-	if (ret != 0 || blob_id != 0) {
+	GET_BLOB_SDB_ID(env, m, blob_id, t_ret);
+	if (t_ret != 0 || blob_id != 0) {
 		isbad = 1;
 		EPRINT((env, DB_STR_A("1204",
 		    "Page %lu: blobs require 64 integer compiler support.",
 		    "%lu"), (u_long)pgno));
+		if (ret == 0)
+			ret == t_ret;
 	}
 #endif
 
@@ -238,6 +257,15 @@ __ham_vrfy(dbp, vdp, h, pgno, flags)
 	env = dbp->env;
 	isbad = 0;
 
+	if (dbp->type != DB_HASH && dbp->type != DB_BTREE &&
+	    dbp->type != DB_RECNO) {
+		EPRINT((env, DB_STR_A("1215",
+		    "Page %lu: invalid page type %u for %s database",
+		    "%lu %u %s"), (u_long)pgno, TYPE(h),
+		    __db_dbtype_to_string(dbp->type)));
+		return DB_VERIFY_BAD;
+	}
+
 	if ((ret = __db_vrfy_getpageinfo(vdp, pgno, &pip)) != 0)
 		return (ret);
 
@@ -271,21 +299,34 @@ __ham_vrfy(dbp, vdp, h, pgno, flags)
 			    "Page %lu: item %lu is out of order or nonsensical",
 			    "%lu %lu"), (u_long)pgno, (u_long)ent));
 			isbad = 1;
+			F_SET(pip, VRFY_ITEM_BAD);
 			goto err;
 		} else if (inpend >= himark) {
 			EPRINT((env, DB_STR_A("1103",
 			    "Page %lu: entries array collided with data",
 			    "%lu"), (u_long)pgno));
 			isbad = 1;
+			F_SET(pip, VRFY_ITEM_BAD);
 			goto err;
 
 		} else {
 			himark = inp[ent];
 			inpend += sizeof(db_indx_t);
 			if ((ret = __ham_vrfy_item(
-			    dbp, vdp, pgno, h, ent, flags)) != 0)
+			    dbp, vdp, pgno, h, ent, flags)) != 0) {
+			    	F_SET(pip, VRFY_ITEM_BAD);
 				goto err;
+			}
 		}
+
+	/* The high free byte offset should equal the offset of the last item. */
+	if (HOFFSET(h) != (u_int16_t)himark) {
+		EPRINT((env, DB_STR_A("1210",
+		    "Page %lu: items do not begin immediately after the free area",
+		    "%lu"), (u_long)pgno));
+		isbad = 1;
+		goto err;
+	}
 
 	if ((ret = __db_cursor_int(dbp, vdp->thread_info, NULL, DB_HASH,
 	    PGNO_INVALID, 0, DB_LOCK_INVALIDID, &dbc)) != 0)
@@ -318,7 +359,7 @@ __ham_vrfy_item(dbp, vdp, pgno, h, i, flags)
 	HOFFPAGE hop;
 	VRFY_CHILDINFO child;
 	VRFY_PAGEINFO *pip;
-	db_indx_t offset, len, dlen, elen;
+	db_indx_t offset, len, dlen, elen, item_offset;
 	int ret, t_ret;
 	off_t blob_size;
 	db_seq_t blob_id, file_id, sdb_id;
@@ -327,6 +368,7 @@ __ham_vrfy_item(dbp, vdp, pgno, h, i, flags)
 	if ((ret = __db_vrfy_getpageinfo(vdp, pgno, &pip)) != 0)
 		return (ret);
 
+	item_offset = P_INP(dbp, h)[i];
 	switch (HPAGE_TYPE(dbp, h, i)) {
 	case H_KEYDATA:
 		/* Nothing to do here--everything but the type field is data */
@@ -336,8 +378,23 @@ __ham_vrfy_item(dbp, vdp, pgno, h, i, flags)
 		 * Blob item.  Check that the blob file exists and is the same
 		 * file size as is stored in the database record.
 		 */
+		if ((dbp->pgsize - HBLOB_SIZE) < item_offset) {
+			EPRINT((dbp->env, DB_STR_A("1211",
+			    "Page %lu: offset (%u) at blob item %u has overflowed",
+			    "%lu %lu %lu"), (u_long)pip->pgno, item_offset, i));
+			ret = DB_VERIFY_BAD;
+			goto err;
+		}
 		memcpy(&hblob, P_ENTRY(dbp, h, i), HBLOB_SIZE);
 		blob_id = (db_seq_t)hblob.id;
+		if (blob_id < 1) {
+		    ret = DB_VERIFY_BAD;
+		    EPRINT((dbp->env, DB_STR_A("1220",
+			"Page %lu: invalid blob dir id %lld at item %lu",
+			"%lu %lld %lu"), (u_long)pip->pgno,
+			(long long)blob_id, (u_long)i));
+		    goto err;
+		}
 		GET_BLOB_SIZE(dbp->env, hblob, blob_size, ret);
 		if (ret != 0 || blob_size < 0) {
 			EPRINT((dbp->env, DB_STR_A("1181",
@@ -348,7 +405,8 @@ __ham_vrfy_item(dbp, vdp, pgno, h, i, flags)
 		}
 		file_id = (db_seq_t)hblob.file_id;
 		sdb_id = (db_seq_t)hblob.sdb_id;
-		if (file_id == 0 && sdb_id == 0) {
+		if (file_id < 0 || sdb_id < 0 
+		    || (file_id == 0 && sdb_id == 0)) {
 			EPRINT((dbp->env, DB_STR_A("1184",
 		"Page %lu: invalid blob dir ids %llu %llu at item %lu",
 			    "%lu %llu %llu %lu"),
@@ -415,6 +473,13 @@ __ham_vrfy_item(dbp, vdp, pgno, h, i, flags)
 			F_SET(pip, VRFY_DUPS_UNSORTED);
 		break;
 	case H_OFFPAGE:
+		if ((dbp->pgsize - HOFFPAGE_SIZE) < item_offset) {
+			EPRINT((dbp->env, DB_STR_A("1212",
+			    "Page %lu: offset (%u) at offpage item %u has overflowed",
+			    "%lu %lu %lu"), (u_long)pip->pgno, item_offset, i));
+			ret = DB_VERIFY_BAD;
+			goto err;
+		}
 		/* Offpage item.  Make sure pgno is sane, save off. */
 		memcpy(&hop, P_ENTRY(dbp, h, i), HOFFPAGE_SIZE);
 		if (!IS_VALID_PGNO(hop.pgno) || hop.pgno == pip->pgno ||
@@ -434,6 +499,13 @@ __ham_vrfy_item(dbp, vdp, pgno, h, i, flags)
 			goto err;
 		break;
 	case H_OFFDUP:
+		if ((dbp->pgsize - HOFFDUP_SIZE) < item_offset) {
+			EPRINT((dbp->env, DB_STR_A("1213",
+			    "Page %lu: offset (%u) at offpage duplicate item %u has overflowed",
+			    "%lu %lu %lu"), (u_long)pip->pgno, item_offset, i));
+			ret = DB_VERIFY_BAD;
+			goto err;
+		}
 		/* Offpage duplicate item.  Same drill. */
 		memcpy(&hod, P_ENTRY(dbp, h, i), HOFFDUP_SIZE);
 		if (!IS_VALID_PGNO(hod.pgno) || hod.pgno == pip->pgno ||
@@ -758,6 +830,7 @@ __ham_vrfy_bucket(dbp, vdp, m, bucket, flags)
 			goto err;
 		/* If it's safe to check that things hash properly, do so. */
 		if (isbad == 0 && !LF_ISSET(DB_NOORDERCHK) &&
+		    !F_ISSET(pip, VRFY_ITEM_BAD) &&
 		    (ret = __ham_vrfy_hashing(cc, pip->entries,
 		    m, bucket, pgno, flags, hfunc)) != 0) {
 			if (ret == DB_VERIFY_BAD)
@@ -847,6 +920,13 @@ __ham_vrfy_hashing(dbc, nentries, m, thisbucket, pgno, flags, hfunc)
 		return (ret);
 
 	for (i = 0; i < nentries; i += 2) {
+		if (HPAGE_PTYPE(P_ENTRY(dbp, h, i)) == H_BLOB) {
+			EPRINT((dbp->env, DB_STR_A("1197",
+			    "Page %lu: External file found in key item %lu",
+			    "%lu %lu"), (u_long)pgno, (u_long)i));
+			isbad = 1;
+			continue;
+		}
 		/*
 		 * We've already verified the page integrity and that of any
 		 * overflow chains linked off it;  it is therefore safe to use

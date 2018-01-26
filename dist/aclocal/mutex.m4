@@ -481,6 +481,17 @@ AC_TRY_COMPILE(,[
 ], [db_cv_mutex=ARM/gcc-assembly])
 fi
 
+# ARM64/gcc: Linux
+if test "$db_cv_mutex" = no; then
+AC_TRY_COMPILE(,[
+#if defined(__arm64__) && defined(__GNUC__)
+	return (0);
+#else
+	FAIL TO COMPILE/LINK
+#endif
+], [db_cv_mutex=ARM64/gcc-assembly])
+fi
+
 # MIPS/gcc: Linux
 if test "$db_cv_mutex" = no; then
 AC_TRY_COMPILE(,[
@@ -667,6 +678,10 @@ ALPHA/gcc-assembly)	ADDITIONAL_OBJS="mut_tas${o} $ADDITIONAL_OBJS"
 ARM/gcc-assembly)	ADDITIONAL_OBJS="mut_tas${o} $ADDITIONAL_OBJS"
 			AC_DEFINE(HAVE_MUTEX_ARM_GCC_ASSEMBLY)
 			AH_TEMPLATE(HAVE_MUTEX_ARM_GCC_ASSEMBLY,
+			    [Define to 1 to use the GCC compiler and ARM assembly language mutexes.]);;
+ARM64/gcc-assembly)	ADDITIONAL_OBJS="mut_tas${o} $ADDITIONAL_OBJS"
+			AC_DEFINE(HAVE_MUTEX_ARM64_GCC_ASSEMBLY)
+			AH_TEMPLATE(HAVE_MUTEX_ARM64_GCC_ASSEMBLY,
 			    [Define to 1 to use the GCC compiler and ARM assembly language mutexes.]);;
 HP/msem_init)		ADDITIONAL_OBJS="mut_tas${o} $ADDITIONAL_OBJS"
 			AC_DEFINE(HAVE_MUTEX_HPPA_MSEM_INIT)

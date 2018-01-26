@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2004, 2015 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2004, 2017 Oracle and/or its affiliates.  All rights reserved.
 #
 # $Id$
 #
@@ -351,15 +351,6 @@ proc env012 { } {
 		logcheckfails $testdir/env$tnum.log.p3 Freeing
 		logcheck $testdir/env$tnum.log.p2 
 		logcheck $testdir/env$tnum.log.p1
-	}
-}
-
-# Check log file and report failures with FAIL.  Use this when
-# we don't expect failures.
-proc logcheck { logname } {
-	set errstrings [eval findfail $logname]
-	foreach errstring $errstrings {
-		puts "FAIL: error in $logname : $errstring"
 	}
 }
 

@@ -107,6 +107,7 @@ libxso_major=	$(libcxx_base)-$(LIBMAJOR)@SOSUFFIX@
 ##################################################
 SQLFLAGS=	-I$(builddir) -I$(builddir)/sql -I$(langdir)/sql/generated \
 		-D_HAVE_SQLITE_CONFIG_H @SQL_FLAGS@
+LIBSQLSO_LIBS=  @LIBSQLSO_LIBS@ @LIBCSO_LIBS@ @LIBSO_LIBS@
 
 libsql_base=	libdb_sql
 libsql=		$(libsql_base).a
@@ -323,6 +324,7 @@ JAVA_DBSRCS=\
 	$(JAVA_SLEEPYCAT)/asm/ClassReader.java \
 	$(JAVA_SLEEPYCAT)/asm/ClassVisitor.java \
 	$(JAVA_SLEEPYCAT)/asm/ClassWriter.java \
+	$(JAVA_SLEEPYCAT)/asm/Context.java \
 	$(JAVA_SLEEPYCAT)/asm/Edge.java \
 	$(JAVA_SLEEPYCAT)/asm/FieldVisitor.java \
 	$(JAVA_SLEEPYCAT)/asm/FieldWriter.java \
@@ -335,6 +337,7 @@ JAVA_DBSRCS=\
 	$(JAVA_SLEEPYCAT)/asm/MethodWriter.java \
 	$(JAVA_SLEEPYCAT)/asm/Opcodes.java \
 	$(JAVA_SLEEPYCAT)/asm/Type.java \
+	$(JAVA_SLEEPYCAT)/asm/TypePath.java \
 	$(JAVA_SLEEPYCAT)/bind/ByteArrayBinding.java \
 	$(JAVA_SLEEPYCAT)/bind/EntityBinding.java \
 	$(JAVA_SLEEPYCAT)/bind/EntryBinding.java \
@@ -463,6 +466,7 @@ JAVA_DBSRCS=\
 	$(JAVA_SLEEPYCAT)/db/LogVerifyConfig.java \
 	$(JAVA_SLEEPYCAT)/db/MemoryException.java \
 	$(JAVA_SLEEPYCAT)/db/MessageHandler.java \
+	$(JAVA_SLEEPYCAT)/db/MetaCheckSumFailException.java \
 	$(JAVA_SLEEPYCAT)/db/MultipleNIODataEntry.java \
 	$(JAVA_SLEEPYCAT)/db/MultipleKeyNIODataEntry.java \
 	$(JAVA_SLEEPYCAT)/db/MultipleRecnoNIODataEntry.java \
@@ -798,7 +802,7 @@ TEST_MICRO_OBJS=\
 
 UTIL_PROGS=\
 	@ADDITIONAL_PROGS@ \
-	db_archive db_checkpoint db_deadlock db_dump \
+	db_archive db_checkpoint db_convert db_deadlock db_dump \
 	db_hotbackup db_load db_log_verify db_printlog db_recover \
 	db_replicate db_stat db_tuner db_upgrade db_verify
 
@@ -898,7 +902,7 @@ $(libsql_version): $(SQL_OBJS)
 
 # Shared SQL library.
 $(libsqlso_target): $(SQL_OBJS)
-	$(SOLINK) $(SOFLAGS) $(LDFLAGS) -o $@ $(SQL_OBJS) $(LIBCSO_LIBS)
+	$(SOLINK) $(SOFLAGS) $(LDFLAGS) -o $@ $(SQL_OBJS) $(LIBSQLSO_LIBS)
 	$(RM) $(libsql)
 	$(LN) -s .libs/$(libsql_version) $(libsql)
 
@@ -907,7 +911,7 @@ dbsql: shell@o@ $(DEF_LIB_SQL)
 	$(POSTLINK) $@
 
 jdbc: $(DEF_LIB)
-	@(test -d jdbc && cd jdbc && PWD='.' $(MAKE))
+	@(test -d jdbc && cd jdbc && PWD='.' env CPPFLAGS="@CPPFLAGS_JNI_INCLUDE@" JMODSUFFIX=@JMODSUFFIX@ $(MAKE))
 
 sql-test: $(DEF_LIB)
 	@(cd sql && $(MAKE) LTLINK_EXTRAS="../$(DEF_LIB) $(LIBS)" testfixture@EXEEXT@)
@@ -1005,6 +1009,11 @@ db_archive: db_archive@o@ util_sig@o@ $(DEF_LIB)
 db_checkpoint: db_checkpoint@o@ util_log@o@ util_sig@o@ $(DEF_LIB)
 	$(CCLINK) -o $@ $(LDFLAGS) \
 	    db_checkpoint@o@ util_log@o@ util_sig@o@ $(DEF_LIB) $(LIBS)
+	$(POSTLINK) $@
+
+db_convert: db_convert@o@ util_sig@o@ $(DEF_LIB)
+	$(CCLINK) -o $@ $(LDFLAGS) \
+	    db_convert@o@ util_sig@o@ $(DEF_LIB) $(LIBS)
 	$(POSTLINK) $@
 
 db_deadlock: db_deadlock@o@ util_log@o@ util_sig@o@ $(DEF_LIB)
@@ -1139,6 +1148,7 @@ install_lib:
 
 uninstall_lib:
 	@cd $(DESTDIR)$(libdir) && $(RM) $(LIB_INSTALL_FILE_LIST)
+	@(test -d jdbc && cd jdbc && make uninstall && cd -) || exit 0
 
 install_utilities:
 	@echo "Installing DB utilities: $(DESTDIR)$(bindir) ..."
@@ -1355,6 +1365,13 @@ cutest: $(CUTEST_OBJS) $(DEF_LIB) db_tuner.lo
 	$(CCLINK) -o $@ \
 	    $(LDFLAGS) $(CUTEST_OBJS) $(DEF_LIB) $(TEST_LIBS) $(LIBS)
 	$(POSTLINK) $@
+
+TEST_FAILOBJS=test_failchk@o@
+test_failchk@o@: $(testdir)/c/test_failchk.c
+	$(CC) $(CUTEST_FLAGS) $?
+test_failchk: $(TEST_FAILOBJS) $(DEF_LIB)
+	$(CCLINK) -o $@ \
+	    $(LDFLAGS) $(TEST_FAILOBJS) $(DEF_LIB) $(TEST_LIBS) $(LIBS)
 
 db_repsite@o@: $(testdir)/repmgr/db_repsite.cpp
 	$(CXX) $(CXXFLAGS) $?
@@ -2232,8 +2249,6 @@ mut_alloc@o@: $(srcdir)/mutex/mut_alloc.c
 	 $(CC) $(CFLAGS) $?
 mut_failchk@o@: $(srcdir)/mutex/mut_failchk.c
 	 $(CC) $(CFLAGS) $?
-mut_fcntl@o@: $(srcdir)/mutex/mut_fcntl.c
-	 $(CC) $(CFLAGS) $?
 mut_method@o@: $(srcdir)/mutex/mut_method.c
 	 $(CC) $(CFLAGS) $?
 mut_pthread@o@: $(srcdir)/mutex/mut_pthread.c
@@ -2547,6 +2562,8 @@ tcl_util@o@: $(TCL_SRCDIR)/tcl_util.c
 db_archive@o@: $(utildir)/db_archive.c
 	$(CC) $(CFLAGS) $?
 db_checkpoint@o@: $(utildir)/db_checkpoint.c
+	$(CC) $(CFLAGS) $?
+db_convert@o@: $(utildir)/db_convert.c
 	$(CC) $(CFLAGS) $?
 db_deadlock@o@: $(utildir)/db_deadlock.c
 	$(CC) $(CFLAGS) $?

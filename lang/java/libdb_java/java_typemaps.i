@@ -471,13 +471,13 @@ JAVA_TYPEMAP(DB_TXN_TOKEN *, byte[], jobject)
                $1 = NULL;
        } else {
                $1 = &token;
-               (*jenv)->GetByteArrayRegion(jenv, (jbyteArray)$input, 0, DB_TXN_TOKEN_SIZE, $1->buf);
+               (*jenv)->GetByteArrayRegion(jenv, (jbyteArray)$input, 0, DB_TXN_TOKEN_SIZE, (jbyte *)$1->buf);
        }
 %}
 
 %typemap(out) DB_TXN_TOKEN * %{
        if ($input != NULL) {
-               (*jenv)->SetByteArrayRegion(jenv, (jbyteArray)$input, 0, DB_TXN_TOKEN_SIZE, $1->buf);
+               (*jenv)->SetByteArrayRegion(jenv, (jbyteArray)$input, 0, DB_TXN_TOKEN_SIZE, (jbyte *)$1->buf);
        }
 %}
 
@@ -532,7 +532,7 @@ JAVA_TYPEMAP(u_int *, long, jlong)
 %}
 
 %typemap(in) u_int %{
-        $1 = $input;
+        $1 = (u_int)$input;
 %}
 
 JAVA_TYPEMAP(DB_KEY_RANGE *, com.sleepycat.db.KeyRange, jobject)

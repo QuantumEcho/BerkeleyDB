@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 12.1.6.0</p>
+        <p>Library Version 12.1.6.1</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -120,7 +120,8 @@ DbEnv::repmgr_start(int nthreads, u_int32_t flags);</pre>
         incoming connections, and starting all necessary background threads. When multiple processes
         share a database environment, only one process can open the listening socket; the
         <code class="methodname">DbEnv::repmgr_start()</code> method automatically opens the socket in the
-        first process to call it, and skips this step in the later calls from other processes.
+        first process to call it, and skips this step in the later calls from
+        other subordinate processes.
     </p>
       <p>
          The <code class="methodname">DbEnv::repmgr_start()</code> method 
@@ -153,7 +154,7 @@ DbEnv::repmgr_start(int nthreads, u_int32_t flags);</pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp10200904"></a>Parameters</h3>
+              <h3 class="title"><a id="idm140232235892720"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -161,7 +162,7 @@ DbEnv::repmgr_start(int nthreads, u_int32_t flags);</pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp10201832"></a>nthreads</h4>
+                <h4 class="title"><a id="idm140232235879184"></a>nthreads</h4>
               </div>
             </div>
           </div>
@@ -179,7 +180,7 @@ DbEnv::repmgr_start(int nthreads, u_int32_t flags);</pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp10201080"></a>flags</h4>
+                <h4 class="title"><a id="idm140232236061920"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -206,8 +207,8 @@ DbEnv::repmgr_start(int nthreads, u_int32_t flags);</pre>
                   <code class="literal">DB_REP_CLIENT</code>
             </p>
                 <p>
-                 Start as a client or view site, and do not call for an
-                 election.
+                 Start as a client, view, or preferred master site, and do not
+                 call for an election.
             </p>
               </li>
               <li>
@@ -224,7 +225,8 @@ DbEnv::repmgr_start(int nthreads, u_int32_t flags);</pre>
                           If the Replication Manager is already started, a
                           <span class="bold"><strong>flags</strong></span> value of 0 can
                           be used when making a subsequent call to change the
-                          value of <span class="bold"><strong>nthreads</strong></span>.
+                          value of <span class="bold"><strong>nthreads</strong></span>
+                          or when starting a subordinate process.
                      </p>
         </div>
       </div>
@@ -232,7 +234,7 @@ DbEnv::repmgr_start(int nthreads, u_int32_t flags);</pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp10205208"></a>Errors</h3>
+              <h3 class="title"><a id="idm140232235924864"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -250,7 +252,7 @@ DbEnv::repmgr_start(int nthreads, u_int32_t flags);</pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp10225544"></a>DB_REP_UNAVAIL</h4>
+                <h4 class="title"><a id="idm140232235850288"></a>DB_REP_UNAVAIL</h4>
               </div>
             </div>
           </div>
@@ -267,7 +269,7 @@ DbEnv::repmgr_start(int nthreads, u_int32_t flags);</pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp10223816"></a>EINVAL</h4>
+                <h4 class="title"><a id="idm140232235846688"></a>EINVAL</h4>
               </div>
             </div>
           </div>
@@ -287,7 +289,7 @@ DbEnv::repmgr_start(int nthreads, u_int32_t flags);</pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp10216728"></a>Class</h3>
+              <h3 class="title"><a id="idm140232235865504"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -299,7 +301,7 @@ DbEnv::repmgr_start(int nthreads, u_int32_t flags);</pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp10219248"></a>See Also</h3>
+              <h3 class="title"><a id="idm140232235861184"></a>See Also</h3>
             </div>
           </div>
         </div>

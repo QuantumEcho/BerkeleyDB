@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2001, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -285,7 +285,7 @@ __db_rename_int(dbp, ip, txn, name, subdb, newname, flags)
 	 * taken care of in the fop layer.
 	 */
 	if (IS_REAL_TXN(txn)) {
-		if ((ret = 
+		if ((ret =
 		    __fop_dummy(dbp, txn, old, newname, DB_APP_DATA)) != 0)
 			goto err;
 	} else {

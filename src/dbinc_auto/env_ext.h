@@ -102,11 +102,15 @@ int __env_region_attach __P((ENV *, REGINFO *, size_t, size_t));
 int __env_region_share __P((ENV *, REGINFO *));
 int __env_region_detach __P((ENV *, REGINFO *, int));
 int __envreg_register __P((ENV *, int *, u_int32_t));
+int __envreg_unregister_pid __P((ENV *, pid_t, u_int32_t));
 int __envreg_unregister __P((ENV *, int));
+int __envreg_registry_open __P((ENV *, char **, u_int32_t));
+int __envreg_registry_close __P((ENV *));
 int __envreg_xunlock __P((ENV *));
 int __envreg_isalive __P((DB_ENV *, pid_t, db_threadid_t, u_int32_t));
 u_int32_t __env_struct_sig __P((void));
 int __env_stat_print_pp __P((DB_ENV *, u_int32_t));
+int __env_print_thread __P((ENV *));
 void __db_print_fh __P((ENV *, const char *, DB_FH *, u_int32_t));
 void __db_print_fileid __P((ENV *, u_int8_t *, const char *));
 void __db_dl __P((ENV *, const char *, u_long));
@@ -128,6 +132,12 @@ int __repmgr_get_incoming_queue_max __P((DB_ENV *, u_int32_t *, u_int32_t *));
 #endif
 #ifndef HAVE_REPLICATION_THREADS
 int __repmgr_set_incoming_queue_max __P((DB_ENV *, u_int32_t, u_int32_t));
+#endif
+#ifndef HAVE_REPLICATION_THREADS
+int __repmgr_get_incoming_queue_redzone __P((DB_ENV *, u_int32_t *, u_int32_t *));
+#endif
+#ifndef HAVE_REPLICATION_THREADS
+int __repmgr_get_incoming_queue_fullevent __P((DB_ENV *, int *));
 #endif
 #ifndef HAVE_REPLICATION_THREADS
 int __repmgr_site __P((DB_ENV *, const char *, u_int, DB_SITE **, u_int32_t));

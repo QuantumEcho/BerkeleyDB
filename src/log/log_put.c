@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -280,8 +280,7 @@ __log_put(env, lsnp, udbt, flags)
 		 * If the send fails and we're a commit or checkpoint,
 		 * there's nothing we can do;  the record's in the log.
 		 * Flush it, even if we're running with TXN_NOSYNC,
-		 * on the grounds that it should be in durable
-		 * form somewhere.
+		 * on the grounds that it should be in durable form somewhere.
 		 */
 		if (ret != 0 && FLD_ISSET(ctlflags, REPCTL_PERM))
 			LF_SET(DB_FLUSH);
@@ -561,7 +560,12 @@ __log_flush_commit(env, lsnp, flags)
 		    "Write failed on MASTER commit."));
 		return (__env_panic(env, ret));
 	}
-
+	/*
+	 * If this is a panic don't attempt to abort just this transaction;
+	 * it may trip over the panic, and the whole env needs to go anyway.
+	 */
+	if (ret == DB_RUNRECOVERY)
+		return (__env_panic(env, ret));
 	/*
 	 * Else, make sure that the commit record does not get out after we
 	 * abort the transaction.  Do this by overwriting the commit record
@@ -1024,7 +1028,7 @@ __log_flush_int(dblp, lsnp, release)
 				__env_alloc_free(&dblp->reginfo, commit);
 				return (ret);
 			}
-			MUTEX_LOCK(env, commit->mtx_txnwait);
+			MUTEX_LOCK_NO_CTR(env, commit->mtx_txnwait);
 		} else
 			SH_TAILQ_REMOVE(
 			    &lp->free_commits, commit, links, __db_commit);
@@ -1043,7 +1047,7 @@ __log_flush_int(dblp, lsnp, release)
 		    &lp->commits, commit, links, __db_commit);
 		LOG_SYSTEM_UNLOCK(env);
 		/* Wait here for the in-progress flush to finish. */
-		MUTEX_LOCK(env, commit->mtx_txnwait);
+		MUTEX_LOCK_NO_CTR(env, commit->mtx_txnwait);
 		LOG_SYSTEM_LOCK(env);
 
 		lp->ncommit--;
@@ -1118,12 +1122,15 @@ flush:	MUTEX_LOCK(env, lp->mtx_flush);
 		LOG_SYSTEM_UNLOCK(env);
 
 	/* Sync all writes to disk. */
-	if ((ret = __os_fsync(env, dblp->lfhp)) != 0) {
-		MUTEX_UNLOCK(env, lp->mtx_flush);
-		if (release)
-			LOG_SYSTEM_LOCK(env);
-		lp->in_flush--;
-		goto done;
+	if (!lp->nosync) {
+		if ((ret = __os_fsync(env, dblp->lfhp)) != 0) {
+			MUTEX_UNLOCK(env, lp->mtx_flush);
+			if (release)
+				LOG_SYSTEM_LOCK(env);
+			lp->in_flush--;
+			goto done;
+		}
+		STAT(++lp->stat.st_scount);
 	}
 
 	/*
@@ -1143,7 +1150,6 @@ flush:	MUTEX_LOCK(env, lp->mtx_flush);
 		LOG_SYSTEM_LOCK(env);
 
 	lp->in_flush--;
-	STAT(++lp->stat.st_scount);
 
 	/*
 	 * How many flush calls (usually commits) did this call actually sync?
@@ -1155,13 +1161,13 @@ done:
 		first = 1;
 		SH_TAILQ_FOREACH(commit, &lp->commits, links, __db_commit)
 			if (LOG_COMPARE(&lp->s_lsn, &commit->lsn) > 0) {
-				MUTEX_UNLOCK(env, commit->mtx_txnwait);
+				MUTEX_UNLOCK_NO_CTR(env, commit->mtx_txnwait);
 				SH_TAILQ_REMOVE(
 				    &lp->commits, commit, links, __db_commit);
 				ncommit++;
 			} else if (first == 1) {
 				F_SET(commit, DB_COMMIT_FLUSH);
-				MUTEX_UNLOCK(env, commit->mtx_txnwait);
+				MUTEX_UNLOCK_NO_CTR(env, commit->mtx_txnwait);
 				SH_TAILQ_REMOVE(
 				    &lp->commits, commit, links, __db_commit);
 				/*
@@ -1440,7 +1446,7 @@ __log_newfh(dblp, create)
 		    "DB_ENV->log_newfh: %lu", (u_long)lp->lsn.file);
 	else if (status != DB_LV_NORMAL && status != DB_LV_INCOMPLETE &&
 	    status != DB_LV_OLD_READABLE)
-		ret = DB_NOTFOUND;
+		ret = USR_ERR(env, DB_NOTFOUND);
 
 	return (ret);
 }
@@ -1851,7 +1857,7 @@ __log_put_record_int(env, dbp, txnp, ret_lsnp,
 			return (ret);
 		/*
 		 * We need to assign begin_lsn while holding region mutex.
-		 * That assignment is done inside the DbEnv->log_put call,
+		 * That assignment is done inside the __log_put call,
 		 * so pass in the appropriate memory location to be filled
 		 * in by the log_put code.
 		 */
@@ -1874,8 +1880,7 @@ __log_put_record_int(env, dbp, txnp, ret_lsnp,
 	}
 
 	if (is_durable || txnp == NULL) {
-		if ((ret =
-		    __os_malloc(env, logrec.size, &logrec.data)) != 0)
+		if ((ret = __os_malloc(env, logrec.size, &logrec.data)) != 0)
 			return (ret);
 	} else {
 		if ((ret = __os_malloc(env,

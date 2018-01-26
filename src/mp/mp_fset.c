@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -117,6 +117,7 @@ __memp_dirty(dbmfp, addrp, ip, txn, priority, flags)
 	/* Drop the shared latch and get an exclusive. We have the buf ref'ed.*/
 	MUTEX_UNLOCK(env, bhp->mtx_buf);
 	MUTEX_LOCK(env, bhp->mtx_buf);
+	DB_TEST_CRASH(env->test_abort, DB_TEST_EXC_LATCH);
 	DB_ASSERT(env, !F_ISSET(bhp, BH_EXCLUSIVE));
 	F_SET(bhp, BH_EXCLUSIVE);
 

@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2002, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2002, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  */
 
@@ -234,10 +234,12 @@ public class SharedTestUtils {
             throw new NullPointerException("File location error");
         
         if (!fromDir.isDirectory()) 
-            throw new IllegalStateException("Test destination should be dir");
+            throw new IllegalStateException
+            (fromDir +  " should be a directory");
         
         if (!toDir.exists() && !toDir.mkdirs())
-            throw new IllegalStateException("Unable to create copy dest dir");
+            throw new IllegalStateException("Unable to create copy dest dir:" +
+                                             toDir);
         
         String[] list = fromDir.list();
         if (list != null) {

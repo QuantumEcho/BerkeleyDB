@@ -2,7 +2,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -103,6 +103,7 @@
 #include "dbinc/queue.h"
 #include "dbinc/shqueue.h"
 #include "dbinc/perfmon.h"
+#include "dbinc/clock.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -370,22 +371,27 @@ typedef struct __fn {
 /*
  * Structure used for callback message aggregation.
  *
- * Display values in XXX_stat_print calls.
+ * DB_MSGBUF_FLUSH displays values in XXX_stat_print calls.
+ * DB_MSGBUF_REP_FLUSH displays replication system messages.
  */
 typedef struct __db_msgbuf {
 	char *buf;			/* Heap allocated buffer. */
 	char *cur;			/* Current end of message. */
 	size_t len;			/* Allocated length of buffer. */
+	int flags;
 } DB_MSGBUF;
+#define DB_MSGBUF_PREALLOCATED		0x0001
+
 #define	DB_MSGBUF_INIT(a) do {						\
 	(a)->buf = (a)->cur = NULL;					\
-	(a)->len = 0;							\
+	(a)->len = (a)->flags = 0;					\
 } while (0)
 #define	DB_MSGBUF_FLUSH(env, a) do {					\
 	if ((a)->buf != NULL) {						\
 		if ((a)->cur != (a)->buf)				\
 			__db_msg(env, "%s", (a)->buf);			\
-		__os_free(env, (a)->buf);				\
+ 		if (!F_ISSET((a), DB_MSGBUF_PREALLOCATED))		\
+ 			__os_free(env, (a)->buf);			\
 		DB_MSGBUF_INIT(a);					\
 	}								\
 } while (0)
@@ -396,18 +402,14 @@ typedef struct __db_msgbuf {
 		if (regular_msg)					\
 			DB_MSGBUF_FLUSH(env, a);			\
 		else {							\
-			__os_free(env, (a)->buf);			\
+ 			if (!F_ISSET((a), DB_MSGBUF_PREALLOCATED))	\
+ 				__os_free(env, (a)->buf);		\
 			DB_MSGBUF_INIT(a);				\
 		}							\
 	}								\
 } while (0)
-#define	STAT_FMT(msg, fmt, type, v) do {				\
-	DB_MSGBUF __mb;							\
-	DB_MSGBUF_INIT(&__mb);						\
-	__db_msgadd(env, &__mb, fmt, (type)(v));			\
-	__db_msgadd(env, &__mb, "\t%s", msg);				\
-	DB_MSGBUF_FLUSH(env, &__mb);					\
-} while (0)
+#define	STAT_FMT(msg, fmt, type, v)					\
+	__db_msg(env, fmt "\t%s", (type)(v), msg);
 #define	STAT_HEX(msg, v)						\
 	__db_msg(env, "%#lx\t%s", (u_long)(v), msg)
 #define	STAT_ISSET(msg, p)						\
@@ -613,8 +615,13 @@ typedef enum {
 	if (F_ISSET((env), ENV_OPEN_CALLED))				\
 		ENV_REQUIRES_CONFIG(env, handle, i, flags)
 
+/*
+ * The ENV_ENTER and ENV_LEAVE macros announce to other threads that
+ * the current thread is entering or leaving the BDB api.
+ */
 #define	ENV_ENTER_RET(env, ip, ret) do {				\
 	ret = 0;							\
+	DISCARD_HISTORY(env);						\
 	PANIC_CHECK_RET(env, ret);					\
  	if (ret == 0) {							\
 		if ((env)->thr_hashtab == NULL)				\
@@ -632,17 +639,26 @@ typedef enum {
 		return (__ret);						\
 } while (0)
 
+/*
+ * Publicize the current thread's intention to run failchk. This invokes
+ * DB_ENV->is_alive() in the mutex code, to avoid hanging on dead processes.
+ */
 #define	FAILCHK_THREAD(env, ip) do {					\
 	if ((ip) != NULL)						\
 		(ip)->dbth_state = THREAD_FAILCHK;			\
 } while (0)
 
-#define	ENV_GET_THREAD_INFO(env, ip) ENV_ENTER(env, ip)
+#define	ENV_GET_THREAD_INFO(env, ip) 	do {				\
+	if ((env)->thr_hashtab == NULL)					\
+		ip = NULL;						\
+	else 								\
+		(void)__env_set_state(env, &(ip), THREAD_VERIFY);	\
+} while (0)
 
 #define	ENV_LEAVE(env, ip) do {						\
-	if ((ip) != NULL) {						\
-		DB_ASSERT((env), ((ip)->dbth_state == THREAD_ACTIVE  ||	\
-		    (ip)->dbth_state == THREAD_FAILCHK));		\
+	if ((ip) != NULL) {	\
+		DB_ASSERT((env), (ip)->dbth_state == THREAD_ACTIVE  ||	\
+		    (ip)->dbth_state == THREAD_FAILCHK);		\
 		(ip)->dbth_state = THREAD_OUT;				\
 	}								\
 } while (0)
@@ -671,9 +687,11 @@ typedef enum {
 typedef enum {
 	THREAD_SLOT_NOT_IN_USE=0,
 	THREAD_OUT,
+	THREAD_OUT_DEAD,
 	THREAD_ACTIVE,
 	THREAD_BLOCKED,
 	THREAD_BLOCKED_DEAD,
+	THREAD_CTR_VERIFY,
 	THREAD_FAILCHK,
 	THREAD_VERIFY
 } DB_THREAD_STATE;
@@ -684,10 +702,28 @@ typedef struct __pin_list {
 } PIN_LIST;
 #define	PINMAX 4
 
+typedef enum {
+	MUTEX_ACTION_UNLOCKED=0,
+	MUTEX_ACTION_INTEND_SHARE,	/* Thread is attempting a read-lock. */
+	MUTEX_ACTION_SHARED		/* Thread has gotten a read lock. */
+} MUTEX_ACTION;
+
+typedef struct __mutex_state {	/* SHARED */
+	db_mutex_t	mutex;
+	MUTEX_ACTION	action;
+#ifdef DIAGNOSTIC
+	db_timespec	when;
+#endif
+} MUTEX_STATE;
+
+#define MUTEX_STATE_MAX 10	/* It only needs enough for shared latches. */
+
+
 struct __db_thread_info { /* SHARED */
+	DB_THREAD_STATE	dbth_state;
 	pid_t		dbth_pid;
 	db_threadid_t	dbth_tid;
-	DB_THREAD_STATE	dbth_state;
+	/* This contains the overflow chain in env->thr_hashtab[indx]. */
 	SH_TAILQ_ENTRY	dbth_links;
 	/*
 	 * The next field contains the (process local) reference to the XA
@@ -703,17 +739,26 @@ struct __db_thread_info { /* SHARED */
 	u_int16_t	dbth_pinmax;	/* Number of slots allocated. */
 	roff_t		dbth_pinlist;	/* List of pins. */
 	PIN_LIST	dbth_pinarray[PINMAX];	/* Initial array of slots. */
+
 	/*
 	 * While thread tracking is active this caches one of the lockers
 	 * created by each thread. This locker remains allocated, with an
 	 * invalid id, even after the locker id is freed.
 	 */
 	roff_t		dbth_local_locker;
+	/*
+	 * Each latch shared by this thread has an entry here.  Exclusive
+	 * ownership, for both latches and mutexes, are in the DB_MUTEX.
+	 */
+	MUTEX_STATE	dbth_latches[MUTEX_STATE_MAX];
 #ifdef DIAGNOSTIC
 	roff_t		dbth_locker;	/* Current locker for this thread. */
 	u_int32_t	dbth_check_off;	/* Count of number of LOCK_OFF calls. */
 #endif
+	db_timespec	dbth_failtime;	/* Time when its crash was detected. */
+	u_int32_t 	mtx_ctr;	/* Counts mutexes held by thread. */
 };
+
 #ifdef DIAGNOSTIC
 #define LOCK_CHECK_OFF(ip) if ((ip) != NULL)				\
 	(ip)->dbth_check_off++
@@ -731,7 +776,7 @@ struct __db_thread_info { /* SHARED */
 #define LOCK_CHECK(dbc, pgno, mode)	NOP_STATEMENT
 #endif
 
-typedef struct __env_thread_info {
+typedef struct __env_thread_info { /* SHARED */
 	u_int32_t	thr_count;
 	u_int32_t	thr_init;
 	u_int32_t	thr_max;
@@ -791,6 +836,7 @@ struct __env {
 	char	 *db_home;		/* Database home */
 	u_int32_t open_flags;		/* Flags */
 	int	  db_mode;		/* Default open permissions */
+	u_int32_t envid;		/* Cached env id, panic if != REGENV. */
 
 	pid_t	pid_cache;		/* Cached process ID */
 
@@ -810,7 +856,12 @@ struct __env {
 	size_t	size_active_pids;	/* allocated size of active_pids */
 	pid_t	*active_pids;		/* array active pids */
 
-	/* Thread tracking */
+	/*
+	 * Thread tracking: a kind of configurable thread local storage that is
+	 * located in the environment region. Allocating a new entry requires
+	 * locking mtx_regenv. Entries are neither deleted nor moved between
+	 * buckets, which permits safe lookups without requiring any mutexes.
+	 */
 	u_int32_t	 thr_nbucket;	/* Number of hash buckets */
 	DB_HASHTAB	*thr_hashtab;	/* Hash table of DB_THREAD_INFO */
 
@@ -873,6 +924,12 @@ struct __env {
 #define	DB_TEST_PREOPEN		 10	/* before __os_open */
 #define	DB_TEST_REPMGR_PERM	 11	/* repmgr perm/archiving tests */
 #define	DB_TEST_SUBDB_LOCKS	 12	/* subdb locking tests */
+#define	DB_TEST_REPMGR_HEARTBEAT 13	/* repmgr stop sending heartbeats */
+#define	DB_TEST_NO_MUTEX         15     /* thread is holding no mutexes */
+#define	DB_TEST_LATCH            16     /* thread is sharing a latch */
+#define	DB_TEST_EXC_LATCH        17     /* thread has an exclusive latch */
+#define	DB_TEST_EXC_MUTEX        18     /* thread is holding a mutex */
+#define	DB_TEST_FAILCHK          19     /* thread is in failchk */
 	int	test_abort;		/* Abort value for testing */
 	int	test_check;		/* Checkpoint value for testing */
 	int	test_copy;		/* Copy value for testing */
@@ -890,6 +947,7 @@ struct __env {
 #define	ENV_THREAD		0x00000400 /* DB_THREAD set */
 #define	ENV_FORCE_TXN_BULK	0x00000800 /* Txns use bulk mode-for testing */
 #define	ENV_REMEMBER_PANIC	0x00001000 /* Panic was on during cleanup. */
+#define	ENV_FORCESYNCENV	0x00002000 /* Force msync on closing. */
 	u_int32_t flags;
 };
 
@@ -1114,7 +1172,6 @@ typedef struct __dbpginfo {
 
 
 #include "dbinc/globals.h"
-#include "dbinc/clock.h"
 #include "dbinc/debug.h"
 #include "dbinc/region.h"
 #include "dbinc_auto/env_ext.h"

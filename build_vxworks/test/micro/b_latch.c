@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2009, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2009, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -63,11 +63,11 @@ static int time_latches(dbenv, mutex, iterations)
 	contended = 0;
 	for (i = 0; i < iterations; ++i) {
 		previous = CurrentCounter;
-		DB_BENCH_ASSERT(__mutex_lock(ENV_ARG(dbenv), mutex) == 0);
+		DB_BENCH_ASSERT(MUTEX_LOCK_RET(ENV_ARG(dbenv), mutex) == 0);
 		if (previous != CurrentCounter)
 			contended++;
 		CurrentCounter++;
-		DB_BENCH_ASSERT(__mutex_unlock(ENV_ARG(dbenv), mutex) == 0);
+		DB_BENCH_ASSERT(MUTEX_UNLOCK_RET(ENV_ARG(dbenv), mutex) == 0);
 	}
 	return (contended);
 }

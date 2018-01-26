@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2002, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2002, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  */
 
@@ -250,15 +250,6 @@ public class PrimaryIndex<PK, E> extends BasicIndex<PK, E> {
             keyAssigner =
                 ((PersistEntityBinding) entityBinding).getKeyAssigner();
         }
-    }
-
-    /**
-     * Returns the underlying database for this index.
-     *
-     * @return the database.
-     */
-    public Database getDatabase() {
-        return db;
     }
 
     /**

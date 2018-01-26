@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2005, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2005, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -827,7 +827,7 @@ handle_completion(env, conn)
 	if (events.lNetworkEvents & FD_CLOSE) {
 		error = events.iErrorCode[FD_CLOSE_BIT];
 
-		/* 
+		/*
 		 * There could be data for reading when we see FD_CLOSE,
 		 * so we should try reading in this case.
 		 */

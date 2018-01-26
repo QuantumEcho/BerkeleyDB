@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2007, 2015 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2007, 2017 Oracle and/or its affiliates.  All rights reserved.
 #
 # $Id$
 #
@@ -31,6 +31,10 @@ proc repmgr030 { { niter 100 } { tnum "030" } args } {
 	set args [convert_args $method $args]
 
 	puts "Repmgr$tnum ($method): repmgr multiple c2c peer test."
+	repmgr030_sub $method $niter $tnum $args
+
+	append args " -blob_threshold 100"
+	puts "Repmgr$tnum ($method blobs): repmgr multiple c2c peer test."
 	repmgr030_sub $method $niter $tnum $args
 }
 
@@ -67,8 +71,14 @@ proc repmgr030_sub { method niter tnum largs } {
 	# acknowledge removing a site.
 	#
 	set ack_timeout 3000000
-	set req_min 4000
-	set req_max 128000
+	# Blob replication takes more time, so increase re-request timeout.
+    	if { [string first $largs "blob"] == -1 } {
+		set req_min 4000
+		set req_max 128000
+    	} else {
+		set req_min 40000
+		set req_max 1280000
+    	}
 	set hbsend 200000
 	set hbmon 500000
 
@@ -164,14 +174,17 @@ proc repmgr030_sub { method niter tnum largs } {
 	error_check_good no_client2_reqs [expr {$c2reqs == 0}] 1
 
 	puts "\tRepmgr$tnum.f: Run some transactions at master."
-	eval rep_test $method $masterenv NULL $niter 0 0 0 $largs
+	set start 0
+	eval rep_test $method $masterenv NULL $niter 0 $start 0 $largs
+	incr start $niter
 
 	puts "\tRepmgr$tnum.g: Shut down master, first client takes over."
 	error_check_good masterenv_close [$masterenv close] 0
 	await_expected_master $clientenv
 
 	puts "\tRepmgr$tnum.h: Run some more transactions at new master."
-	eval rep_test $method $clientenv NULL $niter $niter 0 0 $largs
+	eval rep_test $method $clientenv NULL $niter 0 $start 0 $largs
+	incr start $niter
 
 	puts "\tRepmgr$tnum.i: Sync delayed third client."
 	error_check_good rep_sync [$clientenv3 rep_sync] 0
@@ -197,14 +210,14 @@ proc repmgr030_sub { method niter tnum largs } {
 	await_expected_master $clientenv2
 
 	puts "\tRepmgr$tnum.l: Run more transactions at latest master."
-	eval rep_test $method $clientenv2 NULL $niter $niter 0 0 $largs
+ 	eval rep_test $method $clientenv2 NULL $niter 0 $start 0 $largs
 
 	puts "\tRepmgr$tnum.m: Sync delayed third client."
 	error_check_good rep_sync [$clientenv3 rep_sync] 0
 
 	puts "\tRepmgr$tnum.n: Check third client used view as peer."
 	# Give sync requests a bit of time to show up in stats.
-	tclsleep 1
+	tclsleep 2
 	set vreqs2 [stat_field $viewenv rep_stat "Client service requests"]
 	error_check_good got_view_reqs [expr {$vreqs2 > 0}] 1
 

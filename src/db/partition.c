@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -165,7 +165,7 @@ __partition_set(dbp, parts, keys, callback)
 	} else if (parts > PART_MAXIMUM) {
 		__db_errx(env, DB_STR_A("0772",
 		    "Must not specify more than %u partitions.", "%u"),
-		    (unsigned)PART_MAXIMUM);
+		    (unsigned int)PART_MAXIMUM);
 		return (EINVAL);
 	}
 
@@ -346,6 +346,14 @@ __partition_open(dbp, ip, txn, fname, type, flags, mode, do_open)
 	if ((ret = __partition_chk_meta(dbp, ip, txn, flags)) != 0 && do_open)
 		goto err;
 
+	if (part->nparts > PART_MAXIMUM) {
+		__db_errx(env, DB_STR_A("0789",
+	    "The number of partitions %u exceeds the maximum %u.", "%u %u"),
+		    part->nparts, (unsigned int)PART_MAXIMUM);
+		ret = USR_ERR(env, EINVAL);
+		goto err;
+	}
+
 	if ((ret = __os_calloc(env,
 	     part->nparts, sizeof(*part->handles), &part->handles)) != 0) {
 		__db_errx(env, ALLOC_ERR,
@@ -463,10 +471,10 @@ __partition_chk_meta(dbp, ip, txn, flags)
 	env = dbp->env;
 	ret = 0;
 	set_keys = 0;
-	
-	/* 
+
+	/*
 	 * Just to fix the lint warning.
-	 * The real value will be set later, and we will 
+	 * The real value will be set later, and we will
 	 * only use the value after being set properly.
 	 */
 	pgsize = dbp->pgsize;
@@ -526,7 +534,7 @@ __partition_chk_meta(dbp, ip, txn, flags)
 	}
 
 	if (part->nparts == 0) {
-		if (LF_ISSET(DB_CREATE) && meta->nparts == 0) {
+		if (meta->nparts == 0) {
 			__db_errx(env, DB_STR("0655",
 			    "Zero paritions specified."));
 			ret = EINVAL;
@@ -562,7 +570,7 @@ err:	/* Put the metadata page back. */
 	if ((t_ret = __LPUT(dbc, metalock)) != 0 && ret == 0)
 		ret = t_ret;
 
-	/* 
+	/*
 	 * We can only call __partition_setup_keys after putting
 	 * the meta page and releasing the meta lock, or self-deadlock
 	 * will occur.
@@ -665,7 +673,7 @@ __partition_setup_keys(dbc, part, pgsize, flags)
 	}
 
 	if (LF_ISSET(DB_CREATE) && have_keys == 0) {
-		/* 
+		/*
 		 * Insert the keys into the master database.  We will also
 		 * compute the total size of the keys for later use.
 		 */
@@ -694,7 +702,7 @@ done:	if (F_ISSET(part, PART_RANGE)) {
 		/*
 		 * If we just did the insert, we have known the total size of
 		 * the keys. Otherwise, the keys must have been in the database,
-		 * and we can calculate the size by checking the last pgno of 
+		 * and we can calculate the size by checking the last pgno of
 		 * the corresponding mpoolfile.
 		 *
 		 * We make the size aligned at 1024 for performance.
@@ -1917,16 +1925,16 @@ __part_rr(dbp, ip, txn, name, subdb, newname, flags)
 		__os_free(env, np);
 
 	if (!F_ISSET(dbp, DB_AM_OPEN_CALLED)) {
-err:		/*
+err:		
+		/* We need to remove the lock event we associated with this. */
+		if (txn != NULL)
+			__txn_remlock(env, txn, NULL, tmpdbp->locker);
+
+		/*
 		 * Since we copied the locker ID from the dbp, we'd better not
 		 * free it here.
 		 */
 		tmpdbp->locker = NULL;
-
-		/* We need to remove the lock event we associated with this. */
-		if (txn != NULL)
-			__txn_remlock(env,
-			    txn, &tmpdbp->handle_lock, DB_LOCK_INVALIDID);
 
 		if ((t_ret = __db_close(tmpdbp,
 		    txn, DB_NOSYNC)) != 0 && ret == 0)

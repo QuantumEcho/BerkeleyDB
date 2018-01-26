@@ -51,7 +51,7 @@ do
 	shift
 done
 
-DB_ADDONS_REPO=$PKG_ROOT/db_addons-6.0
+DB_ADDONS_REPO=$PKG_ROOT/db_addons-6.1
 update_repo()
 {
 	if [ ! -d $DB_ADDONS_REPO ]; then
@@ -134,12 +134,14 @@ gzip -c -d $JDBC_PACKAGE | tar xf -
 mv $dir/* $JDBC_DIR || exit $?
 rm -r $dir
 
-# Apply patches
-PATCH='jdbc/jdbc.patch'
-( cd $JDBC_DIR && patch -p1 -i $START_DIR/$PATCH )
-if [ $? -ne 0 ]; then
-	die "Can not apply patch $PATCH"
-fi
+# Apply patches. 
+# The change in jdbc.patch was accepted back into javasqlite-20131124, 
+# so we don't need to apply this patch any more. 
+#PATCH='jdbc/jdbc.patch'
+#( cd $JDBC_DIR && patch -p1 -i $START_DIR/$PATCH )
+#if [ $? -ne 0 ]; then
+#	die "Can not apply patch $PATCH"
+#fi
 
 PATCH='jdbc/jdbc.patch2'
 ( cd $JDBC_DIR && patch -p1 -i $START_DIR/$PATCH )
@@ -166,14 +168,23 @@ rm -f $JDBC_DIR/db $JDBC_DIR/db2 $JDBC_DIR/db3
 # Remove other bits and pieces that aren't relevant.
 rm -rf $JDBC_DIR/debian $ODBC_DIR/*ming* $ODBC_DIR/README.* $ODBC_DIR/*mak
 
+# Patch the JDBC configure file, so the JDK binaries path can be configured
+# correctly on non-Linux platforms
+mv $JDBC_DIR/configure $JDBC_DIR/configure.tmp
+# 1. Use the JAVAC path configured for BDB
+cat $JDBC_DIR/configure.tmp | \
+    sed -e '/$JAVA_HOME\/bin/s//$JAVA_BIN/' > $JDBC_DIR/configure
+rm -f $JDBC_DIR/configure.tmp
+
 # Patch the JDBC build files for autoconf, so the Berkeley DB library
 # can be added to the link command.
 mv $JDBC_DIR/Makefile.in $JDBC_DIR/Makefile.in.tmp
 # 1. Define BDB_LIB for Makefile
 # 2. Add LD_LIBRARY_PATH for runing native/mkconst in JDBC configuration
+# 3. Make the suffix of libsqlite_jni configurable
 cat $JDBC_DIR/Makefile.in.tmp | \
     sed -e '/native\/mkconst > SQLite\/Constants.java/ i \\t\LD_LIBRARY_PATH=\"\$\$LD_LIBRARY_PATH:\$(PWD)\/..\/.libs\" \\' \
-    -e '/^LIBS=/s/$/ @BDB_LIB@/' > $JDBC_DIR/Makefile.in
+    -e '/^LIBS=/s/$/ @BDB_LIB@/' -e '/-o libsqlite_jni.la/s/-o/-shrext $(JMODSUFFIX) -o/' > $JDBC_DIR/Makefile.in
 rm -f $JDBC_DIR/Makefile.in.tmp
 
 # Generate Constants.java needed by JDBC on Windows
@@ -362,12 +373,25 @@ sed -e "s/@DB_VERSION_MAJOR@/$DB_VERSION_MAJOR/g" \
     < $XQ_IN >> $XQ
 
 # Change File list for vcproject file
-for proj in 2010 2012 Static.2010 Static.2012
+for proj in 2010 Static.2010 2012 Static.2012 2013 Static.2013 CE.2012
 do
 	xqilla -u -i SQLite.Interop/SQLite.Interop.$proj.vcxproj $XQ
 done
 rm -f $XQ
 rm -f $XQ_IN
+
+# Add BDB files into  SQLite.Interop.CE.2012.vcxproj using sed, since
+# xqilla can not handle that.
+sed -n -e '/File.*RelativePath/p' $BDB_ROOT/build_wince/VS8/db.vcproj | \
+    sed -e 's/File/ClCompile/g' -e 's/RelativePath/Include/g' \
+    -e "s#\\.\\.\\\\\\.\\.\\\\src#..\\\\$BDB_ROOT\\\\src#g" >ce.tmp
+sed -e '$d' SQLite.Interop/SQLite.Interop.CE.2012.vcxproj >prj.tmp
+echo '<ItemGroup>' >> prj.tmp
+cat ce.tmp >> prj.tmp
+echo '</ItemGroup>' >> prj.tmp
+echo '</Project>' >> prj.tmp
+mv prj.tmp SQLite.Interop/SQLite.Interop.CE.2012.vcxproj
+rm -f ce.tmp
 
 #
 # Change SQLite.Interop.[CE.]2005/2008.vcproj for Win32/x64/WinCE.

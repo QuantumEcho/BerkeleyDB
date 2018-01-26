@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1999, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -260,7 +260,7 @@ __qamc_put(dbc, key, data, flags, pgnop)
 	}
 
 	if (exact != 0 && flags == DB_NOOVERWRITE)
-		ret = DB_KEYEXIST;
+		ret = DBC_ERR(dbc, DB_KEYEXIST);
 	else
 		/* Put the item on the page. */
 		ret = __qam_pitem(dbc,
@@ -526,7 +526,7 @@ __qamc_del(dbc, flags)
 		return (ret);
 
 	if (QAM_NOT_VALID(meta, cp->recno)) {
-		ret = DB_NOTFOUND;
+		ret = DBC_ERR(dbc, DB_NOTFOUND);
 		goto err;
 	}
 	first = meta->first_recno;
@@ -549,7 +549,7 @@ __qamc_del(dbc, flags)
 		goto err;
 
 	if (!exact) {
-		ret = DB_NOTFOUND;
+		ret = DBC_ERR(dbc, DB_NOTFOUND);
 		goto err;
 	}
 
@@ -696,7 +696,7 @@ retry:
 		break;
 	case DB_NEXT_DUP:
 	case DB_PREV_DUP:
-		ret = DB_NOTFOUND;
+		ret = DBC_ERR(dbc, DB_NOTFOUND);
 		goto err;
 		/* NOTREACHED */
 	case DB_NEXT:
@@ -713,7 +713,7 @@ retry:
 			if (QAM_AFTER_CURRENT(meta, cp->recno)) {
 				pg = NULL;
 				if (!wait) {
-					ret = DB_NOTFOUND;
+					ret = DBC_ERR(dbc, DB_NOTFOUND);
 					goto err;
 				}
 				/*
@@ -776,6 +776,7 @@ retry:
 				    DB_LOCK_UPGRADE, &metalock)) != 0) {
 					if (ret == DB_LOCK_DEADLOCK)
 						ret = DB_LOCK_NOTGRANTED;
+					(void)DBC_ERR(dbc, ret);
 					goto err;
 				}
 
@@ -803,7 +804,7 @@ retry:
 		if (cp->recno != RECNO_OOB) {
 			if (cp->recno == meta->first_recno ||
 			   QAM_BEFORE_FIRST(meta, cp->recno)) {
-				ret = DB_NOTFOUND;
+				ret = DBC_ERR(dbc, DB_NOTFOUND);
 				goto err;
 			}
 			QAM_DEC_RECNO(cp->recno);
@@ -812,7 +813,7 @@ retry:
 		/* FALLTHROUGH */
 	case DB_LAST:
 		if (meta->first_recno == meta->cur_recno) {
-			ret = DB_NOTFOUND;
+			ret = DBC_ERR(dbc, DB_NOTFOUND);
 			goto err;
 		}
 		cp->recno = meta->cur_recno;
@@ -896,11 +897,11 @@ dolock:	if (!with_delete || inorder || retrying) {
 					LOCK_INIT(lock);
 					goto release_retry;
 				}
-				ret = DB_NOTFOUND;
+				ret = DBC_ERR(dbc, DB_NOTFOUND);
 				goto lerr;
 			}
 			if (QAM_AFTER_CURRENT(meta, cp->recno)) {
-				ret = DB_NOTFOUND;
+				ret = DBC_ERR(dbc, DB_NOTFOUND);
 				goto lerr;
 			}
 		}
@@ -1011,7 +1012,7 @@ release_retry:	/* Release locks and retry, if possible. */
 
 		default:
 			/* this is for the SET and GET_BOTH cases */
-			ret = DB_KEYEMPTY;
+			ret = DBC_ERR(dbc, DB_KEYEMPTY);
 			goto err1;
 		}
 		retrying = 0;
@@ -1066,7 +1067,7 @@ release_retry:	/* Release locks and retry, if possible. */
 		if ((ret = __bam_defcmp(dbp, data, &tmp, NULL)) != 0) {
 			if (flags == DB_GET_BOTH_RANGE)
 				goto release_retry;
-			ret = DB_NOTFOUND;
+			ret = DBC_ERR(dbc, DB_NOTFOUND);
 			goto err1;
 		}
 	}

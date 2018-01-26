@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2001, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -191,8 +191,8 @@ __db_truncate(dbp, ip, txn, countp)
 	if (dbc != NULL && (t_ret = __dbc_close(dbc)) != 0 && ret == 0)
 		ret = t_ret;
 
-	/* Delete all blob files. */
-	if (ret == 0)
+	/* Delete all blob/external files if that feature is supported. */
+	if (ret == 0 && dbp->blob_threshold)
 		ret = __blob_del_all(dbp, txn, 1);
 
 	DB_TEST_RECOVERY(dbp, DB_TEST_POSTDESTROY, ret, NULL);

@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1999, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -442,9 +442,12 @@ retry:	pg = NULL;
 					if (ret != 0)
 						goto err;
 				}
+				F_CLR(dbc, C_ROOT_COLLAPSED);
 				if ((ret =
 				    __bam_dpages(dbc, 0, BTD_RELINK)) != 0)
 					goto err;
+				if (F_ISSET(dbc, C_ROOT_COLLAPSED))
+					npgno = PGNO_INVALID;
 				c_data->compact_pages_free++;
 				if ((ret = __TLPUT(dbc, prev_lock)) != 0)
 					goto err;
@@ -926,7 +929,7 @@ next_page:
 	pg = NULL;
 	if ((ret = __bam_stkrel(dbc, STK_PGONLY)) != 0)
 		goto err;
-	if (npgno != PGNO_INVALID &&
+	if (npgno != PGNO_INVALID && !do_commit &&
 	    (ret = __db_lget(dbc, 0, npgno, DB_LOCK_READ, 0, &next_lock)) != 0)
 		goto err;
 	if ((ret = __bam_stkrel(dbc, pgs_done == 0 ? STK_NOLOCK : 0)) != 0)
@@ -1004,9 +1007,6 @@ err:	/*
 	if ((t_ret = __bam_stkrel(dbc, sflag)) != 0 && ret == 0)
 		ret = t_ret;
 
-	if ((t_ret = __TLPUT(dbc, metalock)) != 0 && ret == 0)
-		ret = t_ret;
-
 	if (pg != NULL && (t_ret =
 	     __memp_fput(dbmp,
 		  dbc->thread_info, pg, dbc->priority) != 0) && ret == 0)
@@ -1016,7 +1016,11 @@ err:	/*
 		  dbc->thread_info, npg, dbc->priority) != 0) && ret == 0)
 		ret = t_ret;
 
-out:	*isdonep = isdone;
+out:
+	if ((t_ret = __TLPUT(dbc, metalock)) != 0 && ret == 0)
+		ret = t_ret;
+
+	*isdonep = isdone;
 
 	/* For OPD trees return if we did anything in the span variable. */
 	if (F_ISSET(dbc, DBC_OPD))
@@ -1792,7 +1796,8 @@ fits:	memset(&bi, 0, sizeof(bi));
 		if ((ret = __db_pitem(dbc, pg, pind, size, &hdr, &data)) != 0)
 			goto err;
 		pind++;
-		if (fip != NULL) {
+		/* add bip test so fortify does not complain */
+		if (fip != NULL && bip != NULL) {
 			if (B_TYPE(bip->type) == B_OVERFLOW &&
 			    (ret = __db_doff(dbc,
 			    ((BOVERFLOW *)bip->data)->pgno)) != 0)
@@ -1981,8 +1986,6 @@ __bam_compact_dups(dbc, ppg, factor, have_lock, c_data, pgs_donep)
 				goto err;
 			/* Just in case it should move.  Could it? */
 			bo = GET_BOVERFLOW(dbp, *ppg, i);
-			/* if (bo->pgno != pgno)
-				(*pgs_donep)++; */
 		}
 
 		if (B_TYPE(bo->type) == B_OVERFLOW) {
@@ -2384,7 +2387,7 @@ __bam_savekey(dbc, next, start)
 			if (len == 0) {
 no_key:				__db_errx(env, DB_STR("1023",
 				    "Compact cannot handle zero length key"));
-				ret = DB_NOTFOUND;
+				ret = DBC_ERR(dbc, DB_NOTFOUND);
 				goto err;
 			}
 		} else {
@@ -2564,6 +2567,8 @@ new_txn:
 
 	if ((ret = __LPUT(dbc, root_lock)) != 0)
 		goto err;
+	if ((ret = __LPUT(dbc, meta_lock)) != 0)
+		goto err;
 	if ((ret = __dbc_close(dbc)) != 0)
 		goto err;
 	dbc = NULL;
@@ -2667,6 +2672,8 @@ again:	if (F_ISSET(dbp, DB_AM_SUBDB) &&
 		if ((ret = __memp_fput(dbp->mpf, ip, meta, dbp->priority)) != 0)
 			goto err;
 		meta = NULL;
+		if (txn == NULL && (ret = __LPUT(dbc, meta_lock)) != 0)
+			goto err;
 		if ((ret = __dbc_close(dbc)) != 0)
 			goto err;
 		dbc = NULL;

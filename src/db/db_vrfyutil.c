@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2000, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2000, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -935,5 +935,5 @@ __db_vrfy_prdbt(dbtp, checkprint, prefix,
 	return (
 	    __db_prdbt(dbtp, checkprint,
 	    prefix, handle, callback, is_recno, is_heap,
-	    F_ISSET(vdp, SALVAGE_STREAM_BLOB) ? 1 : 0));
+	    vdp != NULL && F_ISSET(vdp, SALVAGE_STREAM_BLOB) ? 1 : 0));
 }

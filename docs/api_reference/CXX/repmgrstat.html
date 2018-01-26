@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 12.1.6.0</p>
+        <p>Library Version 12.1.6.1</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -87,6 +87,35 @@ DbEnv::repmgr_stat(DB_REPMGR_STAT **statp, u_int32_t flags); </pre>
                 </p>
             <p>
                     The number of currently active election threads.
+                </p>
+          </li>
+          <li>
+            <p>
+                    <span class="bold"><strong>uintmax_t st_incoming_msgs_dropped;</strong></span>
+                </p>
+            <p>
+                    The number of incoming messages that were dropped because the incoming
+                    queue was full. (Berkeley DB replication is tolerant of dropped
+                    messages, and will automatically request retransmission of any missing
+                    messages as needed.)
+                </p>
+          </li>
+          <li>
+            <p>
+                    <span class="bold"><strong>u_int32_t st_incoming_queue_bytes;</strong></span>
+                </p>
+            <p>
+                    Bytes component of the memory consumption for the messages currently
+                    in the incoming queue.
+                </p>
+          </li>
+          <li>
+            <p>
+                    <span class="bold"><strong>u_int32_t st_incoming_queue_gbytes;</strong></span>
+                </p>
+            <p>
+                    Gigabytes component of the memory consumption for the messages currently
+                    in the incoming queue.
                 </p>
           </li>
           <li>
@@ -184,7 +213,7 @@ DbEnv::repmgr_stat(DB_REPMGR_STAT **statp, u_int32_t flags); </pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp10208640"></a>Parameters</h3>
+              <h3 class="title"><a id="idm140232235823744"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -192,7 +221,7 @@ DbEnv::repmgr_stat(DB_REPMGR_STAT **statp, u_int32_t flags); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp10202288"></a>statp</h4>
+                <h4 class="title"><a id="idm140232235891328"></a>statp</h4>
               </div>
             </div>
           </div>
@@ -205,7 +234,7 @@ DbEnv::repmgr_stat(DB_REPMGR_STAT **statp, u_int32_t flags); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp10231880"></a>flags</h4>
+                <h4 class="title"><a id="idm140232235816496"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -231,7 +260,7 @@ DbEnv::repmgr_stat(DB_REPMGR_STAT **statp, u_int32_t flags); </pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp10246608"></a>Errors</h3>
+              <h3 class="title"><a id="idm140232235807360"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -249,7 +278,7 @@ DbEnv::repmgr_stat(DB_REPMGR_STAT **statp, u_int32_t flags); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp10254168"></a>EINVAL</h4>
+                <h4 class="title"><a id="idm140232235792400"></a>EINVAL</h4>
               </div>
             </div>
           </div>
@@ -263,7 +292,7 @@ DbEnv::repmgr_stat(DB_REPMGR_STAT **statp, u_int32_t flags); </pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp10250800"></a>Class</h3>
+              <h3 class="title"><a id="idm140232235798480"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -275,7 +304,7 @@ DbEnv::repmgr_stat(DB_REPMGR_STAT **statp, u_int32_t flags); </pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp10247464"></a>See Also</h3>
+              <h3 class="title"><a id="idm140232235957632"></a>See Also</h3>
             </div>
           </div>
         </div>

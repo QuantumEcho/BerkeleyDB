@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  */
 /*
  * Copyright (c) 1995, 1996
@@ -958,9 +958,8 @@ __ham_metagroup_recover(env, dbtp, lsnp, op, info)
 
 			if (IS_ZERO_LSN(LSN(pagep))) {
 				REC_DIRTY(mpf, ip, dbc->priority, &pagep);
-				P_INIT(pagep, file_dbp->pgsize,
-				    PGNO_INVALID, PGNO_INVALID, PGNO_INVALID,
-				    0, P_HASH);
+ 				P_INIT(pagep, file_dbp->pgsize, pgno,
+ 				    PGNO_INVALID, PGNO_INVALID, 0, P_HASH);
 			}
 			if ((ret =
 			    __memp_fput(mpf, ip, pagep, dbc->priority)) != 0)

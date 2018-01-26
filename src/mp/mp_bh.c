@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -264,7 +264,7 @@ __memp_pgread(dbmfp, bhp, can_create)
 		 * how to handle the error.
 		 */
 		if (!can_create) {
-			ret = DB_PAGE_NOTFOUND;
+			ret = USR_ERR(env, DB_PAGE_NOTFOUND);
 			goto err;
 		}
 

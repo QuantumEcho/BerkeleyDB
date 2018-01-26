@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1997, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -49,7 +49,8 @@ __os_fdlock(env, fhp, offset, acquire, nowait)
 	if (ret == 0)
 		return (0);
 
-	if ((t_ret = __os_posix_err(ret)) != EACCES && t_ret != EAGAIN)
+	t_ret = USR_ERR(env, __os_posix_err(ret));
+	if (t_ret != EACCES && t_ret != EAGAIN)
 		__db_syserr(env, ret, DB_STR("0139", "fcntl"));
 	return (t_ret);
 #else

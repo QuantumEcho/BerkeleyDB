@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 12.1.6.0</p>
+        <p>Library Version 12.1.6.1</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -63,7 +63,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp6080240"></a>Parameters</h3>
+              <h3 class="title"><a id="idm140232243293200"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -71,7 +71,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp6084144"></a>txnid</h4>
+                <h4 class="title"><a id="idm140232243295248"></a>txnid</h4>
               </div>
             </div>
           </div>
@@ -91,7 +91,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp6053808"></a>flags</h4>
+                <h4 class="title"><a id="idm140232243295120"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -143,7 +143,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp6104640"></a>Statistical Structure</h3>
+              <h3 class="title"><a id="idm140232243279152"></a>Statistical Structure</h3>
             </div>
           </div>
         </div>
@@ -186,7 +186,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp6104576"></a>Hash Statistics</h4>
+                <h4 class="title"><a id="idm140232243268688"></a>Hash Statistics</h4>
               </div>
             </div>
           </div>
@@ -210,7 +210,8 @@ Db::stat(void *sp, u_int32_t flags); </pre>
                   <code class="literal">u_int32_t hash_bigpages;</code>
                 </p>
                 <p>
-                             The number of big key/data pages.
+                             The number of hash overflow pages (created when key/data is 
+                             too big for the page).
                          </p>
               </li>
               <li>
@@ -218,7 +219,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
                   <code class="literal">uintmax_t hash_big_bfree;</code>
                 </p>
                 <p>
-                             The number of bytes free on big item pages.
+                             The number of bytes free on hash overflow (big item) pages. 
                          </p>
               </li>
               <li>
@@ -315,8 +316,8 @@ Db::stat(void *sp, u_int32_t flags); </pre>
                   <code class="literal">u_int32_t hash_overflows;</code>
                 </p>
                 <p>
-                              The number of overflow pages (overflow pages are pages that contain
-                              items that did not fit in the main bucket page).
+                              The number of bucket overflow pages (bucket overflow pages are created
+                              when items did not fit on the main bucket page).
                          </p>
               </li>
               <li>
@@ -324,7 +325,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
                   <code class="literal">uintmax_t hash_ovfl_free;</code>
                 </p>
                 <p>
-                             The number of bytes free on overflow pages.
+                              The number of bytes free on bucket overflow pages.
                          </p>
               </li>
               <li>
@@ -359,7 +360,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp6120712"></a>Heap Statistics</h4>
+                <h4 class="title"><a id="idm140232243297040"></a>Heap Statistics</h4>
               </div>
             </div>
           </div>
@@ -377,14 +378,6 @@ Db::stat(void *sp, u_int32_t flags); </pre>
                 <p>
                               Magic number that identifies the file as a Heap file. Returned if
                               DB_FAST_STAT is set.
-                         </p>
-              </li>
-              <li>
-                <p>
-                  <code class="literal">u_int32_t heap_version;</code>
-                </p>
-                <p>
-                              The version of the Heap database.  Returned if DB_FAST_STAT is set.
                          </p>
               </li>
               <li>
@@ -448,6 +441,14 @@ Db::stat(void *sp, u_int32_t flags); </pre>
                               DB_FAST_STAT is set.
                          </p>
               </li>
+              <li>
+                <p>
+                  <code class="literal">u_int32_t heap_version;</code>
+                </p>
+                <p>
+                              The version of the Heap database.  Returned if DB_FAST_STAT is set.
+                         </p>
+              </li>
             </ul>
           </div>
         </div>
@@ -455,7 +456,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp6123232"></a>Btree and Recno Statistics</h4>
+                <h4 class="title"><a id="idm140232243246688"></a>Btree and Recno Statistics</h4>
               </div>
             </div>
           </div>
@@ -688,7 +689,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp6157440"></a>Queue Statistics</h4>
+                <h4 class="title"><a id="idm140232243207168"></a>Queue Statistics</h4>
               </div>
             </div>
           </div>
@@ -824,7 +825,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp6151592"></a>Errors</h3>
+              <h3 class="title"><a id="idm140232243167264"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -842,7 +843,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp6140200"></a> <span>DbRepHandleDeadException or</span> DB_REP_HANDLE_DEAD</h4>
+                <h4 class="title"><a id="idm140232243323920"></a> <span>DbRepHandleDeadException or</span> DB_REP_HANDLE_DEAD</h4>
               </div>
             </div>
           </div>
@@ -864,7 +865,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp6110024"></a><span>DbDeadlockException or </span>DB_REP_LOCKOUT</h4>
+                <h4 class="title"><a id="idm140232243260704"></a><span>DbDeadlockException or </span>DB_REP_LOCKOUT</h4>
               </div>
             </div>
           </div>
@@ -881,7 +882,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp6124048"></a>EINVAL</h4>
+                <h4 class="title"><a id="idm140232243415120"></a>EINVAL</h4>
               </div>
             </div>
           </div>
@@ -894,7 +895,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp6110712"></a>Class</h3>
+              <h3 class="title"><a id="idm140232243159984"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -906,7 +907,7 @@ Db::stat(void *sp, u_int32_t flags); </pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp6123096"></a>See Also</h3>
+              <h3 class="title"><a id="idm140232243246080"></a>See Also</h3>
             </div>
           </div>
         </div>

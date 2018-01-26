@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2010, 2015 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2010, 2017 Oracle and/or its affiliates.  All rights reserved.
 #
 # $Id$
 #
@@ -1897,11 +1897,11 @@ proc z21 {} {
 		await_event $envB site_removed
 		await_event $envC site_removed
 		await_event $envA site_removed
+		$db close
 		$envD close
 		env_cleanup $testdir/dirD
 	}
 
-	$db close
 	$envB close
 	$envC close
 	$envA close

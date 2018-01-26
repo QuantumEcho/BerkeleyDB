@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2009, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2009, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  */
 using System;
@@ -29,7 +29,7 @@ namespace BerkeleyDB {
         /// <para>
         /// If the database environment already exists when
         /// <see cref="DatabaseEnvironment.Open"/> is called, the value of
-        /// Alignment will be ignored.
+        /// Alignment is ignored.
         /// </para>
         /// </remarks>
         public uint Alignment {
@@ -48,7 +48,7 @@ namespace BerkeleyDB {
         /// <remarks>
         /// <para>
         /// If both Increment and <see cref="MaxMutexes"/> are set, the value of
-        /// Increment will be silently ignored.
+        /// Increment is silently ignored.
         /// </para>
         /// <para>
         /// If the database environment already exists when
@@ -78,7 +78,7 @@ namespace BerkeleyDB {
         /// <para>
         /// If the database environment already exists when
         /// <see cref="DatabaseEnvironment.Open"/> is called, the value of
-        /// InitMutexes will be ignored.
+        /// InitMutexes is ignored.
         /// </para>
         /// </remarks>
         public uint InitMutexes {
@@ -106,12 +106,12 @@ namespace BerkeleyDB {
         /// </para>
         /// <para>
         /// If both <see cref="Increment"/> and MaxMutexes are set, the value of
-        /// Increment will be silently ignored.
+        /// Increment is silently ignored.
         /// </para>
         /// <para>
         /// If the database environment already exists when
         /// <see cref="DatabaseEnvironment.Open"/> is called, the value of
-        /// MaxMutexes will be ignored.
+        /// MaxMutexes is ignored.
         /// </para>
         /// </remarks>
         public uint MaxMutexes {

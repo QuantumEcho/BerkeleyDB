@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1999, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -798,13 +798,13 @@ __db_find_free(dbc, type, size, bstart, freep)
 		goto err;
 
 	if (nelems == 0) {
-		ret = DB_NOTFOUND;
+		ret = DBC_ERR(dbc, DB_NOTFOUND);
 		goto err;
 	}
 
 	for (i = 0; i < nelems; i++) {
 		if (list[i] > bstart) {
-			ret = DB_NOTFOUND;
+			ret = DBC_ERR(dbc, DB_NOTFOUND);
 			goto err;
 		}
 		start = i;
@@ -830,7 +830,7 @@ __db_find_free(dbc, type, size, bstart, freep)
 			goto found;
 		}
 	}
-	ret = DB_NOTFOUND;
+	ret = DBC_ERR(dbc, DB_NOTFOUND);
 	goto err;
 
 found:	/* We have size range of pages.  Remove them. */
@@ -1070,7 +1070,7 @@ __db_move_metadata(dbc, metap, c_data, pgs_donep)
 		 */
 		if (dbp->cur_txn != NULL)
 			__txn_remlock(dbp->env,
-			    dbp->cur_txn, &dbp->handle_lock, DB_LOCK_INVALIDID);
+			    dbp->cur_txn, &dbp->handle_lock, dbp->locker);
 
 		handle_lock = dbp->handle_lock;
 		if ((ret = __fop_lock_handle(dbp->env, dbp,

@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -192,8 +192,10 @@ __lock_id_free(env, sh_locker)
 	ENV *env;
 	DB_LOCKER *sh_locker;
 {
+	DB_LOCKER locker;
 	DB_LOCKREGION *region;
 	DB_LOCKTAB *lt;
+	DB_MSGBUF mb;
 	int ret;
 
 	lt = env->lk_handle;
@@ -201,9 +203,14 @@ __lock_id_free(env, sh_locker)
 	ret = 0;
 
 	if (sh_locker->nlocks != 0) {
-		__db_errx(env, DB_STR("2046",
-		    "Locker still has locks"));
-		ret = EINVAL;
+		locker = *sh_locker;
+		ret = USR_ERR(env, EINVAL);
+		__db_errx(env, DB_STR_A("2046",
+		    "Locker %d still has %d locks", "%d %d"),
+		    locker.id, locker.nlocks );
+		DB_MSGBUF_INIT(&mb);
+		(void)__lock_dump_locker(env, &mb, lt, sh_locker);
+		DB_MSGBUF_FLUSH(env, &mb);
 		goto err;
 	}
 
@@ -309,6 +316,7 @@ __lock_getlocker_int(lt, locker, create, ip, retp)
 
 	env = lt->env;
 	region = lt->reginfo.primary;
+	MUTEX_REQUIRED(env, region->mtx_lockers);
 
 	LOCKER_HASH(lt, region, locker, indx);
 
@@ -333,6 +341,10 @@ __lock_getlocker_int(lt, locker, create, ip, retp)
 			/* Create new locker and insert it into hash table. */
 			if ((sh_locker = SH_TAILQ_FIRST(
 			    &region->free_lockers, __db_locker)) == NULL) {
+				if (region->stat.st_maxlockers != 0 &&
+				    region->stat.st_maxlockers <= 
+				    region->stat.st_lockers)
+					return (__lock_nomem(env, "locker entries"));
 				nlockers = region->stat.st_lockers >> 2;
 				/* Just in case. */
 				if (nlockers == 0)
@@ -395,7 +407,7 @@ __lock_getlocker_int(lt, locker, create, ip, retp)
 				    sh_locker, links, __db_locker);
 				return (ret);
 			}
-			MUTEX_LOCK(env, sh_locker->mtx_locker);
+			MUTEX_LOCK_NO_CTR(env, sh_locker->mtx_locker);
 		}
 
 		++region->nlockers;
@@ -529,15 +541,21 @@ __lock_freelocker_int(lt, region, sh_locker, reallyfree)
 	int reallyfree;
 {
 	ENV *env;
+	DB_MSGBUF mb;
 	DB_THREAD_INFO *ip;
 	u_int32_t indx;
 	int ret;
 
 	env = lt->env;
-
-	if (SH_LIST_FIRST(&sh_locker->heldby, __db_lock) != NULL) {
-		__db_errx(env, DB_STR("2060", "Freeing locker with locks"));
-		return (EINVAL);
+	if (!SH_LIST_EMPTY(&sh_locker->heldby)) {
+		ret = USR_ERR(env, EINVAL);
+		__db_errx(env,
+		    DB_STR("2060", "Freeing locker %x with locks"),
+		    sh_locker->id);
+		DB_MSGBUF_INIT(&mb);
+		(void)__lock_dump_locker(env, &mb, lt, sh_locker);
+		DB_MSGBUF_FLUSH(env, &mb);
+		return (ret);
 	}
 
 	/* If this is part of a family, we must fix up its links. */
@@ -545,6 +563,7 @@ __lock_freelocker_int(lt, region, sh_locker, reallyfree)
 		SH_LIST_REMOVE(sh_locker, child_link, __db_locker);
 		sh_locker->master_locker = INVALID_ROFF;
 	}
+	sh_locker->parent_locker = INVALID_ROFF;
 
 	if (reallyfree) {
 		LOCKER_HASH(lt, region, sh_locker->id, indx);

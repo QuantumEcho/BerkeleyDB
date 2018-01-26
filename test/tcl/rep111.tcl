@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2012, 2015 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2012, 2017 Oracle and/or its affiliates.  All rights reserved.
 #
 # $Id$
 #
@@ -65,14 +65,29 @@ proc rep111 { method { niter 100 } { tnum "111" } args } {
 			puts "Rep$tnum: View logs are [lindex $l 2]"
 			rep111_sub $method $niter $tnum $envargs $l $v $args
 
-			# Skip encrypted tests if not supported
-			if { $has_crypto == 0 } {
+			# Run same tests with security if encryption
+			# is supported.
+			if { $has_crypto != 0 } {
+				# Run same tests with security.
+				set eenvargs $envargs
+				set eargs $args
+				append eenvargs " -encryptaes $passwd "
+				append eargs " -encrypt "
+				puts "Rep$tnum ($method $eenvargs $eargs\
+view($v)): Replication, views and client-to-client sync $msg $msg2 $msg3."
+				puts "Rep$tnum: Master logs are [lindex $l 0]"
+				puts "Rep$tnum: Client logs are [lindex $l 1]"
+				puts "Rep$tnum: View logs are [lindex $l 2]"
+				rep111_sub $method \
+				$niter $tnum $eenvargs $l $v $eargs
+			}
+
+			# Run same tests with blobs if blobs supported.
+			if { $databases_in_memory } {
 				continue
 			}
 
-			# Run same tests with security.
-			append envargs " -encryptaes $passwd "
-			append args " -encrypt "
+			append args " -blob_threshold 100"
 			puts "Rep$tnum ($method $envargs $args view($v)):\
 	Replication, views and client-to-client sync $msg $msg2 $msg3."
 			puts "Rep$tnum: Master logs are [lindex $l 0]"
@@ -255,7 +270,10 @@ proc rep111_sub { method niter tnum envargs logset view largs } {
 		"none" { set max_miss [expr $nfiles + 1] }
 		"odd" { set max_miss [expr [expr $nfiles / 2] + 2] }
 	}
-
+	# Enabling blobs produces 1 extra miss per replicated file.
+	if { [lsearch $largs "-blob_threshold"] != -1 } {
+		set max_miss [expr [expr $max_miss * 2] - 1]
+	}
 	error_check_good miss [expr $miss <= $max_miss] 1
 	#
 	# Verify the right files are replicated.

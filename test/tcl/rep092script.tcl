@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2010, 2015 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2010, 2017 Oracle and/or its affiliates.  All rights reserved.
 #
 # Rep092 script - multi-thread wake-ups in checking read-your-writes
 # consistency.
@@ -35,6 +35,7 @@ if { $rep_verbose == 1 } {
 
 # Join the client env.
 set queueenv [eval berkdb_env -home $testdir/MSGQUEUEDIR]
+error_check_good script_qenv_open [is_valid_env $queueenv] TRUE
 repladd 2
 set cl_cmd "berkdb_env_noerr -home $clientdir $verbargs \
 	-txn -rep_client -rep_transport \[list 2 replsend\]"
@@ -71,4 +72,4 @@ puts "DURATION: $duration"
 puts "DEADLOCK_COUNT: $count"
 
 $clientenv close
-$queueenv close
+replclose $testdir/MSGQUEUEDIR

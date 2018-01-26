@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2002, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2002, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  */
 
@@ -434,6 +434,7 @@ public class EntityStore
     /**
      * Closes all databases and sequences that were opened via this store.  The
      * caller must ensure that no databases opened via this store are in use.
+     *
      *
      * <p>WARNING: To guard against memory leaks, the application should
      * discard all references to the closed handle.  While BDB makes an effort

@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2001, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -194,8 +194,10 @@ __txn_lockevent(env, txn, dbp, lock, locker)
 
 /*
  * __txn_remlock --
- *	Remove a lock event because the locker is going away.  We can remove
- * by lock (using offset) or by locker_id (or by both).
+ *	Remove lock events when a database handle is closed and its locker
+ * is going away. Also used to remove lock events when its locker or lock
+ * is updated and is going to be replaced by a new event with the updated
+ * locker or lock.
  *
  * PUBLIC: void __txn_remlock __P((ENV *, DB_TXN *, DB_LOCK *, DB_LOCKER *));
  */
@@ -210,12 +212,12 @@ __txn_remlock(env, txn, lock, locker)
 
 	for (e = TAILQ_FIRST(&txn->events); e != NULL; e = next_e) {
 		next_e = TAILQ_NEXT(e, links);
-		if ((e->op != TXN_TRADE && e->op != TXN_TRADED &&
-		    e->op != TXN_XTRADE) ||
-		    (e->u.t.lock.off != lock->off && e->u.t.locker != locker))
-			continue;
-		TAILQ_REMOVE(&txn->events, e, links);
-		__os_free(env, e);
+		if ((e->op == TXN_TRADE || e->op == TXN_TRADED ||
+		    e->op == TXN_XTRADE) && e->u.t.locker == locker &&
+		    (lock == NULL || e->u.t.lock.off == lock->off)) {
+			TAILQ_REMOVE(&txn->events, e, links);
+			__os_free(env, e);
+		}
 	}
 
 	return;
@@ -564,9 +566,8 @@ __txn_reset_fe_watermarks(txn)
 {
 	DB *db;
 
-	if (txn->parent) {
+	if (txn->parent)
 		DB_ASSERT(txn->mgrp->env, TAILQ_FIRST(&txn->femfs) == NULL);
-	}
 
 	while ((db = TAILQ_FIRST(&txn->femfs)))
 		__clear_fe_watermark(txn, db);

@@ -4,6 +4,10 @@ TOP=`dirname $0`
 TOP=`cd $TOP && /bin/pwd`
 SQLITE=$TOP/../../lang/sql/sqlite
 
+# Excluded Tests
+#
+# thread1.test - Race condition can lead to hangs.
+#
 BDB_TESTS_PASSING="\
 aggerror.test
 alter.test
@@ -57,6 +61,7 @@ boundary4.test
 capi3d.test
 cast.test
 check.test
+closure01.test
 coalesce.test
 collate1.test
 collate2.test
@@ -113,13 +118,11 @@ in.test
 in2.test
 in3.test
 in4.test
-incrblob.test
 incrblob2.test
 incrblob4.test
 incrblob_err.test
 incrvacuum.test
 incrvacuum2.test
-incrvacuum_ioerr.test
 index.test
 index2.test
 index3.test
@@ -231,7 +234,6 @@ thread001.test
 thread003.test
 thread004.test
 thread005.test
-thread1.test
 thread2.test
 tkt-2a5629202f.test
 tkt-38cb5df375.test
@@ -301,10 +303,11 @@ where7.test
 where8.test
 where8m.test
 where9.test
-whereA.test
 whereB.test
 whereC.test
 wherelimit.test
+with1.test
+with2.test
 zeroblob.test"
 
 # Tests to run with blob files enabled
@@ -488,7 +491,6 @@ temptrigger.test
 thread001.test
 thread004.test
 thread005.test
-thread1.test
 thread2.test
 tkt-2a5629202f.test
 tkt-38cb5df375.test
@@ -585,8 +587,7 @@ fts3corrupt2.test
 fts3defer.test
 fts3malloc.test
 fts3matchinfo.test
-fts3rnd.test
-fts3shared.test"
+fts3rnd.test"
 
 BDB_RTREE_TESTS="\
 rtree1.test

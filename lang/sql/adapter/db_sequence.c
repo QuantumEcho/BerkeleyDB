@@ -1,7 +1,7 @@
 /*
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2010, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2010, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -80,6 +80,7 @@ static int btreeSeqPutCookie(
     sqlite3_context *context, Btree *p, SEQ_COOKIE *cookie, u_int32_t flags);
 static int btreeSeqRemoveHandle(
     sqlite3_context *context, Btree *p, CACHED_DB *cache_entry);
+static void btreeSeqSetSeqName(SEQ_COOKIE *cookie, const char *name);
 static int btreeSeqStartTransaction(
     sqlite3_context *context, Btree *p, int is_write);
 
@@ -98,6 +99,7 @@ static void db_seq_create_func(
 		    "create_sequence()");
 		return;
 	}
+	log_msg(LOG_NORMAL, "db_seq_create_func(%s)", sqlite3_value_text(argv[0]));
 	/*
 	 * Ensure that the sequence name is OK with our static buffer
 	 * size. We need extra characters for "seq_" and "_db".
@@ -128,9 +130,8 @@ static void db_seq_create_func(
 	memset(&cookie, 0, sizeof(SEQ_COOKIE));
 	cookie.incr = 1;
 
-	sqlite3_snprintf(BT_MAX_SEQ_NAME, cookie.name, "seq_%s",
-	    sqlite3_value_text(argv[0]));
-	cookie.name_len = (int)strlen(cookie.name);
+	btreeSeqSetSeqName(&cookie, sqlite3_value_text(argv[0]));
+	log_msg(LOG_NORMAL, "db_seq_drop_func(%s)", cookie.name);
 	if (pBt->dbStorage == DB_STORE_NAMED && btreeSeqExists(context, p,
 	    cookie.name) == 1) {
 		btreeSeqError(context, SQLITE_ERROR,
@@ -292,9 +293,8 @@ static void db_seq_drop_func(
 		return;
 	}
 
-	sqlite3_snprintf(BT_MAX_SEQ_NAME, cookie.name, "seq_%s",
-	    sqlite3_value_text(argv[0]));
-	cookie.name_len = (int)strlen(cookie.name);
+	btreeSeqSetSeqName(&cookie, sqlite3_value_text(argv[0]));
+	log_msg(LOG_NORMAL, "db_seq_drop_func(%s)", cookie.name);
 	rc = btreeSeqGetHandle(context, p, SEQ_HANDLE_OPEN, &cookie);
 	
 	if (rc != SQLITE_OK) {
@@ -372,6 +372,8 @@ static void btreeSeqGetVal(
 	p = db->aDb[0].pBt;
 	pBt = p->pBt;
 	memset(&cookie, 0, sizeof(cookie));
+	log_msg(LOG_NORMAL, "btreeSeqGetVal(%s, %s)", name,
+		mode == DB_SEQ_NEXT ? "next" : "current");
 
 	if (!p->connected &&
 	    (rc = btreeOpenEnvironment(p, 1)) != SQLITE_OK) {
@@ -381,8 +383,7 @@ static void btreeSeqGetVal(
 		return;
 	}
 
-	sqlite3_snprintf(BT_MAX_SEQ_NAME, cookie.name, "seq_%s", name);
-	cookie.name_len = (int)strlen(cookie.name);
+	btreeSeqSetSeqName(&cookie, name);
 	rc = btreeSeqGetHandle(context, p, SEQ_HANDLE_OPEN, &cookie);
 
 	if (rc != SQLITE_OK) {
@@ -516,6 +517,18 @@ static int btreeSeqGetHandle(sqlite3_context *context, Btree *p,
 		return (DB_NOINTMP);
 	}
 
+	/* Tell sqlite3VdbeHalt() that this step has a transaction to end. */
+	if (p->db->pVdbe->bIsReader == 0) {
+		p->db->pVdbe->bIsReader = 1;
+		p->db->nVdbeRead++;
+	}
+
+	/* Tell sqlite3VdbeHalt() that this step has a transaction to end. */
+	if (p->db->pVdbe->bIsReader == 0) {
+		p->db->pVdbe->bIsReader = 1;
+		p->db->nVdbeRead++;
+	}
+
 	/*
 	 * The process here is:
 	 * - Is the handle already in the cache - if so, just return.
@@ -610,6 +623,8 @@ static int btreeSeqGetHandle(sqlite3_context *context, Btree *p,
 	stale_db = sqlite3HashInsert(&pBt->db_cache, cache_entry->key,
 	    cookie->name_len, cache_entry);
 	if (stale_db) {
+		if (stale_db->cookie != NULL)
+			sqlite3_free(stale_db->cookie);
 		sqlite3_free(stale_db);
 		/*
 		 * Hash table out of memory when returned pointer is
@@ -617,8 +632,8 @@ static int btreeSeqGetHandle(sqlite3_context *context, Btree *p,
 		 */
 		if (stale_db == cache_entry) {
 			btreeSeqError(context, SQLITE_NOMEM, MSG_MALLOC_FAIL);
-			ret = SQLITE_NOMEM;
-			goto err;
+			sqlite3_mutex_leave(pBt->mutex);
+			return SQLITE_NOMEM;
 		}
 	}
 
@@ -864,6 +879,41 @@ static int btreeSeqPutCookie(
 }
 
 /*
+ * According to the documentation the sequence name should be converted
+ * to lowercase unless it is surrounded by quotation marks.
+ * This function assumes that the sequence name fits in the buffer to which
+ * cookie.name points.
+ */
+static void btreeSeqSetSeqName(SEQ_COOKIE *cookie, const char *name)
+{
+	char lowercase[BT_MAX_SEQ_NAME];
+	int i;
+	size_t len;
+
+	if (name == NULL) {
+		strcpy(cookie->name, "seq_");
+		cookie->name_len = 4;
+		return;
+	}
+
+	len = strlen(name);
+	if (name[0] == '"' && name[len-1] == '"')
+		sqlite3_snprintf(
+		    BT_MAX_SEQ_NAME, cookie->name, "seq_%s", name);
+	else {
+		memset(lowercase, 0, BT_MAX_SEQ_NAME);
+		for (i = 0; i < len; i++) {
+			lowercase[i] = sqlite3UpperToLower[*(name + i)];
+		}
+		sqlite3_snprintf(
+		    BT_MAX_SEQ_NAME, cookie->name, "seq_%s", lowercase);
+	}
+	cookie->name_len = (int)strlen(cookie->name);
+
+	return;
+}
+
+/*
  * SQLite manages explicit transactions by setting a flag when a BEGIN; is
  * issued, then starting an actual transaction in the btree layer when the
  * first operation happens (a read txn if it's a read op, a write txn if write)
@@ -874,7 +924,7 @@ static int btreeSeqPutCookie(
  *   write operations, and thus we need a valid statement_txn.
  * - In an explicit transaction, and the first statement. Start a txn and a
      statement txn.
- * - In an explicit transaction and not the first statemetn. Start a statement
+ * - In an explicit transaction and not the first statement. Start a statement
  *   transaction.
  *
  * The SQLite vdbe will take care of closing the statement transaction for us,

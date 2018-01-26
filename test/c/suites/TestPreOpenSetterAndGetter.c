@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2012, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2012, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -369,7 +369,7 @@ int TestEnvPreOpenSetterAndGetter(CuTest *ct) {
 	const char **dirs;
 	const u_int8_t *lk_get_conflicts;
 	u_int8_t lk_set_conflicts[] = {1, 0, 0, 0};
-	u_int32_t backup_configs[] = {
+	DB_BACKUP_CONFIG backup_configs[] = {
 		/*
 		 * DB_BACKUP_WRITE_DIRECT is not listed here, since the
 		 * value(only 1/0) for this configuration is different
@@ -486,7 +486,7 @@ int TestEnvPreOpenSetterAndGetter(CuTest *ct) {
 	CHECK_1_DIGIT_CONFIG_VALUE(dbenv, set_backup_config,
 	    get_backup_config, DB_BACKUP_WRITE_DIRECT, u_int32_t, 0);
 	CHECK_1_DIGIT_CONFIG_VALUES(dbenv, set_backup_config, get_backup_config,
-	    backup_configs, u_int32_t);
+	    backup_configs, DB_BACKUP_CONFIG);
 	
 	/* Test DB_ENV->set_create_dir(), DB_ENV->get_create_dir(). */
 	CHECK_1_STR_VALUE(dbenv, set_create_dir, get_create_dir, data_dirs[1]);

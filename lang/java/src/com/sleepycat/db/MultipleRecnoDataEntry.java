@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2002, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2002, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -127,7 +127,7 @@ public class MultipleRecnoDataEntry extends MultipleEntry {
     public boolean append(int recno, final byte[] data, int offset, int len)
         throws DatabaseException {
 
-        return append_internal(data, doff, dlen, recno);
+        return append_internal(data, offset, len, recno);
     }
 
     /**

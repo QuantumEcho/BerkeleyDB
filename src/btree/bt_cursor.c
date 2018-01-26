@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -938,7 +938,7 @@ __bamc_get(dbc, key, data, flags, pgnop)
 	case DB_CURRENT:
 		/* It's not possible to return a deleted record. */
 		if (F_ISSET(cp, C_DELETED)) {
-			ret = DB_KEYEMPTY;
+			ret = DBC_ERR(dbc, DB_KEYEMPTY);
 			goto err;
 		}
 
@@ -979,7 +979,7 @@ __bamc_get(dbc, key, data, flags, pgnop)
 				goto err;
 			if (flags == DB_GET_BOTH) {
 				if (!exact) {
-					ret = DB_NOTFOUND;
+					ret = DBC_ERR(dbc, DB_NOTFOUND);
 					goto err;
 				}
 				break;
@@ -1000,7 +1000,7 @@ __bamc_get(dbc, key, data, flags, pgnop)
 			    dbc, PGNO_INVALID, key, flags, &exact)) != 0)
 				return (ret);
 			if (!exact) {
-				ret = DB_NOTFOUND;
+				ret = DBC_ERR(dbc, DB_NOTFOUND);
 				goto err;
 			}
 
@@ -1047,7 +1047,7 @@ __bamc_get(dbc, key, data, flags, pgnop)
 		if ((ret = __bamc_next(dbc, 1, 0)) != 0)
 			goto err;
 		if (!IS_CUR_DUPLICATE(dbc, orig_pgno, orig_indx)) {
-			ret = DB_NOTFOUND;
+			ret = DBC_ERR(dbc, DB_NOTFOUND);
 			goto err;
 		}
 		break;
@@ -1077,7 +1077,7 @@ __bamc_get(dbc, key, data, flags, pgnop)
 		if ((ret = __bamc_prev(dbc)) != 0)
 			goto err;
 		if (!IS_CUR_DUPLICATE(dbc, orig_pgno, orig_indx)) {
-			ret = DB_NOTFOUND;
+			ret = DBC_ERR(dbc, DB_NOTFOUND);
 			goto err;
 		}
 		break;
@@ -1529,7 +1529,15 @@ get_space:
 	 * If we are not fetching keys, we may have stepped to the
 	 * next key.
 	 */
-	if (ret == DB_BUFFER_SMALL || next_key || pg_keyoff == inp[indx])
+	if (ret == DB_NOTFOUND && next_key && cp->indx >= NUM_ENT(cp->page)) {
+		/* 
+		 * We have run over the last record on the last page, 
+		 * back up the index.
+		 */
+		cp->indx -= adj;
+		if (dbc->dbtype == DB_RECNO)
+			cp->recno--;
+	} else if (ret == DB_BUFFER_SMALL || next_key || pg_keyoff == inp[indx])
 		cp->indx = indx;
 	else
 		cp->indx = indx - P_INDX;
@@ -1797,7 +1805,7 @@ __bam_getbothc(dbc, data)
 			return (ret);
 
 		if (cmp <= 0)
-			return (DB_NOTFOUND);
+			return (DBC_ERR(dbc, DB_NOTFOUND));
 
 		/* Discard the current page, we're going to do a full search. */
 		if ((ret = __memp_fput(mpf,
@@ -1820,7 +1828,7 @@ __bam_getbothc(dbc, data)
 	 */
 	if (cp->indx + P_INDX >= NUM_ENT(cp->page) ||
 	    !IS_DUPLICATE(dbc, cp->indx, cp->indx + P_INDX))
-		return (DB_NOTFOUND);
+		return (DBC_ERR(dbc, DB_NOTFOUND));
 	cp->indx += P_INDX;
 
 	return (__bam_getboth_finddatum(dbc, data, DB_GET_BOTH));
@@ -2009,7 +2017,7 @@ __bam_getboth_finddatum(dbc, data, flags)
 	 */
 	if (dbp->dup_compare == NULL) {
 		for (;; cp->indx += P_INDX) {
-			if (!IS_CUR_DELETED(dbc)) {
+			if (!IS_DELETED(dbp, cp->page, cp->indx)) {
 				if ((ret = __bam_cmp(
 				    dbc, data, cp->page, cp->indx + O_INDX,
 				    __bam_defcmp, &cmp, NULL)) != 0)
@@ -2022,7 +2030,8 @@ __bam_getboth_finddatum(dbc, data, flags)
 			    !IS_DUPLICATE(dbc, cp->indx, cp->indx + P_INDX))
 				break;
 		}
-		return (DB_NOTFOUND);
+
+		return (DBC_ERR(dbc, DB_NOTFOUND));
 	}
 
 	/*
@@ -2043,7 +2052,7 @@ __bam_getboth_finddatum(dbc, data, flags)
 		if (cmp == 0 || (cmp < 0 && flags == DB_GET_BOTH_RANGE))
 			return (0);
 		cp->indx = top;
-		return DB_NOTFOUND;
+		return (DBC_ERR(dbc, DB_NOTFOUND));
 	}
 
 	for (lim = (top - base) / (db_indx_t)P_INDX; lim != 0; lim >>= 1) {
@@ -2059,6 +2068,11 @@ __bam_getboth_finddatum(dbc, data, flags)
 			 */
 			if (!IS_CUR_DELETED(dbc))
 				return (0);
+			/* 
+			 * Advance base so that by the end of the loop, base is always
+			 * the smallest index greater than the data item.
+			 */
+			base = cp->indx + P_INDX;
 			break;
 		}
 		if (cmp > 0) {
@@ -2069,7 +2083,7 @@ __bam_getboth_finddatum(dbc, data, flags)
 
 	/* No match found; if we're looking for an exact match, we're done. */
 	if (flags == DB_GET_BOTH)
-		return (DB_NOTFOUND);
+		return (DBC_ERR(dbc, DB_NOTFOUND));
 
 	/*
 	 * Base is the smallest index greater than the data item, may be zero
@@ -2079,7 +2093,7 @@ __bam_getboth_finddatum(dbc, data, flags)
 	cp->indx = base;
 	while (cp->indx < top && IS_CUR_DELETED(dbc))
 		cp->indx += P_INDX;
-	return (cp->indx < top ? 0 : DB_NOTFOUND);
+	return (cp->indx < top ? 0 : DBC_ERR(dbc, DB_NOTFOUND));
 }
 
 /*
@@ -2112,7 +2126,7 @@ split:	ret = stack = 0;
 	switch (flags) {
 	case DB_CURRENT:
 		if (F_ISSET(cp, C_DELETED))
-			return (DB_NOTFOUND);
+			return (DBC_ERR(dbc, DB_NOTFOUND));
 		/* FALLTHROUGH */
 	case DB_AFTER:
 	case DB_BEFORE:
@@ -2510,7 +2524,7 @@ __bamc_next(dbc, initial_move, deleted_okay)
 		 */
 		if (cp->indx >= NUM_ENT(cp->page)) {
 			if ((pgno = NEXT_PGNO(cp->page)) == PGNO_INVALID)
-				return (DB_NOTFOUND);
+				return (DBC_ERR(dbc, DB_NOTFOUND));
 
 			ACQUIRE_CUR(dbc, lock_mode, pgno, 0, ret);
 			if (ret != 0)
@@ -2570,7 +2584,7 @@ __bamc_prev(dbc)
 		if (cp->indx == 0) {
 			if ((pgno =
 			    PREV_PGNO(cp->page)) == PGNO_INVALID)
-				return (DB_NOTFOUND);
+				return (DBC_ERR(dbc, DB_NOTFOUND));
 
 			ACQUIRE_CUR(dbc, lock_mode, pgno, 0, ret);
 			if (ret != 0)
@@ -2746,7 +2760,7 @@ __bamc_search(dbc, root_pgno, key, flags, exactp)
 			goto fast_miss;
 		if (cmp > 0) {
 			if (FLD_ISSET(sflags, SR_EXACT))
-				return (DB_NOTFOUND);
+				return (DBC_ERR(dbc, DB_NOTFOUND));
 			else
 				indx += P_INDX;
 		}
@@ -2759,7 +2773,7 @@ __bamc_search(dbc, root_pgno, key, flags, exactp)
 		    t->bt_compare, &cmp, NULL)) != 0)
 			goto fast_miss;
 		if (cmp < 0 && FLD_ISSET(sflags, SR_EXACT))
-			return (DB_NOTFOUND);
+			return (DBC_ERR(dbc, DB_NOTFOUND));
 		if (cmp <= 0)
 			goto fast_hit;
 	}
@@ -2783,7 +2797,7 @@ __bamc_search(dbc, root_pgno, key, flags, exactp)
 		indx = base;
 		if (indx > 0 && indx < NUM_ENT(h)) {
 			if (FLD_ISSET(sflags, SR_EXACT))
-				return (DB_NOTFOUND);
+				return (DBC_ERR(dbc, DB_NOTFOUND));
 			goto fast_hit;
 		}
 	}
@@ -3099,7 +3113,7 @@ __bam_opd_exists(dbc, pgno)
 	if (NUM_ENT(h) == 0)
 		ret = 0;
 	else
-		ret = DB_KEYEXIST;
+		ret = DBC_ERR(dbc, DB_KEYEXIST);
 
 	(void)__memp_fput(dbc->dbp->mpf, dbc->thread_info, h, dbc->priority);
 

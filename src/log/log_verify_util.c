@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -460,6 +460,7 @@ __lv_lsn_cmp(db, dbt1, dbt2, locp)
 	memcpy(&lsn1, dbt1->data, sizeof(DB_LSN));
 	memcpy(&lsn2, dbt2->data, sizeof(DB_LSN));
 
+	COMPQUIET(db, NULL);
 	return (LOG_COMPARE(&lsn1, &lsn2));
 }
 
@@ -1685,6 +1686,7 @@ __lv_txnrgns_lsn_cmp (db, d1, d2, locp)
 	memcpy(&r1, d1->data, d1->size);
 	memcpy(&r2, d2->data, d2->size);
 
+	COMPQUIET(db, NULL);
 	return (LOG_COMPARE(&(r1.end), &(r2.end)));
 }
 

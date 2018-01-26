@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -26,6 +26,7 @@ static int	__env_init_rec_47 __P((ENV *));
 static int	__env_init_rec_48 __P((ENV *));
 static int	__env_init_rec_53 __P((ENV *));
 static int	__env_init_rec_60 __P((ENV *));
+static int	__env_init_rec_60p1 __P((ENV *));
 static int	__log_earliest __P((ENV *, DB_LOGC *, int32_t *, DB_LSN *));
 
 static double	__lsn_diff __P((DB_LSN *, DB_LSN *, DB_LSN *, u_int32_t, int));
@@ -57,7 +58,6 @@ __db_apprec(env, ip, max_lsn, trunclsn, update, flags)
 	DB_TXNHEAD *txninfo;
 	DB_TXNREGION *region;
 	REGENV *renv;
-	REGINFO *infop;
 	__txn_ckp_args *ckp_args;
 	time_t now, tlow;
 	double nfiles;
@@ -85,13 +85,18 @@ __db_apprec(env, ip, max_lsn, trunclsn, update, flags)
 	log_size = ((LOG *)env->lg_handle->reginfo.primary)->log_size;
 
 	/*
+	 * When truly recovering (i.e., not replication) change the environment
+	 * magic from 0 (newly created) to recovery-in-progress.
+	 */
+	renv = env->reginfo->primary;
+	if (LF_ISSET(DB_RECOVER | DB_RECOVER_FATAL))
+		renv->magic = DB_REGION_MAGIC_RECOVER;
+
+	/*
 	 * If we need to, update the env handle timestamp.
 	 */
-	if (update && REP_ON(env)) {
-		infop = env->reginfo;
-		renv = infop->primary;
+	if (update && REP_ON(env))
 		(void)time(&renv->rep_timestamp);
-	}
 
 	/* Set in-recovery flags. */
 	F_SET(env->lg_handle, DBLOG_RECOVER);
@@ -629,6 +634,12 @@ err:	if (logc != NULL && (t_ret = __logc_close(logc)) != 0 && ret == 0)
 
 	dbenv->tx_timestamp = 0;
 
+	/*
+	 * Failure means that the env has panicked. Disable locking so that the
+	 * env can close without its mutexes calls causing additional panics.
+	 */
+	if (ret != 0)
+		F_SET(env->dbenv, DB_ENV_NOLOCKING);
 	F_CLR(env->lg_handle, DBLOG_RECOVER);
 	F_CLR(region, TXN_IN_RECOVERY);
 
@@ -726,7 +737,7 @@ __log_backup(env, logc, max_lsn, start_lsn)
 		 * done.  Break with DB_NOTFOUND.
 		 */
 		if (IS_ZERO_LSN(lsn)) {
-			ret = DB_NOTFOUND;
+			ret = USR_ERR(env, DB_NOTFOUND);
 			break;
 		}
 		__os_free(env, ckp_args);
@@ -928,6 +939,12 @@ __env_init_rec(env, version)
 	 */
 	if (version == DB_LOGVERSION)
 		goto done;
+
+	/* DB_LOGVERSION_61 add the blob file id to the dbreg logs. */
+	if (version > DB_LOGVERSION_60p1)
+		goto done;
+	if ((ret = __env_init_rec_60p1(env)) != 0)
+		goto err;
 
 	/*
 	 * DB_LOGVERSION_60p1 changed the two u_int32_t offset fields in the
@@ -1165,7 +1182,24 @@ __env_init_rec_60(env)
 	if ((ret = __db_add_recovery_int(env, &env->recover_dtab,
 	    __fop_write_file_60_recover, DB___fop_write_file_60)) != 0)
 		goto err;
+err:
+	return (ret);
+}
 
+static int
+__env_init_rec_60p1(env)
+	ENV *env;
+{
+	int ret;
+
+	if ((ret = __db_add_recovery_int(env, &env->recover_dtab,
+	    __dbreg_register_42_recover, DB___dbreg_register_42)) != 0)
+		goto err;
+#ifdef HAVE_HEAP
+	if ((ret = __db_add_recovery_int(env, &env->recover_dtab,
+	    __heap_addrem_60_recover, DB___heap_addrem_60)) != 0)
+		goto err;
+#endif
 err:
 	return (ret);
 }

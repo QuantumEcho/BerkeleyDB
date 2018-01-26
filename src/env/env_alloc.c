@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -219,6 +219,14 @@ __env_alloc(infop, len, retp)
 	MUTEX_REQUIRED(env, infop->mtx_alloc);
 #endif
 
+	if (len == 0) {
+#ifdef DIAGNOSTIC
+		__db_errx(env, DB_STR("1597", "allocation of 0-length block"));
+		__os_stack(env);
+#endif
+		return (EINVAL);
+	}
+
 	PERFMON3(env, mpool, env_alloc, len, infop->id, infop->type);
 	/*
 	 * In a heap-backed environment, we call malloc for additional space.
@@ -252,7 +260,7 @@ __env_alloc(infop, len, retp)
 		/* Check if we're over the limit. */
 		if (envinfop->max_alloc != 0 &&
 		     envinfop->allocated + len > envinfop->max_alloc)
-			return (ENOMEM);
+			return (USR_ERR(env, ENOMEM));
 
 		/* Allocate the space. */
 		if ((ret = __os_malloc(env, len, &p)) != 0)
@@ -339,7 +347,7 @@ retry:
 	 * the region, if not then we are done.
 	 */
 	if (elp == NULL) {
-		ret = ENOMEM;
+		ret = USR_ERR(env, ENOMEM);
 #ifdef HAVE_MMAP_EXTEND
 		if (infop->rp->size < infop->rp->max &&
 		     (ret = __env_region_extend(env, infop)) == 0)
@@ -511,6 +519,7 @@ __env_alloc_extend(infop, ptr, lenp)
 	head = infop->head;
 
 	p = ptr;
+	*lenp = DB_ALIGN(*lenp, sizeof(uintmax_t));
 	len = *lenp;
 	elp = (ALLOC_ELEMENT *)(p - sizeof(ALLOC_ELEMENT));
 #ifdef DIAGNOSTIC
@@ -624,7 +633,7 @@ __env_region_extend(env, infop)
 	ret = 0;
 	rp = infop->rp;
 	if (rp->size >= rp->max)
-		return (ENOMEM);
+		return (USR_ERR(env, ENOMEM));
 	elp = (ALLOC_ELEMENT *)((u_int8_t *)infop->addr + rp->size);
 	if (rp->size + rp->alloc > rp->max)
 		rp->alloc = rp->max - rp->size;

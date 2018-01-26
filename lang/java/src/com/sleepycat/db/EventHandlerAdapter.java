@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2000, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2000, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -72,6 +72,11 @@ public abstract class EventHandlerAdapter implements EventHandler {
     callback.
     */
     public void handleRepInitDoneEvent() {}
+    /**
+    see {@link com.sleepycat.db.EventHandler#handleRepInQueueFullEvent EventHandler.handleRepInQueueFullEvent}for details of this
+    callback.
+    */
+    public void handleRepInQueueFullEvent() {}
     /**
     See {@link com.sleepycat.db.EventHandler#handleRepJoinFailureEvent EventHandler.handleRepJoinFailureEvent} for details of this
     callback.

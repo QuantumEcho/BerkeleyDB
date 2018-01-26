@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -21,7 +21,7 @@
 
 #ifndef lint
 static const char copyright[] =
-    "Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.\n";
+    "Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.\n";
 #endif
 
 int db_printlog_print_app_record __P((DB_ENV *, DBT *, DB_LSN *, db_recops));
@@ -32,6 +32,7 @@ int db_printlog_env_init_print_47 __P((ENV *, DB_DISTAB *));
 int db_printlog_env_init_print_48 __P((ENV *, DB_DISTAB *));
 int db_printlog_env_init_print_53 __P((ENV *, DB_DISTAB *));
 int db_printlog_env_init_print_60 __P((ENV *, DB_DISTAB *));
+int db_printlog_env_init_print_61 __P((ENV *, DB_DISTAB *));
 int db_printlog_lsn_arg __P((char *, DB_LSN *));
 int db_printlog_main __P((int, char *[]));
 int db_printlog_open_rep_db __P((DB_ENV *, DB **, DBC **));
@@ -222,7 +223,7 @@ db_printlog_main(argc, argv)
 	}
 
 	/*
-	 * Set data_len after environment opens. We want the value passed
+	 * Set data_len after environment opens.  The value passed
 	 * by -D takes priority.
 	 */
 	if (data_len != NULL && (ret = dbenv->set_data_len(dbenv,
@@ -649,7 +650,20 @@ db_printlog_env_init_print_60(env, dtabp)
 	    __fop_write_file_60_print, DB___fop_write_file_60)) != 0)
 		goto err;
 
- err:	return (ret);
+err:	return (ret);
+}
+
+int
+db_printlog_env_init_print_61(env, dtabp)
+	ENV *env;
+	DB_DISTAB *dtabp;
+{
+	int ret;
+
+	ret = __db_add_recovery_int(env,
+	     dtabp,__dbreg_register_42_print, DB___dbreg_register_42);
+
+	return (ret);
 }
 
 int
@@ -751,8 +765,10 @@ db_printlog_open_rep_db(dbenv, dbpp, dbcp)
 
 	return (0);
 
-err:	if (*dbpp != NULL)
+err:	if (*dbpp != NULL) {
 		(void)(*dbpp)->close(*dbpp, 0);
+		*dbpp = NULL;
+	}
 	return (ret);
 }
 

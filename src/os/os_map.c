@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -99,6 +99,9 @@ __os_attach(env, infop, rp)
 		 * recovery will get us straightened out.
 		 */
 		if (F_ISSET(infop, REGION_CREATE)) {
+			int oldid;
+
+			oldid = 0;
 			/*
 			 * The application must give us a base System V IPC key
 			 * value.  Adjust that value based on the region's ID,
@@ -106,9 +109,10 @@ __os_attach(env, infop, rp)
 			 * the ipcs output.
 			 */
 			if (dbenv->shm_key == INVALID_REGION_SEGID) {
+				ret = USR_ERR(env, EINVAL);
 				__db_errx(env, DB_STR("0115",
 			    "no base system shared memory ID specified"));
-				return (EINVAL);
+				return (ret);
 			}
 
 			/*
@@ -130,11 +134,13 @@ __os_attach(env, infop, rp)
 			 */
 			if ((id = shmget(segid, 0, 0)) != -1) {
 				(void)shmctl(id, IPC_RMID, NULL);
+				oldid = id;
 				if ((id = shmget(segid, 0, 0)) != -1) {
+					ret = USR_ERR(env, EAGAIN);
 					__db_errx(env, DB_STR_A("0116",
 		"shmget: key: %ld: shared system memory region already exists",
 					    "%ld"), (long)segid);
-					return (EAGAIN);
+					return (ret);
 				}
 			}
 
@@ -144,12 +150,20 @@ __os_attach(env, infop, rp)
 			 */
 			mode = IPC_CREAT | __shm_mode(env);
 			if ((id = shmget(segid, rp->max, mode)) == -1) {
-				ret = __os_get_syserr();
+				ret = USR_ERR(env, __os_get_syserr());
 				__db_syserr(env, ret, DB_STR_A("0117",
 	"shmget: key: %ld: unable to create shared system memory region",
 				    "%ld"), (long)segid);
 				return (__os_posix_err(ret));
 			}
+			/*
+			 * When the first shmem region is recreated, print old &
+			 * new ids.
+			 */
+			if (oldid != 0 && segid == dbenv->shm_key)
+				__db_errx(env,
+	"__os_attach() env region: removed id %d and created %d from key %d",
+				    oldid, id, segid);
 			rp->size = rp->max;
 			rp->segid = id;
 		} else
@@ -161,7 +175,7 @@ __os_attach(env, infop, rp)
 			__db_syserr(env, ret, DB_STR_A("0118",
 	"shmat: id %d: unable to attach to shared system memory region",
 			    "%d"), id);
-			return (__os_posix_err(ret));
+			return (USR_ERR(env, __os_posix_err(ret)));
 		}
 
 		/* Optionally lock the memory down. */
@@ -264,7 +278,7 @@ __os_detach(env, infop, destroy)
 {
 	DB_ENV *dbenv;
 	REGION *rp;
-	int ret;
+	int ret, t_ret;
 
 	/*
 	 * We pass a DB_ENV handle to the user's replacement unmap function,
@@ -272,6 +286,7 @@ __os_detach(env, infop, destroy)
 	 */
 	DB_ASSERT(env, env != NULL && env->dbenv != NULL);
 	dbenv = env->dbenv;
+	ret = 0;
 
 	/*
 	 * Don't use a region which is no longer valid, e.g., after the
@@ -279,7 +294,7 @@ __os_detach(env, infop, destroy)
 	 */
 	rp = infop->rp;
 	if ((rp->id != 0 && rp->id != infop->id) ||
-	    rp->type <= INVALID_REGION_TYPE || rp->type > REGION_TYPE_MAX) 
+	    rp->type <= INVALID_REGION_TYPE || rp->type > REGION_TYPE_MAX)
 		return (EINVAL);
 
 	/* If the user replaced the unmap call, call through their interface. */
@@ -330,16 +345,26 @@ __os_detach(env, infop, destroy)
 			return (ret);
 	}
 
+	if (F_ISSET(env, ENV_FORCESYNCENV))
+		if (msync(infop->addr, rp->max, MS_INVALIDATE | MS_SYNC) != 0) {
+			t_ret = __os_get_syserr();
+			__db_syserr(env, t_ret, DB_STR("0248",
+			    "msync failed on closing environment"));
+			if (ret == 0)
+				ret = t_ret;
+		}
+
 	if (munmap(infop->addr, rp->max) != 0) {
-		ret = __os_get_syserr();
-		__db_syserr(env, ret, DB_STR("0123", "munmap"));
-		return (__os_posix_err(ret));
+		t_ret = __os_get_syserr();
+		__db_syserr(env, t_ret, DB_STR("0123", "munmap"));
+		if (ret == 0)
+			ret = t_ret;
 	}
 
-	if (destroy && (ret = __os_unlink(env, infop->name, 1)) != 0)
-		return (ret);
+	if (destroy && (t_ret = __os_unlink(env, infop->name, 1)) != 0 && ret == 0)
+		ret = t_ret;
 
-	return (0);
+	return (ret);
 #else
 	COMPQUIET(destroy, 0);
 	COMPQUIET(ret, 0);

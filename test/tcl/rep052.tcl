@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2004, 2015 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2004, 2017 Oracle and/or its affiliates.  All rights reserved.
 #
 # $Id$
 #
@@ -289,4 +289,5 @@ proc rep052_sub { method niter tnum envargs logset recargs largs } {
 	error_check_good masterenv_close [$masterenv close] 0
 	error_check_good clientenv_close [$clientenv close] 0
 	replclose $testdir/MSGQUEUEDIR
+	puts "\tRep$tnum.j: All envs closed."
 }

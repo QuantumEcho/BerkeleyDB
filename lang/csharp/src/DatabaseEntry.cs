@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2009, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2009, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  */
 using System;
@@ -131,7 +131,7 @@ namespace BerkeleyDB {
         }
 
     /// <summary>
-    /// Set this DatabaseEntry as read only - that is Berkeley DB will not
+    /// Set this DatabaseEntry as read only - Berkeley DB cannot
     /// alter the entry.
     /// </summary>
         public bool ReadOnly {

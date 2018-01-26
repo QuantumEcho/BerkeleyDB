@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -170,6 +170,7 @@ struct __db_locker { /* SHARED */
 #define	DB_LOCKER_FAMILY_LOCKER 0x0008	/* Part of a family of lockers. */
 #define	DB_LOCKER_HANDLE_LOCKER 0x0010	/* Not associated with a thread. */
 #define	DB_LOCKER_FREE 		0x0020	/* Diag: it is on the free list. */
+#define	DB_LOCKER_TRADED	0x0040	/* Diag: lock_trade cleared parent. */
 	u_int32_t flags;
 };
 
@@ -226,8 +227,9 @@ struct __db_locktab {
 
 struct __db_lock { /* SHARED */
 	/*
-	 * Wait on mutex to wait on lock.  You reference your own mutex with
-	 * ID 0 and others reference your mutex with ID 1.
+	 * Wait on this mutex to wait on lock. You create this struct and 
+	 * MUTEX_LOCK() it once, then do so again, in order to block. Some other
+	 * thread will MUTEX_UNLOCK() it after removing its conflicting lock.
 	 */
 	db_mutex_t	mtx_lock;
 

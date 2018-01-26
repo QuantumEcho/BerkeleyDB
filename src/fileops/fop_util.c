@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2001, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -60,7 +60,7 @@ static int __fop_ondisk_swap __P((DB *, DB *, DB_TXN *,
 #define	RESET_MPF(D, F) do {						\
 	(void)__memp_fclose((D)->mpf, (F));				\
 	(D)->mpf = NULL;						\
-	F_CLR((D), DB_AM_OPEN_CALLED);					\
+	F2_CLR((D), DB2_AM_MPOOL_OPENED);				\
 	if ((ret = __memp_fcreate((D)->env, &(D)->mpf)) != 0)		\
 		goto err;						\
 } while (0)
@@ -955,8 +955,8 @@ DB_TEST_RECOVERY_LABEL
 	 */
 	if (!F_ISSET(dbp, DB_AM_RECOVER) && IS_REAL_TXN(txn)) {
 		/* Unregister old master events. */
-		 __txn_remlock(env,
-		    txn, &mdbp->handle_lock, DB_LOCK_INVALIDID);
+		__txn_remlock(env,
+		    txn, &mdbp->handle_lock, dbp->locker);
 
 		/* Now register the new event. */
 		if ((t_ret = __txn_lockevent(env, txn, dbp,
@@ -1420,6 +1420,8 @@ __fop_inmem_read_meta(dbp, txn, name, flags, chkflags)
 	} else
 		ret = __db_meta_setup(
 		    dbp->env, dbp, name, metap, flags, chkflags);
+	if (ret == DB_CHKSUM_FAIL)
+		ret = DB_META_CHKSUM_FAIL;
 
 	if ((t_ret =
 	    __memp_fput(dbp->mpf, ip, metap, dbp->priority)) && ret == 0)

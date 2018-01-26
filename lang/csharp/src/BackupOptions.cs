@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2011, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2011, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  */
 using System;
@@ -46,7 +46,7 @@ namespace BerkeleyDB {
         /// </summary>
         public bool Update;
         /// <summary>
-        /// Specify whether the target directory will be created if it does not
+        /// Specify whether the target directory is created if it does not
         /// already exist.
         /// </summary>
         public CreatePolicy Creation = CreatePolicy.NEVER;

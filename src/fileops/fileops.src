@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2001, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -195,6 +195,7 @@ END
  * tmp_fid:	The unique fid of the tmp file that is removed.
  * name:	The pre- __db_appname name of the file
  * child:	The transaction that removed or renamed the file.
+ */
  */
 BEGIN_COMPAT file_remove	60	141
 DBT	real_fid	DBT	s

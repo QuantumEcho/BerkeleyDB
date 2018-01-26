@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -120,6 +120,12 @@ __lock_set_lk_conflicts(dbenv, lk_conflicts, lk_modes)
 	env = dbenv->env;
 
 	ENV_ILLEGAL_AFTER_OPEN(env, "DB_ENV->set_lk_conflicts");
+
+	if (lk_modes == 0) {
+		__db_errx(env, DB_STR("2077",
+		    "DB_ENV->set_lk_conflicts: nmodes cannot be 0."));
+		return (EINVAL);
+	}
 
 	if (dbenv->lk_conflicts != NULL) {
 		__os_free(env, dbenv->lk_conflicts);
@@ -410,6 +416,12 @@ __lock_set_lk_partitions(dbenv, lk_partitions)
 	env = dbenv->env;
 
 	ENV_ILLEGAL_AFTER_OPEN(env, "DB_ENV->set_lk_partitions");
+
+	if (lk_partitions == 0) {
+		__db_errx(env, DB_STR("2076",
+		    "DB_ENV->set_lk_partitions: partitions cannot be 0."));
+		return (EINVAL);
+	}
 
 	dbenv->lk_partitions = lk_partitions;
 	return (0);

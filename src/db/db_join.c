@@ -1,7 +1,7 @@
 /*
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1998, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1998, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -796,7 +796,10 @@ __db_join_getnext(dbc, key, data, exhausted, opmods)
 	int (*func) __P((DB *, const DBT *, const DBT *, size_t *));
 
 	dbp = dbc->dbp;
-	func = (dbp->dup_compare == NULL) ? __bam_defcmp : dbp->dup_compare;
+	if (dbp->dup_compare == NULL)
+		func = __bam_defcmp;
+	else
+		(void)dbp->get_dup_compare(dbp, &func);
 
 	switch (exhausted) {
 	case 0:

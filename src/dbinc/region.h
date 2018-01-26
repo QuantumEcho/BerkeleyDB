@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1998, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1998, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -172,13 +172,25 @@ typedef struct __db_reg_env { /* SHARED */
 	 * this reason cannot be anything more complicated than zero/non-zero.
 	 */
 	u_int32_t magic;		/* Valid region magic number. */
-	u_int32_t panic;		/* Environment is dead. */
+	u_int32_t defunct_panic;	/* Environment is dead. (Defunct) */
 
 	u_int32_t majver;		/* Major DB version number. */
 	u_int32_t minver;		/* Minor DB version number. */
 	u_int32_t patchver;		/* Patch DB version number. */
 
-	u_int32_t envid;		/* Unique environment ID. */
+	/*
+	 * The environment ID is assigned during environment creation.  If it is
+	 * ENVID_UNKNOWN (0) then the creation is still in progress, and the
+	 * shared (on-disk or in shared memory) environment is not yet valid.
+	 * If it is ENVID_PANIC then a fatal error has been detected; either
+	 * environment recovery is (DB_ENV->open(DB_RECOVER)) is needed or 
+	 * the environment need to be removed and any active database files
+	 * must be removed or restored from backups.  If this envid does not
+	 * match ENV->envid, then the environment has been recreated "out from
+	 * underneath" that (now stale) ENV handle; the ENV must be closed and,
+	 * if the process continues running, reopened, perhaps with DB_RECOVER.
+	 */
+	u_int32_t envid;
 
 	u_int32_t signature;		/* Structure signatures. */
 
@@ -231,12 +243,17 @@ typedef struct __db_reg_env { /* SHARED */
 	time_t	  op_timestamp;		/* Timestamp for operations. */
 	time_t	  rep_timestamp;	/* Timestamp for rep db handles. */
 	u_int32_t reg_panic;		/* DB_REGISTER triggered panic */
+	u_int32_t failure_panic;	/* Failchk or mutex lock saw a crash. */
+	char	  failure_symptom[DB_FAILURE_SYMPTOM_SIZE];
 	uintmax_t unused;		/* The ALLOC_LAYOUT structure follows
 					 * the REGENV structure in memory and
 					 * contains uintmax_t fields.  Force
 					 * proper alignment of that structure.
 					 */
 } REGENV;
+
+#define	ENVID_UNKNOWN	0		/* Envid has not yet been assigned. */
+#define	ENVID_PANIC	((u_int32_t)~0)	/* Indicate a panic. */
 
 /* Per-region shared region information. */
 typedef struct __db_region { /* SHARED */
@@ -313,14 +330,16 @@ struct __db_reginfo_t {		/* __env_region_attach IN parameters. */
 /*
  * PANIC_ISSET, PANIC_CHECK:
  *	Check to see if the DB environment is dead. If the environment is still
- *	attached to its regions, look in the REGENV. Otherwise, check whether
- *	the region had the panic state set when this even detached from it.
+ *	attached to its regions, look in the REGENV: on a panic the envid is
+ *	complemented so that any attached handles fail. If not attached, check
+ *	whether the env had detected a panic state before the detach.
  */
-#define	PANIC_ISSET(env)						\
-	((env) != NULL && ((env)->reginfo != NULL ?			\
-	    ((REGENV *)(env)->reginfo->primary)->panic != 0 :		\
-	    F_ISSET(env, ENV_REMEMBER_PANIC)) &&			\
-	    !F_ISSET((env)->dbenv, DB_ENV_NOPANIC))
+#define	PANIC_ISSET(env)						   \
+	((env) != NULL && ((env)->reginfo != NULL ?			   \
+	    (((REGENV *)(env)->reginfo->primary)->envid != (env)->envid && \
+	    env->envid != ENVID_UNKNOWN) :				   \
+	    F_ISSET(env, ENV_REMEMBER_PANIC)) &&			   \
+	    !F_ISSET(env->dbenv, DB_ENV_NOPANIC))
 
 #define	PANIC_CHECK(env)						\
 	if (PANIC_ISSET(env))						\

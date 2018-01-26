@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2001, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -335,6 +335,11 @@ public class RepQuoteExampleGSG implements EventHandler
     }
 
     public void handleRepInitDoneEvent()
+    {
+        // Ignored for now.
+    }
+
+    public void handleRepInQueueFullEvent()
     {
         // Ignored for now.
     }

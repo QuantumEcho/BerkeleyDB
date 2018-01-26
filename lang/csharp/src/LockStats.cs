@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2009, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2009, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  */
 using System;
@@ -167,11 +167,11 @@ namespace BerkeleyDB {
         /// </summary>
         public uint MaxUnusedID { get { return st.st_cur_maxid; } }
         /// <summary>
-        /// Maximum num of objects in table. 
+        /// Maximum number of objects in table. 
         /// </summary>
         public uint MaxObjectsInTable { get { return st.st_maxobjects; } }
         /// <summary>
-        /// number of partitions. 
+        /// Number of partitions. 
         /// </summary>
         public uint nPartitions { get { return st.st_partitions; } }
         /// <summary>

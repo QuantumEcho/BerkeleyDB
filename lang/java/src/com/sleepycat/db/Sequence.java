@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2001, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -126,5 +126,23 @@ must be specified.
         throws DatabaseException {
 
         return seq.stat(config.getFlags());
+    }
+
+    /**
+    Print statistical information about the sequence to a specified output
+    channel (see the setMsgfile() method for more information), or passed to an
+    application callback function (see the setMsgcall() method for more
+    information).
+    <p>
+    @param config
+    The statistics returned; if null, default statistics are returned.
+    <p>
+    @return
+    A non-zero error value on failure and 0 on success.
+    */
+    public int printStats(StatsConfig config)
+        throws DatabaseException {
+
+        return seq.stat_print(config.getFlags());
     }
 }

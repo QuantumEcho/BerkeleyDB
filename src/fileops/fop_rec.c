@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2001, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -107,7 +107,12 @@ __fop_create_recover_int(env, real_name, op, mode)
 	u_int8_t mbuf[DBMETASIZE];
 	int ret;
 	char *path;
+#ifdef	HAVE_REPLICATION
+	DELAYED_BLOB_LIST *dbl;
+	int view_partial;
 
+	dbl = NULL;
+#endif
 	meta = (DBMETA *)mbuf;
 	ret = 0;
 
@@ -139,6 +144,21 @@ do_unlink:		(void)__os_unlink(env, real_name, 0);
 		 */
 		if (__os_abspath(real_name))
 			path += 2;
+#endif
+
+#ifdef	HAVE_REPLICATION
+		/*
+		 * Prevent replication of blob files if their owning database
+		 * is not replicated.
+		 */
+		if (IS_VIEW_SITE(env) && IS_BLOB_FILE(path)) {
+			if ((ret = __rep_call_partial(env,
+			    path, &view_partial, 0, &dbl)) != 0)
+				goto out;
+			DB_ASSERT(env, dbl == NULL);
+			if (view_partial == 0)
+				goto out;
+		}
 #endif
 		/* Blob directories might not exist yet. */
 		if (__os_exists(env, real_name, NULL) != 0 &&

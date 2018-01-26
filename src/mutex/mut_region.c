@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -124,7 +124,7 @@ __mutex_open(env, create_ok)
 
 	return (0);
 
-err:	__mutex_region_detach(env, mtxmgr);
+err:	(void)__mutex_region_detach(env, mtxmgr);
 	return (ret);
 }
 
@@ -149,7 +149,6 @@ __mutex_region_detach(env, mtxmgr)
 	}
 	return (ret);
 }
-
 
 /*
  * __mutex_region_init --
@@ -249,26 +248,32 @@ __mutex_region_init(env, mtxmgr)
 	mutex = MUTEX_INVALID;
 	if ((ret =
 	    __mutex_alloc(env, MTX_MUTEX_TEST, 0, &mutex) != 0) ||
-	    (ret = __mutex_lock(env, mutex)) != 0 ||
-	    (ret = __mutex_unlock(env, mutex)) != 0 ||
-	    (ret = __mutex_trylock(env, mutex)) != 0 ||
-	    (ret = __mutex_unlock(env, mutex)) != 0 ||
+	    (ret = __mutex_lock(env, mutex, 0, MUTEX_WAIT)) != 0 ||
+	    (ret = __mutex_unlock(env, mutex, NULL, 0)) != 0 ||
+	    (ret = __mutex_lock(env, mutex, 0, MUTEX_WAIT)) != 0 ||
+	    (ret = __mutex_unlock(env, mutex, NULL, 0)) != 0 ||
 	    (ret = __mutex_free(env, &mutex)) != 0) {
 		__db_errx(env, DB_STR("2015",
 	    "Unable to acquire/release a mutex; check configuration"));
 		return (ret);
 	}
 #ifdef HAVE_SHARED_LATCHES
+	/*
+	 * Run some simple tests verifing that mutexes work adequately. We
+	 * expect failure when attempting to get shared access to an exlusively
+	 * held rwlock (perhaps with EDEADLK when using pthread locks) and that
+	 * we can get shared access mulitple times.
+	 */
 	if ((ret =
 	    __mutex_alloc(env,
 		MTX_MUTEX_TEST, DB_MUTEX_SHARED, &mutex) != 0) ||
-	    (ret = __mutex_lock(env, mutex)) != 0 ||
-	    (ret = __mutex_tryrdlock(env, mutex)) != DB_LOCK_NOTGRANTED ||
-	    (ret = __mutex_unlock(env, mutex)) != 0 ||
-	    (ret = __mutex_rdlock(env, mutex)) != 0 ||
-	    (ret = __mutex_rdlock(env, mutex)) != 0 ||
-	    (ret = __mutex_unlock(env, mutex)) != 0 ||
-	    (ret = __mutex_unlock(env, mutex)) != 0 ||
+	    (ret = __mutex_lock(env, mutex, 0, MUTEX_WAIT)) != 0 ||
+	    (ret = __mutex_rdlock(env, mutex, 0)) == 0 ||
+	    (ret = __mutex_unlock(env, mutex, NULL, 0)) != 0 ||
+	    (ret = __mutex_rdlock(env, mutex, MUTEX_WAIT)) != 0 ||
+	    (ret = __mutex_rdlock(env, mutex, MUTEX_WAIT)) != 0 ||
+	    (ret = __mutex_unlock(env, mutex, NULL, 0)) != 0 ||
+	    (ret = __mutex_unlock(env, mutex, NULL, 0)) != 0 ||
 	    (ret = __mutex_free(env, &mutex)) != 0) {
 		__db_errx(env, DB_STR("2016",
     "Unable to acquire/release a shared latch; check configuration"));

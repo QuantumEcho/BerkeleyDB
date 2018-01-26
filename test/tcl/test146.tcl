@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2012, 2015 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2012, 2017 Oracle and/or its affiliates.  All rights reserved.
 #
 # $Id$
 #
@@ -14,6 +14,7 @@
 # TEST     the db with a different threshold value.
 proc test146 { method {tnum "146"} args } {
 	global default_pagesize
+	global passwd
 	source ./include.tcl
 
 	# Blobs are supported for btree, hash and heap only.
@@ -32,19 +33,27 @@ proc test146 { method {tnum "146"} args } {
 		return
 	}
 
-	if { [lsearch -exact $args "-chksum"] != -1 } {
-		set indx [lsearch -exact $args "-chksum"]
-		set args [lreplace $args $indx $indx]
-		puts "Test$tnum ignoring -chksum for blob"
-	} 
-
 	# Look for incompatible configurations of blob.
-	foreach conf { "-encryptaes" "-encrypt" "-compress" "-dup" "-dupsort" \
+	foreach conf { "-compress" "-dup" "-dupsort" \
 	    "-read_uncommitted" "-multiversion" } {
 		if { [lsearch -exact $args $conf] != -1 } {
 			puts "Test146 skipping $conf, incompatible with blobs."
 			return
 		}
+	}
+	
+	# Move any encryption arguments from the database arguments
+	# to the environment arguments.
+	set earg ""
+	set pos [lsearch -exact $args "-encryptaes"]
+	if { $pos != -1 } {
+		set earg " -encryptaes $passwd "
+		set args [lreplace $args $pos [expr $pos + 1] ]
+	}
+	set pos [lsearch -exact $args "-encrypt"]
+	if { $pos != -1 } {
+		set earg " -encrypt $passwd "
+		set args [lreplace $args $pos [expr $pos + 1] ]
 	}
 
 	set pgindex [lsearch -exact $args "-pagesize"]
@@ -76,7 +85,7 @@ proc test146 { method {tnum "146"} args } {
 	    open db."
 	# Open the env with a blob threshold value.
 	set env [eval {berkdb env} \
-	    -create -home $testdir -blob_threshold $threshold1]
+	    -create -home $testdir $earg -blob_threshold $threshold1]
 	error_check_good is_valid_env [is_valid_env $env] TRUE
 	error_check_good env_get_blobthreshold \
 	    [$env get_blob_threshold] $threshold1
@@ -111,7 +120,7 @@ proc test146 { method {tnum "146"} args } {
 	# We're going to get a warning message out this -- 
 	# redirect to a file so it won't be tagged as unexpected
 	# output. 
-	set env1 [eval {berkdb env} -create -home $testdir\
+	set env1 [eval {berkdb env} -create -home $testdir $earg \
 	    -blob_threshold $threshold3 -msgfile $testdir/msgfile]
 	error_check_good is_valid_env [is_valid_env $env1] TRUE
 	error_check_good env_get_blobthreshold \

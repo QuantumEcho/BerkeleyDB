@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -340,7 +340,7 @@ __txn_region_mutex_max(env)
 
 /*
  * __txn_region_size --
- *	 Return the amount of space needed for the txn region.
+ *	 Return the initial amount of space needed for the txn region.
  * PUBLIC:  size_t __txn_region_size __P((ENV *));
  */
 size_t
@@ -366,7 +366,9 @@ __txn_region_size(env)
 
 /*
  * __txn_region_max --
- *	 Return the additional amount of space needed for the txn region.
+ *	Return how much additional memory to reserve, so that all the configured
+ *	transaction-specific data structures can be allocated.
+ *
  * PUBLIC:  size_t __txn_region_max __P((ENV *));
  */
 size_t

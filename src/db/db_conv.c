@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  */
 /*
  * Copyright (c) 1990, 1993, 1994, 1995, 1996
@@ -46,6 +46,7 @@
 #include "dbinc/db_page.h"
 #include "dbinc/db_swap.h"
 #include "dbinc/btree.h"
+#include "dbinc/fop.h"
 #include "dbinc/hash.h"
 #include "dbinc/heap.h"
 #include "dbinc/qam.h"
@@ -440,6 +441,151 @@ __db_encrypt_and_checksum_pg (env, dbp, pagep)
 	return (0);
 }
 
+static int
+__db_swap(dbp, real_name, flags, fhp, h, dirtyp)
+	DB *dbp;
+	char *real_name;
+	u_int32_t flags;
+	DB_FH *fhp;
+	PAGE *h;
+	int *dirtyp;
+{
+	*dirtyp = 1;
+	return __db_pageswap(dbp->env, dbp,
+	    h, dbp->pgsize, NULL, F_ISSET(dbp, DB_AM_SWAP));
+}
+
+static int (* const func_swap[P_PAGETYPE_MAX])
+    __P((DB *, char *, u_int32_t, DB_FH *, PAGE *, int *)) = {
+	NULL,			/* P_INVALID */
+	__db_swap,		/* __P_DUPLICATE */
+	__db_swap,		/* P_HASH_UNSORTED */
+	__db_swap,		/* P_IBTREE */
+	__db_swap,		/* P_IRECNO */
+	__db_swap,		/* P_LBTREE */
+	__db_swap,		/* P_LRECNO */
+	__db_swap,		/* P_OVERFLOW */
+	__db_swap,		/* P_HASHMETA */
+	__db_swap,		/* P_BTREEMETA */
+	__db_swap,		/* P_QAMMETA */
+	__db_swap,		/* P_QAMDATA */
+	__db_swap,		/* P_LDUP */
+	__db_swap,		/* P_HASH */
+	__db_swap,		/* P_HEAPMETA */
+	__db_swap,		/* P_HEAP */
+	__db_swap,		/* P_IHEAP */
+};
+
+/*
+ * __db_convert_pp --
+ *	DB->convert pre/post processing.
+ *
+ * PUBLIC: int __db_convert_pp __P((DB *, const char *, u_int32_t));
+ */
+int
+__db_convert_pp(dbp, fname, lorder)
+	DB *dbp;
+	const char *fname;
+	u_int32_t lorder;
+{
+	DB_THREAD_INFO *ip;
+	ENV *env;
+	int ret;
+
+	env = dbp->env;
+
+	ENV_ENTER(env, ip);
+	ret = __db_convert(dbp, fname, lorder);
+	ENV_LEAVE(env, ip);
+	return (ret);
+}
+
+/*
+ * __db_convert --
+ * 	Convert the byte order of a database.
+ *
+ * PUBLIC: int __db_convert __P((DB *, const char *, u_int32_t));
+ */
+int
+__db_convert(dbp, fname, lorder)
+	DB *dbp;
+	const char *fname;
+	u_int32_t lorder;
+{
+	ENV *env;
+	DB_FH *fhp;
+	u_int8_t mbuf[DBMETASIZE];
+	char *real_name;
+	size_t len;
+	u_int32_t native_order, db_order;
+	int t_ret, ret;
+
+	env = dbp->env;
+	fhp = NULL;
+	real_name = NULL;
+	len = 0;
+	ret = t_ret = 0;
+
+	/* Get the real backing file name. */
+	if ((ret = __db_appname(env,
+	    DB_APP_DATA, fname, NULL, &real_name)) != 0)
+		return (ret);
+
+	/* Open the file. */
+	if ((ret = __os_open(env, real_name, 0, 0, 0, &fhp)) != 0) {
+		__db_err(env, ret, "%s", real_name);
+		goto err;
+	}
+
+	/* Read the metadata page. */
+	if ((ret = __fop_read_meta(env, real_name, mbuf, sizeof(mbuf),
+	    fhp, 0, &len)) != 0)
+		goto err;
+
+	native_order = __db_isbigendian() ? 4321 : 1234;
+	db_order = native_order;
+	F_CLR(dbp, DB_AM_SWAP);
+
+	/* Get the byte order of the database file. */
+order_retry:
+	switch (((DBMETA *)mbuf)->magic) {
+	case DB_BTREEMAGIC:
+	case DB_HASHMAGIC:
+	case DB_HEAPMAGIC:
+	case DB_QAMMAGIC:
+	case DB_RENAMEMAGIC:
+		break;
+	default:
+		if (db_order != native_order) {
+			/* It's been swapped, so it isn't a BDB file. */
+			ret = USR_ERR(env, EINVAL);
+			goto err;
+		}
+		/* Swap the magic, pagesize and byte order and retry. */
+		M_32_SWAP(((DBMETA *)mbuf)->magic);
+		M_32_SWAP(((DBMETA *)mbuf)->pagesize);
+		F_SET(dbp, DB_AM_SWAP);
+		db_order = native_order == 1234 ? 4321 : 1234;
+		goto order_retry;
+	}
+
+	if (db_order != lorder) {
+		memcpy(&dbp->pgsize,
+		    &((DBMETA *)mbuf)->pagesize, sizeof(u_int32_t));
+		if ((ret = __db_page_pass(dbp,
+		    real_name, 0, func_swap, fhp)) != 0)
+			goto err;
+		ret = __os_fsync(env, fhp);
+	}
+
+err:	if (fhp != NULL &&
+	    (t_ret = __os_closehandle(env, fhp)) != 0 && ret == 0)
+		ret = t_ret;
+	__os_free(env, real_name);
+
+	return (ret);
+}
+
 /*
  * __db_metaswap --
  *	Byteswap the common part of the meta-data page.
@@ -692,6 +838,8 @@ __db_byteswap(dbp, pg, h, pagesize, pgin)
 		for (i = 0; i <= HEAP_HIGHINDX(h); i++) {
 			if (pgin)
 				M_16_SWAP(inp[i]);
+			if (inp[i] == 0)
+				continue;
 
 			hh = (HEAPHDR *)P_ENTRY(dbp, h, i);
 			if ((u_int8_t *)hh >= pgend)
@@ -857,12 +1005,13 @@ __db_recordswap(op, size, hdr, data, pgin)
 	BKEYDATA *bk;
 	BOVERFLOW *bo;
 	BINTERNAL *bi;
+	DBT *dbt;
 	HEAPHDR *hh;
-	HEAPBLOBHDR *bhdr;
+	HEAPBLOBHDR bhdr;
 	HEAPSPLITHDR *hsh;
 	RINTERNAL *ri;
 	db_indx_t tmp;
-	u_int8_t *p, *end;
+	u_int8_t buf[HEAPBLOBREC_SIZE], *end, *p;
 
 	if (size == 0)
 		return;
@@ -972,10 +1121,37 @@ __db_recordswap(op, size, hdr, data, pgin)
 			M_32_SWAP(hsh->nextpg);
 			M_16_SWAP(hsh->nextindx);
 		}else if (F_ISSET(hh, HEAP_RECBLOB)) {
-			bhdr = (HEAPBLOBHDR *)hh;
-			M_64_SWAP(bhdr->id);		/* id */
-			M_64_SWAP(bhdr->size);		/* size */
-			M_64_SWAP(bhdr->file_id);	/* file id */
+			/*
+			 * Heap blob records are broken into two parts when
+			 * logged, the shared header and the part that is
+			 * unique to blob records, which is stored in the
+			 * log data field.
+			 */
+			if (data != NULL) {
+				dbt = NULL;
+				if (pgin) {
+					dbt = data;
+					memcpy(buf + sizeof(HEAPHDR),
+					    dbt->data, HEAPBLOBREC_DSIZE);
+				} else {
+					memcpy(buf + sizeof(HEAPHDR),
+					    data, HEAPBLOBREC_DSIZE);
+				}
+				memcpy(&bhdr, buf, HEAPBLOBREC_SIZE);
+				M_64_SWAP(bhdr.id);		/* id */
+				M_64_SWAP(bhdr.size);		/* size */
+				M_64_SWAP(bhdr.file_id);	/* file id */
+				memcpy(buf, &bhdr, HEAPBLOBREC_SIZE);
+				if (pgin) {
+					memcpy(dbt->data,
+					    HEAPBLOBREC_DATA(buf),
+					    HEAPBLOBREC_DSIZE);
+				} else {
+					memcpy(data,
+					    HEAPBLOBREC_DATA(buf),
+					    HEAPBLOBREC_DSIZE);
+				}
+			}
 			break;
 		}
 		break;

@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2013, 2015 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2013, 2017 Oracle and/or its affiliates.  All rights reserved.
 #
 # $Id$
 #
@@ -86,4 +86,5 @@ proc fail001 { } {
 		error_check_good compact_err [is_substr $res $emsg] 1
 		error_check_good db_close [$db close] 0
 	}
+	error_check_good env_close [$env close] 0
 }

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2010, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2010, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * The following provides the information necessary to build Berkeley
  * DB on native Windows, and other Windows environments such as MinGW.
@@ -73,8 +73,10 @@
 #endif
 #define	getpid			GetCurrentProcessId
 #define	snprintf		_snprintf
+#ifndef strcasecmp
 #define	strcasecmp		_stricmp
 #define	strncasecmp		_strnicmp
+#endif
 #define	vsnprintf		_vsnprintf
 
 #define	h_errno			WSAGetLastError()

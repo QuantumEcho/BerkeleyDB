@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2005, 2015 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2005, 2017 Oracle and/or its affiliates.  All rights reserved.
 #
 # $Id$
 #
@@ -162,3 +162,4 @@ while { 1 } {
 error_check_good kill_deadlock_detector [tclkill $dpid] ""
 error_check_good db_close [$db close] 0
 error_check_good script_client_close [$clientenv close] 0
+replclose $testdir/MSGQUEUEDIR

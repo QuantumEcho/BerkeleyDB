@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2002, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2002, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  */
 
@@ -586,6 +586,13 @@ import com.sleepycat.db.Transaction;
 public interface EntityIndex<K, V> {
 
     /**
+     * Returns the underlying database for this index.
+     *
+     * @return the database.
+     */
+    Database getDatabase();
+
+    /**
      * Checks for existence of a key in this index.
      *
      * <p>The operation will not be transaction protected, and {@link
@@ -662,12 +669,6 @@ public interface EntityIndex<K, V> {
     /**
      * Returns a non-transactional count of the entities in this index.
      *
-     * <p>This operation is faster than obtaining a count by scanning the index
-     * manually, and will not perturb the current contents of the cache.
-     * However, the count is not guaranteed to be accurate if there are
-     * concurrent updates. Note that this method does scan a significant
-     * portion of the index and should be considered a fairly expensive
-     * operation.</p>
      *
      * @return the number of entities in this index.
      *
@@ -676,6 +677,7 @@ public interface EntityIndex<K, V> {
      */
     long count()
         throws DatabaseException;
+
 
     /**
      * Deletes all entities with a given index key.

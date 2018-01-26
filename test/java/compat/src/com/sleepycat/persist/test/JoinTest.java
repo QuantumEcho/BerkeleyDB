@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2002, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2002, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  */
 
@@ -42,12 +42,10 @@ public class JoinTest extends TxnTestCase {
 
     @Parameters
     public static List<Object[]> genParams() {
-       
-        return getTxnTypes(null, false);
+        return getTxnParams(null, false);
     }
     
     public JoinTest(String type){
-        
         initEnvConfig();
         txnType = type;
         isTransactional = (txnType != TXN_NULL);

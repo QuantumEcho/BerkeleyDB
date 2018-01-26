@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2009, 2015 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2009, 2017 Oracle and/or its affiliates.  All rights reserved.
 #
 # TEST repmgr108
 # TEST Subordinate connections and processes should not trigger elections.
@@ -33,11 +33,16 @@ proc repmgr108 { } {
 	}
 	set m1 [open_site_prog [subst $cmds]]
 
+	#
+	# It is most common to start a subordinate process with the same start
+	# value as the main replication process, but test here that we also
+	# accept "start none", which supplies flags=0 to repmgr_start().
+	#
 	set cmds {
 		"home $mdir"
 		"output $testdir/m2output"
 		"open_env"
-		"start master"
+		"start none"
 	}
 	set m2 [open_site_prog [subst $cmds]]
 

@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -72,7 +72,7 @@ __db_fullpath(env, dir, file, check_file, check_dir, namep)
 	*p = '\0';
 	if (check_dir && (__os_exists(env, str, &isdir) != 0 || !isdir)) {
 		__os_free(env, str);
-		return (ENOENT);
+		return (USR_ERR(env, ENOENT));
 	}
 	DB_ADDSTR(file);
 	*p = '\0';
@@ -83,7 +83,7 @@ __db_fullpath(env, dir, file, check_file, check_dir, namep)
 	 */
 	if (check_file && __os_exists(env, str, NULL) != 0) {
 		__os_free(env, str);
-		return (ENOENT);
+		return (USR_ERR(env, ENOENT));
 	}
 
 	if (namep == NULL)

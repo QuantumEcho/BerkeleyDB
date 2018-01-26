@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -447,7 +447,7 @@ typedef struct _heapblob {
 	(HEAP_REGION_SIZE(dbp) + 1) + 1)
 /* Translate a region pgno to region number */
 #define HEAP_REGION_NUM(dbp, pgno)				\
-	((((pgno) - 1) / (HEAP_REGION_SIZE((dbp)) + 1)) + 1)
+	((((pgno) - 1) / (((u_int64_t)HEAP_REGION_SIZE((dbp))) + 1)) + 1)
 /* 
  * Given an internal heap page and page number relative to that page, return the
  * bits from map describing free space on the nth page.  Each byte in the map
@@ -485,12 +485,12 @@ typedef struct _heapblob {
 	
 /* Return the amount of free space on a heap data page. */
 #define HEAP_FREESPACE(dbp, p)                                  \
-	(HOFFSET(p) - HEAPPG_SZ(dbp) -				\
+	((HOFFSET(p) - HEAPPG_SZ(dbp)) -			\
 	(NUM_ENT(p) == 0 ? 0 : ((HEAP_HIGHINDX(p) + 1) * sizeof(db_indx_t))))
 
 /* The maximum amount of data that can fit on an empty heap data page. */
 #define HEAP_MAXDATASIZE(dbp)					\
-	((dbp)->pgsize - HEAPPG_SZ(dbp) - sizeof(db_indx_t))
+	(((dbp)->pgsize - HEAPPG_SZ(dbp)) - sizeof(db_indx_t))
 
 #define HEAP_FREEINDX(p)	(((HEAPPG *)p)->free_indx)
 #define HEAP_HIGHINDX(p)	(((HEAPPG *)p)->high_indx)
@@ -766,7 +766,7 @@ typedef struct _hblob {
 		(o) = (off_t)(p).size;					\
 	} else {							\
 		if ((p).size > INT_MAX) {				\
-			__db_errx((e), DB_STR("0768",			\
+			__db_errx((e), DB_STR("0769",			\
 			    "Blob size overflow."));			\
 			(ret) = EINVAL;					\
 		}							\

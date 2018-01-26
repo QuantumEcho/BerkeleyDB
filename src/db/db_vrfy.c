@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2000, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2000, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -393,7 +393,7 @@ __db_verify(dbp, ip, name, subdb, handle, callback, lp, rp, flags)
 	flags = sflags;
 
 #ifdef HAVE_PARTITION
-	if (t_ret == 0 && dbp->p_internal != NULL)
+	if (t_ret == 0 && isbad == 0 && dbp->p_internal != NULL)
 		t_ret = __part_verify(dbp, vdp, name, handle, callback, flags);
 #endif
 
@@ -1969,7 +1969,7 @@ err:	if (pgsc != NULL && (t_ret = __dbc_close(pgsc)) != 0 && ret == 0)
 	    (t_ret = __memp_fput(mpf,
 		vdp->thread_info, currpg, dbp->priority)) != 0)
 		ret = t_ret;
-	if ((t_ret = __db_close(mdbp, NULL, 0)) != 0)
+	if (mdbp != NULL && (t_ret = __db_close(mdbp, NULL, 0)) != 0)
 		ret = t_ret;
 	return (ret);
 }

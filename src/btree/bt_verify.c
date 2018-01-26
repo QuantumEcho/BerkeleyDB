@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1999, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -44,11 +44,18 @@ __bam_vrfy_meta(dbp, vdp, meta, pgno, flags)
 	ENV *env;
 	VRFY_PAGEINFO *pip;
 	int isbad, t_ret, ret;
-	db_indx_t ovflsize;
 	db_seq_t blob_id;
 
 	env = dbp->env;
 	isbad = 0;
+
+	if (dbp->type != DB_BTREE && dbp->type != DB_RECNO) {
+		EPRINT((env, DB_STR_A("1215",
+		    "Page %lu: invalid page type %u for %s database",
+		    "%lu %u %s"), (u_long)pgno, TYPE(meta),
+		    __db_dbtype_to_string(dbp->type)));
+		return DB_VERIFY_FATAL;
+	}
 
 	if ((ret = __db_vrfy_getpageinfo(vdp, pgno, &pip)) != 0)
 		return (ret);
@@ -65,14 +72,8 @@ __bam_vrfy_meta(dbp, vdp, meta, pgno, flags)
 			goto err;
 	}
 
-	/* bt_minkey:  must be >= 2; must produce sensible ovflsize */
-
-	/* avoid division by zero */
-	ovflsize = meta->minkey > 0 ?
-	    B_MINKEY_TO_OVFLSIZE(dbp, meta->minkey, dbp->pgsize) : 0;
-
-	if (meta->minkey < 2 ||
-	    ovflsize > B_MINKEY_TO_OVFLSIZE(dbp, DEFMINKEYPAGE, dbp->pgsize)) {
+	/* bt_minkey:  must be 2 <= bt_minkey <= B_MINKEY_UPPER_LIMIT(dbp) */
+	if (meta->minkey < 2 || meta->minkey > B_MINKEY_UPPER_LIMIT(dbp)) {
 		pip->bt_minkey = 0;
 		isbad = 1;
 		EPRINT((env, DB_STR_A("1034",
@@ -207,38 +208,49 @@ __bam_vrfy_meta(dbp, vdp, meta, pgno, flags)
  * Where 64-bit integer support is not available,
  * return an error if the file has any blobs.
  */
+	t_ret = 0;
 #ifdef HAVE_64BIT_TYPES
-	GET_BLOB_FILE_ID(env, meta, blob_id, ret);
-	if (ret != 0) {
+	GET_BLOB_FILE_ID(env, meta, blob_id, t_ret);
+	if (t_ret != 0) {
 		isbad = 1;
 		EPRINT((env, DB_STR_A("1187",
 		    "Page %lu: blob file id overflow.", "%lu"), (u_long)pgno));
+		if (ret == 0)
+			ret = t_ret;
 	}
-	GET_BLOB_SDB_ID(env, meta, blob_id, ret);
-	if (ret != 0) {
+	t_ret = 0;
+	GET_BLOB_SDB_ID(env, meta, blob_id, t_ret);
+	if (t_ret != 0) {
 		isbad = 1;
 		EPRINT((env, DB_STR_A("1188",
 		    "Page %lu: blob subdatabase id overflow.",
 		    "%lu"), (u_long)pgno));
+		if (ret == 0)
+			ret = t_ret;
 	}
 #else /* HAVE_64BIT_TYPES */
 	/*
 	 * db_seq_t is an int on systems that do not have 64 integers, so
 	 * this will compile and run.
 	 */
-	GET_BLOB_FILE_ID(env, meta, blob_id, ret);
-	if (ret != 0 || blob_id != 0) {
+	GET_BLOB_FILE_ID(env, meta, blob_id, t_ret);
+	if (t_ret != 0 || blob_id != 0) {
 		isbad = 1;
 		EPRINT((env, DB_STR_A("1200",
 		    "Page %lu: blobs require 64 integer compiler support.",
 		    "%lu"), (u_long)pgno));
+		if (ret == 0)
+			ret = t_ret;
 	}
-	GET_BLOB_SDB_ID(env, meta, blob_id, ret);
-	if (ret != 0 || blob_id != 0) {
+	t_ret = 0;
+	GET_BLOB_SDB_ID(env, meta, blob_id, t_ret);
+	if (t_ret != 0 || blob_id != 0) {
 		isbad = 1;
 		EPRINT((env, DB_STR_A("1201",
 		    "Page %lu: blobs require 64 integer compiler support.",
 		    "%lu"), (u_long)pgno));
+		if (ret == 0)
+			ret = t_ret;
 	}
 #endif
 
@@ -279,6 +291,15 @@ __ram_vrfy_leaf(dbp, vdp, h, pgno, flags)
 
 	env = dbp->env;
 	isbad = 0;
+
+	if (dbp->type != DB_BTREE && dbp->type != DB_RECNO &&
+	    dbp->type != DB_HASH) {
+		EPRINT((env, DB_STR_A("1215",
+		    "Page %lu: invalid page type %u for %s database",
+		    "%lu %u %s"), (u_long)pgno, TYPE(h),
+		    __db_dbtype_to_string(dbp->type)));
+		return DB_VERIFY_BAD;
+	}
 
 	if ((ret = __db_vrfy_getpageinfo(vdp, pgno, &pip)) != 0)
 		return (ret);
@@ -381,6 +402,15 @@ __bam_vrfy(dbp, vdp, h, pgno, flags)
 
 	env = dbp->env;
 	isbad = 0;
+
+	if (dbp->type != DB_BTREE && dbp->type != DB_RECNO &&
+	    dbp->type != DB_HASH) {
+		EPRINT((env, DB_STR_A("1215",
+		    "Page %lu: invalid page type %u for %s database",
+		    "%lu %u %s"), (u_long)pgno, TYPE(h),
+		    __db_dbtype_to_string(dbp->type)));
+		return DB_VERIFY_BAD;
+	}
 
 	if ((ret = __db_vrfy_getpageinfo(vdp, pgno, &pip)) != 0)
 		return (ret);
@@ -799,6 +829,14 @@ __bam_vrfy_inp(dbp, vdp, h, pgno, nentriesp, flags)
 			 */
 			memcpy(&bl, bk, BBLOB_SIZE);
 			blob_id = (db_seq_t)bl.id;
+			if (blob_id < 1) {
+				isbad = 1;
+				EPRINT((dbp->env, DB_STR_A("1219",
+			"Page %lu: invalid blob dir id %lld at item %lu",
+				    "%lu %lld %lu"), (u_long)pip->pgno,
+				    (long long)blob_id, (u_long)i));
+				break;
+			}
 			GET_BLOB_SIZE(env, bl, blob_size, ret);
 			if (ret != 0 || blob_size < 0) {
 				isbad = 1;
@@ -809,11 +847,12 @@ __bam_vrfy_inp(dbp, vdp, h, pgno, nentriesp, flags)
 			}
 			file_id = (db_seq_t)bl.file_id;
 			sdb_id = (db_seq_t)bl.sdb_id;
-			if (file_id == 0 && sdb_id == 0) {
+			if (file_id < 0 || sdb_id < 0 
+			    || (file_id == 0 && sdb_id == 0)) {
 				isbad = 1;
 				EPRINT((dbp->env, DB_STR_A("1195",
 			"Page %lu: invalid blob dir ids %llu %llu at item %lu",
-				    "%lu %ll %ll %lu"), (u_long)pip->pgno,
+				    "%lu %lld %lld %lu"), (u_long)pip->pgno,
 				    (long long)file_id,
 				    (long long)sdb_id, (u_long)i));
 				break;
@@ -911,8 +950,8 @@ __bam_vrfy_inp(dbp, vdp, h, pgno, nentriesp, flags)
 				    "Page %lu: gap between items at offset %lu",
 				    "%lu %lu"), (u_long)pgno, (u_long)i));
 				/* Find the end of the gap */
-				for (; pagelayout[i + 1] == VRFY_ITEM_NOTSET &&
-				    (size_t)(i + 1) < dbp->pgsize; i++)
+				for (; (size_t)(i + 1) < dbp->pgsize &&
+				    pagelayout[i + 1] == VRFY_ITEM_NOTSET; i++)
 					;
 				break;
 			case VRFY_ITEM_BEGIN:
@@ -1138,6 +1177,11 @@ retry:	p1 = &dbta;
 			if (B_TYPE(bi->type) == B_OVERFLOW) {
 				bo = (BOVERFLOW *)(bi->data);
 				goto overflow;
+			} else if (B_TYPE(bi->type) == B_BLOB) {
+				isbad = 1;
+				EPRINT((env, DB_STR_A("1197",
+			    "Page %lu: External file found in key item %lu",
+				    "%lu %lu"), (u_long)pgno, (u_long)i));
 			} else {
 				p2->data = bi->data;
 				p2->size = bi->len;

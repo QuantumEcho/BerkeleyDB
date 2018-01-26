@@ -1,8 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
 #
-# $Id: test.tcl,v fa50617a1e4c 2012/08/17 09:59:58 carol $
+# $Id$
 
 source ./include.tcl
 
@@ -262,6 +262,7 @@ proc run_std { { testname ALL } args } {
 	{"locking"		"lock"}
 	{"logging"		"log"}
 	{"memory pool"		"memp"}
+	{"multiversion"		"multiversion"}
 	{"mutex"		"mutex"}
 	{"transaction"		"txn"}
 	{"deadlock detection"	"dead"}
@@ -274,9 +275,9 @@ proc run_std { { testname ALL } args } {
 	{"secondary index"	"sindex"}
 	{"partition"		"partition"}
 	{"compression"		"compressed"}
-	{"automated repmgr tests" 	"auto_repmgr"}
-	{"other repmgr tests" 	"other_repmgr"}
-	{"repmgr multi-process"	"multi_repmgr"}
+	{"automated repmgr tests" 	"repmgr_auto"}
+	{"repmgr multi-process"	"repmgr_multiproc"}
+	{"other repmgr tests" 	"repmgr_other"}
 	{"expected failures"	"fail"}
 	}
 
@@ -587,7 +588,6 @@ proc r { args } {
 		set sub [ lindex $args 0 ]
 		set starttest [lindex $args 1]
 		switch $sub {
-			auto_repmgr -
 			bigfile -
 			dead -
 			env -
@@ -595,9 +595,10 @@ proc r { args } {
 			lock -
 			log -
 			memp -
-			multi_repmgr -
 			mutex -
-			other_repmgr -
+			repmgr_auto -
+			repmgr_multiproc -
+			repmgr_other -
 			rsrc -
 			sdbtest -
 			txn {
@@ -632,10 +633,10 @@ proc r { args } {
 				}
 			}
 			compact -
-			elect -
+			fop -
 			inmemdb -
-			init -
-			fop {
+			rep_elect -
+			rep_init {
 				set tindx [lsearch $test_names($sub) $starttest]
 				if { $tindx == -1 } {
 					set tindx 0
@@ -653,16 +654,6 @@ proc r { args } {
 				set clist [lrange $test_names(test) $tindex end]
 				set clist [concat $clist $test_names(sdb)]
 				foreach test $clist {
-					# Each skipping test can be removed from 
-					# below list if related bug is fixed.
-					# (sdb006 - [#22058])(sdb013 - [#22055])
-					# (sdb017 - [#22056])(sdb018 - [#22062])
-					if { $test == "sdb006" ||
-					     $test == "sdb013" ||
-					     $test == "sdb017" ||
-					     $test == "sdb018" } {
-						continue
-					}
 					eval run_compressed\
 					     btree $test $display $run
 				}
@@ -725,6 +716,18 @@ proc r { args } {
 					eval jointest 512 3
 				}
 			}
+			multiversion {
+				if { $one_test == "ALL" } {
+					if { $display } { 
+						puts "eval rep065 -btree"
+						puts "eval repmgr035"
+					}
+					if { $run } {
+						eval rep065 -btree
+						eval repmgr035
+					}
+				}
+			}
 			partition {
 				foreach method { btree hash } {
 					foreach test "$test_names(recd)\
@@ -745,8 +748,8 @@ proc r { args } {
 				    $display $run $args
 			}
 			repmgr {
-				r other_repmgr
-				foreach test $test_names(basic_repmgr) {
+				r repmgr_other
+				foreach test $test_names(repmgr_basic) {
 					$test 100 1 1 1 1 1 
 					$test 100 1 0 0 0 0 
 					$test 100 0 1 0 0 0

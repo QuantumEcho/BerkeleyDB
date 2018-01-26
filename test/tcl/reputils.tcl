@@ -1,6 +1,6 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2001, 2015 Oracle and/or its affiliates.  All rights reserved.
+# Copyright (c) 2001, 2017 Oracle and/or its affiliates.  All rights reserved.
 #
 # $Id$
 #
@@ -574,9 +574,9 @@ proc repl_verdel { test method { nclients 1 } } {
 	if { $stat == 1 } {
 		return
 	}
-	set utilflag ""
+	set utilflag "-b $masterdir/__db_bl"
 	if { $encrypt != 0 } {
-		set utilflag "-P $passwd"
+		append utilflag " -P $passwd"
 	}
 	foreach testfile $dbs {
 
@@ -1658,6 +1658,7 @@ proc rep_test { method env repdb {nentries 10000} \
 	set pflags ""
 	set gflags ""
 	set txn ""
+	set nblobs 0
 
 	if { [is_record_based $method] == 1 } {
 		append gflags " -recno"
@@ -1673,7 +1674,15 @@ proc rep_test { method env repdb {nentries 10000} \
 	# Abort occasionally during the run.
 	set abortfreq [expr $nentries / 15]
 
-	while { [gets $did str] != -1 && $count < $nentries } {
+	set allentries $nentries
+	set blob_threshold [$db get_blob_threshold]
+	set blob_data ""
+	if { $blob_threshold != 0 } {
+	    	set nblobs [expr $nentries / 10]
+	    	set nentries [expr $nentries - $nblobs]
+	    	set blob_data [string repeat "a" $blob_threshold]
+	}
+	while { [gets $did str] != -1 && $count < $allentries } {
 		if { [is_record_based $method] == 1 } {
 			global kvals
 
@@ -1706,8 +1715,14 @@ proc rep_test { method env repdb {nentries 10000} \
 		set t [$env txn]
 		error_check_good txn [is_valid_txn $t $env] TRUE
 		set txn "-txn $t"
-		set ret [eval \
-		    {$db put} $txn $pflags {$key [chop_data $method $str]}]
+	    	if { $count < $nentries } {
+		    	set ret [eval {$db put } \
+		    	    $txn $pflags {$key [chop_data $method $str]}]
+		    	
+	    	} else {
+		    	set ret [eval {$db put } \
+		    	    $txn $pflags {$key $blob_data}]
+		}
 		error_check_good put $ret 0
 		error_check_good txn [$t commit] 0
 
@@ -1854,7 +1869,7 @@ proc rep_test_bulk { method env repdb {nentries 10000} \
 				set word $overflowword1
 			} else {
 				set len [string length $overflowword2]
-				set word $overflowword1
+				set word $overflowword2
 			}
 			set rpt [expr 1024 * 1024 / $len]
 			incr rpt

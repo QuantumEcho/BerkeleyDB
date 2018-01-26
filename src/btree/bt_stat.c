@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -277,6 +277,8 @@ __bam_stat_print(dbc, flags)
 		__db_msg(env,
 		    "%#x\tFixed-length record pad", (u_int)sp->bt_re_pad);
 	}
+	__db_dl(env,
+	    "Number of pages in the database", (u_long)sp->bt_pagecnt);
 	__db_dl(env,
 	    "Underlying database page size", (u_long)sp->bt_pagesize);
 	if (dbp->type == DB_BTREE)

@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -119,6 +119,15 @@ __db_open(dbp, ip, txn, fname, dname, type, flags, mode, meta_pgno)
 		goto err;
 
 	/*
+	 * Silently disabled blobs in databases that cannot support them.
+	 * Most illegal configurations will have already been caught, this
+	 * is to allow a user to set an environment wide blob threshold, but
+	 * not have to explicitly turn it off for in-memory or queue databases.
+	 */
+	if (!__db_blobs_enabled(dbp))
+		dbp->blob_threshold = 0;
+
+	/*
 	 * If both fname and subname are NULL, it's always a create, so make
 	 * sure that we have both DB_CREATE and a type specified.  It would
 	 * be nice if this checking were done in __db_open where most of the
@@ -225,6 +234,13 @@ __db_open(dbp, ip, txn, fname, dname, type, flags, mode, meta_pgno)
 	}
 
 	/*
+	 * Set the open flag here. Below, the underlying access method
+	 * open functions may want to do things like acquire cursors,
+	 * so the open flag has to be set before calling them.
+	 */
+	F_SET(dbp, DB_AM_OPEN_CALLED);
+
+	/*
 	 * Internal exclusive databases need to use the shared
 	 * memory pool to lock out existing database handles before
 	 * it gets its handle lock.  So getting the lock is delayed
@@ -233,15 +249,6 @@ __db_open(dbp, ip, txn, fname, dname, type, flags, mode, meta_pgno)
 	if (F2_ISSET(dbp, DB2_AM_INTEXCL) &&
 	    (ret = __db_handle_lock(dbp)) != 0)
 			goto err;
-
-	/*
-	 * Silently disabled blobs in databases that cannot support them.
-	 * Most illegal configurations will have already been caught, this
-	 * is to allow a user to set an environment wide blob threshold, but
-	 * not have to explicitly turn it off for in-memory or queue databases.
-	 */
-	if (!__db_blobs_enabled(dbp))
-		dbp->blob_threshold = 0;
 
 	switch (dbp->type) {
 		case DB_BTREE:
@@ -446,9 +453,9 @@ err:	return (ret);
 
 /*
  * __db_chk_meta --
- *	Validate a buffer containing a possible meta-data page. It is 
- *      byte-swapped as necessary and checked for having a valid magic number. 
- *      If it does, then it can validate the LSN, checksum (if necessary), 
+ *	Validate a buffer containing a possible meta-data page. It is
+ *      byte-swapped as necessary and checked for having a valid magic number.
+ *      If it does, then it can validate the LSN, checksum (if necessary),
  *      and possibly decrypt it.
  *
  *	Return 0 on success, >0 (errno).
@@ -488,7 +495,7 @@ magic_retry:
 	default:
 		if (needs_swap)
 			/* It's already been swapped, so it isn't a BDB file. */
-			return (EINVAL);
+			return (USR_ERR(env, EINVAL));
 		M_32_SWAP(magic);
 		needs_swap = 1;
 		goto magic_retry;
@@ -520,7 +527,7 @@ magic_retry:
 			if ((ret =
 			    __db_check_chksum(env, NULL, env->crypto_handle,
 			    chksum, meta, DBMETASIZE, is_hmac)) != 0)
-				return (DB_CHKSUM_FAIL);
+				return (USR_ERR(env, DB_CHKSUM_FAIL));
 		}
 	} else if (dbp != NULL)
 		F_CLR(dbp, DB_AM_CHKSUM);
@@ -528,7 +535,7 @@ magic_retry:
 #ifdef HAVE_CRYPTO
 	if (__crypto_decrypt_meta(env,
 	     dbp, (u_int8_t *)meta, LF_ISSET(DB_CHK_META)) != 0)
-		ret = DB_CHKSUM_FAIL;
+		ret = USR_ERR(env, DB_CHKSUM_FAIL);
 #endif
 	return (ret);
 }

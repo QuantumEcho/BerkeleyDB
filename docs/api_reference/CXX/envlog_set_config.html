@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 12.1.6.0</p>
+        <p>Library Version 12.1.6.1</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -69,7 +69,7 @@ DbEnv::log_set_config(u_int32_t flags, int onoff); </pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp8530256"></a>Parameters</h3>
+              <h3 class="title"><a id="idm140232238927984"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -77,7 +77,7 @@ DbEnv::log_set_config(u_int32_t flags, int onoff); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp8582000"></a>flags</h4>
+                <h4 class="title"><a id="idm140232238838384"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -256,6 +256,50 @@ DbEnv::log_set_config(u_int32_t flags, int onoff); </pre>
                     </p>
               </li>
               <li>
+                <p><a id="log_set_config_DB_LOG_NOSYNC"></a>
+                        <code class="literal">DB_LOG_NOSYNC</code>
+                    </p>
+                <p>
+                        If set, the transaction log is not flushed from the
+                        operating system cache to stable storage when a
+                        transaction commits or the logging system switches
+                        log files.  This can further increase performance
+                        when all of the applications in an environment use
+                        less-than-durable transactions (DB_TXN_NOSYNC and
+                        DB_TXN_WRITE_NOSYNC).
+                    </p>
+                <p>
+                        Turning on <code class="literal">DB_LOG_NOSYNC</code> removes
+                        the durability guarantee of current or future
+                        DB_TXN_SYNC transactions, as well as any
+                        transactions which have been active since the last
+                        checkpoint.  All database files must be verified
+                        and/or restored from a replication group master or
+                        archival backup after system failure.
+                    </p>
+                <p>
+                        Turning off <code class="literal">DB_LOG_NOSYNC</code> may be
+                        done at any time.  Current and future DB
+                        DB_TXN_SYNC transactions will return to full ACID
+                        characteristics once a checkpoint or log file
+                        switch occurs.
+                    </p>
+                <p>
+                        Calling
+                        <code class="methodname">DbEnv::log_set_config()</code>
+                        with the <code class="literal">DB_LOG_NOSYNC</code> flag
+                        affects the database environment, including all
+                        threads of control accessing the database
+                        environment.
+                    </p>
+                <p>
+                        The <code class="literal">DB_LOG_NOSYNC</code> flag may be
+                        used to configure Berkeley DB at any time.  
+                        <a class="xref" href="envopen.html" title="DbEnv::open()">DbEnv::open()</a>
+                        method is called.
+                    </p>
+              </li>
+              <li>
                 <p>
                         <code class="literal">DB_LOG_ZERO</code>
                     </p>
@@ -285,7 +329,7 @@ DbEnv::log_set_config(u_int32_t flags, int onoff); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp8605808"></a>onoff</h4>
+                <h4 class="title"><a id="idm140232238804416"></a>onoff</h4>
               </div>
             </div>
           </div>
@@ -300,7 +344,7 @@ DbEnv::log_set_config(u_int32_t flags, int onoff); </pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp8579264"></a>Errors</h3>
+              <h3 class="title"><a id="idm140232238899360"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -318,7 +362,7 @@ DbEnv::log_set_config(u_int32_t flags, int onoff); </pre>
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp8604080"></a>EINVAL</h4>
+                <h4 class="title"><a id="idm140232238808240"></a>EINVAL</h4>
               </div>
             </div>
           </div>
@@ -331,7 +375,7 @@ DbEnv::log_set_config(u_int32_t flags, int onoff); </pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp8598552"></a>Class</h3>
+              <h3 class="title"><a id="idm140232238810288"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -343,7 +387,7 @@ DbEnv::log_set_config(u_int32_t flags, int onoff); </pre>
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp8574960"></a>See Also</h3>
+              <h3 class="title"><a id="idm140232238792016"></a>See Also</h3>
             </div>
           </div>
         </div>

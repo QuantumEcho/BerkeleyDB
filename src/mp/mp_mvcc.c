@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2006, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 2006, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -92,6 +92,8 @@ __memp_skip_curadj(dbc, pgno)
 	MP_GET_BUCKET(env, mfp, pgno, &infop, hp, bucket, ret);
 	if (ret != 0) {
 		/* Panic: there is no way to return the error. */
+		__db_err(env, ret,
+		    "__memp_skip_curadj: bucket lookup for pgno %p", pgno);
 		(void)__env_panic(env, ret);
 		return (0);
 	}

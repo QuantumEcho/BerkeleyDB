@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -120,8 +120,6 @@ static int (* const func_60_list[P_PAGETYPE_MAX])
 	NULL,			/* P_IHEAP */
 };
 
-static int __db_page_pass __P((DB *, char *, u_int32_t, int (* const [])
-	       (DB *, char *, u_int32_t, DB_FH *, PAGE *, int *), DB_FH *));
 static int __db_set_lastpgno __P((DB *, char *, DB_FH *));
 
 /*
@@ -506,9 +504,12 @@ err:	if (use_mp_open == 0 && fhp != NULL &&
 
 /*
  * __db_page_pass --
- *	Walk the pages of the database, upgrading whatever needs it.
+ *	Walk the pages of the database, doing whatever needs it.
+ *
+ * PUBLIC: int __db_page_pass __P((DB *, char *, u_int32_t, int (* const [])
+ * PUBLIC:     (DB *, char *, u_int32_t, DB_FH *, PAGE *, int *), DB_FH *));
  */
-static int
+int
 __db_page_pass(dbp, real_name, flags, fl, fhp)
 	DB *dbp;
 	char *real_name;

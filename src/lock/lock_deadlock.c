@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1996, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -433,7 +433,7 @@ skip:		LOCK_DD(env, region);
 					if (__clock_expired(env,
 					    &now, &lockerp->lk_expire)) {
 						lp->status = DB_LSTAT_EXPIRED;
-						MUTEX_UNLOCK(
+						MUTEX_UNLOCK_NO_CTR(
 						    env, lp->mtx_lock);
 						if (rejectp != NULL)
 							++*rejectp;
@@ -620,7 +620,7 @@ again:		memset(bitmap, 0, count * sizeof(u_int32_t) * nentries);
 				if (__clock_expired(env,
 				    &now, &lockerp->lk_expire)) {
 					lp->status = DB_LSTAT_EXPIRED;
-					MUTEX_UNLOCK(env, lp->mtx_lock);
+					MUTEX_UNLOCK_NO_CTR(env, lp->mtx_lock);
 					if (rejectp != NULL)
 						++*rejectp;
 					continue;
@@ -922,7 +922,7 @@ __dd_abort(env, info, statusp)
 		UNLOCK_DD(env, region);
 	} else
 		ret = __lock_promote(lt, sh_obj, NULL, 0);
-	MUTEX_UNLOCK(env, lockp->mtx_lock);
+	MUTEX_UNLOCK_NO_CTR(env, lockp->mtx_lock);
 
 done:	OBJECT_UNLOCK(lt, region, info->last_ndx);
 err:	UNLOCK_LOCKERS(env, region);

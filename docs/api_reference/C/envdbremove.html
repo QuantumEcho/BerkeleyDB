@@ -14,7 +14,7 @@
   <body>
     <div xmlns="" class="navheader">
       <div class="libver">
-        <p>Library Version 12.1.6.0</p>
+        <p>Library Version 12.1.6.1</p>
       </div>
       <table width="100%" summary="Navigation header">
         <tr>
@@ -72,7 +72,7 @@ DB_ENV-&gt;dbremove(DB_ENV *dbenv, DB_TXN *txnid,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp963112"></a>Parameters</h3>
+              <h3 class="title"><a id="idm140588501647008"></a>Parameters</h3>
             </div>
           </div>
         </div>
@@ -80,7 +80,7 @@ DB_ENV-&gt;dbremove(DB_ENV *dbenv, DB_TXN *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp963304"></a>txnid</h4>
+                <h4 class="title"><a id="idm140588501646624"></a>txnid</h4>
               </div>
             </div>
           </div>
@@ -101,7 +101,7 @@ DB_ENV-&gt;dbremove(DB_ENV *dbenv, DB_TXN *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp964360"></a>file</h4>
+                <h4 class="title"><a id="idm140588501644592"></a>file</h4>
               </div>
             </div>
           </div>
@@ -114,7 +114,7 @@ DB_ENV-&gt;dbremove(DB_ENV *dbenv, DB_TXN *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp949400"></a>database</h4>
+                <h4 class="title"><a id="idm140588501679920"></a>database</h4>
               </div>
             </div>
           </div>
@@ -127,7 +127,7 @@ DB_ENV-&gt;dbremove(DB_ENV *dbenv, DB_TXN *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp953344"></a>flags</h4>
+                <h4 class="title"><a id="idm140588501661936"></a>flags</h4>
               </div>
             </div>
           </div>
@@ -157,7 +157,7 @@ DB_ENV-&gt;dbremove(DB_ENV *dbenv, DB_TXN *txnid,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp970392"></a>Environment Variables</h3>
+              <h3 class="title"><a id="idm140588501661040"></a>Environment Variables</h3>
             </div>
           </div>
         </div>
@@ -170,7 +170,7 @@ DB_ENV-&gt;dbremove(DB_ENV *dbenv, DB_TXN *txnid,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp963736"></a>Errors</h3>
+              <h3 class="title"><a id="idm140588501642784"></a>Errors</h3>
             </div>
           </div>
         </div>
@@ -186,7 +186,7 @@ DB_ENV-&gt;dbremove(DB_ENV *dbenv, DB_TXN *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp976016"></a>DB_LOCK_DEADLOCK</h4>
+                <h4 class="title"><a id="idm140588501622352"></a>DB_LOCK_DEADLOCK</h4>
               </div>
             </div>
           </div>
@@ -199,7 +199,7 @@ DB_ENV-&gt;dbremove(DB_ENV *dbenv, DB_TXN *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp965824"></a>DB_LOCK_NOTGRANTED</h4>
+                <h4 class="title"><a id="idm140588501640992"></a>DB_LOCK_NOTGRANTED</h4>
               </div>
             </div>
           </div>
@@ -219,7 +219,7 @@ DB_ENV-&gt;dbremove(DB_ENV *dbenv, DB_TXN *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp977224"></a>EINVAL</h4>
+                <h4 class="title"><a id="idm140588501643776"></a>EINVAL</h4>
               </div>
             </div>
           </div>
@@ -232,7 +232,7 @@ DB_ENV-&gt;dbremove(DB_ENV *dbenv, DB_TXN *txnid,
           <div class="titlepage">
             <div>
               <div>
-                <h4 class="title"><a id="idp978304"></a>ENOENT</h4>
+                <h4 class="title"><a id="idm140588501617936"></a>ENOENT</h4>
               </div>
             </div>
           </div>
@@ -240,12 +240,26 @@ DB_ENV-&gt;dbremove(DB_ENV *dbenv, DB_TXN *txnid,
                 The file or directory does not exist.
             </p>
         </div>
+        <div class="sect3" lang="en" xml:lang="en">
+          <div class="titlepage">
+            <div>
+              <div>
+                <h4 class="title"><a id="idm140588501640464"></a>DB_META_CHKSUM_FAIL</h4>
+              </div>
+            </div>
+          </div>
+          <p>
+                Checksum mismatch detected on a database metadata page.
+                Either the database is corrupted or the file is not a Berkeley DB
+                database file.
+            </p>
+        </div>
       </div>
       <div class="sect2" lang="en" xml:lang="en">
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp974936"></a>Class</h3>
+              <h3 class="title"><a id="idm140588501624432"></a>Class</h3>
             </div>
           </div>
         </div>
@@ -257,7 +271,7 @@ DB_ENV-&gt;dbremove(DB_ENV *dbenv, DB_TXN *txnid,
         <div class="titlepage">
           <div>
             <div>
-              <h3 class="title"><a id="idp967200"></a>See Also</h3>
+              <h3 class="title"><a id="idm140588501625232"></a>See Also</h3>
             </div>
           </div>
         </div>

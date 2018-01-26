@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999, 2015 Oracle and/or its affiliates.  All rights reserved.
+ * Copyright (c) 1999, 2017 Oracle and/or its affiliates.  All rights reserved.
  *
  * $Id$
  */
@@ -166,22 +166,23 @@ struct __vrfy_pageinfo {
 	u_int32_t	refcount;
 	u_int32_t	olen;
 
-#define	VRFY_DUPS_UNSORTED	0x0001	/* Have to flag the negative! */
-#define	VRFY_HAS_CHKSUM		0x0002
-#define	VRFY_HAS_DUPS		0x0004
-#define	VRFY_HAS_DUPSORT	0x0008	/* Has the flag set. */
-#define	VRFY_HAS_PART_RANGE	0x0010	/* Has the flag set. */
-#define	VRFY_HAS_PART_CALLBACK	0x0020	/* Has the flag set. */
-#define	VRFY_HAS_RECNUMS	0x0040
-#define	VRFY_HAS_SUBDBS		0x0080
-#define	VRFY_INCOMPLETE		0x0100	/* Meta or item order checks incomp. */
-#define	VRFY_IS_ALLZEROES	0x0200	/* Hash page we haven't touched? */
-#define	VRFY_IS_FIXEDLEN	0x0400
-#define	VRFY_IS_RECNO		0x0800
-#define	VRFY_IS_RRECNO		0x1000
-#define	VRFY_OVFL_LEAFSEEN	0x2000
-#define	VRFY_HAS_COMPRESS	0x4000
-#define	VRFY_NONEXISTENT	0x8000
+#define	VRFY_DUPS_UNSORTED	0x00001	/* Have to flag the negative! */
+#define	VRFY_HAS_CHKSUM		0x00002
+#define	VRFY_HAS_DUPS		0x00004
+#define	VRFY_HAS_DUPSORT	0x00008	/* Has the flag set. */
+#define	VRFY_HAS_PART_RANGE	0x00010	/* Has the flag set. */
+#define	VRFY_HAS_PART_CALLBACK	0x00020	/* Has the flag set. */
+#define	VRFY_HAS_RECNUMS	0x00040
+#define	VRFY_HAS_SUBDBS		0x00080
+#define	VRFY_INCOMPLETE		0x00100	/* Meta or item order checks incomp. */
+#define	VRFY_IS_ALLZEROES	0x00200	/* Hash page we haven't touched? */
+#define	VRFY_IS_FIXEDLEN	0x00400
+#define	VRFY_IS_RECNO		0x00800
+#define	VRFY_IS_RRECNO		0x01000
+#define	VRFY_ITEM_BAD		0x02000	/* The page has a bad inp or item. */
+#define	VRFY_OVFL_LEAFSEEN	0x04000
+#define	VRFY_HAS_COMPRESS	0x08000
+#define	VRFY_NONEXISTENT	0x10000
 	u_int32_t	flags;
 
 	LIST_ENTRY(__vrfy_pageinfo) links;
